@@ -1,0 +1,51 @@
+---
+page_title: "idsec Terraform Provider"
+description: |-
+  A Terraform provider for CyberArk that enables consistent, automated, and scalable identity security across your organization.
+---
+
+## Motivation
+
+By enabling teams to define and automate CyberArk configurations as Infrastructure as Code (IaC), the *idsec* Terraform provider delivers consistent security, reduces operational risk, and accelerates deployment speed across all cloud and on-premises environments.
+
+This solution ensures that identity and access controls scale securely alongside your critical infrastructure, maintaining full auditability and least-privilege control at every step.
+
+## Get started
+
+For requirements and setup information, see the relevant [Terraform provider documentation](https://developer.hashicorp.com/terraform/install).
+
+### Supported Terraform versions
+
+The Terraform public registry–based provider requires **Terraform 0.13.x** or later.
+
+## Coverage
+
+The *idsec* Terraform provider centralizes the automation of identity security across key CyberArk solutions, ensuring comprehensive governance:
+
+| Service | Supported operations |
+|--------|----------------------|
+| *Connector Management* | Standardize and deploy key components for connecting to target systems |
+| *CyberArk Identity* | Manage user provisioning, roles, and access policies for workforce identities |
+| *Privilege Cloud* | Automate onboarding and policy management of privileged accounts and access |
+| *Secure Cloud Access* | Automate dynamic access and permissions for cloud environments |
+| *Secure Infrastructure Access* | Extend least-privilege control to internal, developer-facing infrastructure |
+| *Access Control Policies* | Manage access policies for cloud services, databases, and virutal machines |
+
+## Additional information
+
+- *Developer resources:* Explore the <MadCap:variable name="cc_C_CyberArk.CompanyName" /> API reference on the [CyberArk API documentation](https://api-docs.cyberark.com/) site or in the individual service documentation sets.
+
+
+## Example Usage
+
+{{ tffile "examples/provider/provider.tf" }}
+
+## Schema
+
+{{ .SchemaMarkdown }}
+
+## License
+
+This project is licensed under Apache License 2.0 - see [`LICENSE`](./license.md) for more details
+
+Copyright (c) 2025 CyberArk Software Ltd. All rights reserved.
