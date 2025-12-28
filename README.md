@@ -114,6 +114,21 @@ Provider Configuration can be found in the [provider](docs/index.md) documentati
 
 Schemas can be found in the relevant documentation for each resource / data source.
 
+## Immutable Attributes
+
+Resources can mark attributes as immutable to prevent changes after resource creation. Configure immutable attributes in your action definition:
+
+```go
+&actions.IdsecServiceTerraformResourceActionDefinition{
+    IdsecServiceBaseTerraformActionDefinition: actions.IdsecServiceBaseTerraformActionDefinition{
+        // ... other fields
+        ImmutableAttributes: []string{"field_name", "another_field"},
+    },
+}
+```
+
+Attempts to modify immutable attributes will result in clear error messages during terraform plan.
+
 ## Customizing Documentation Service Names
 
 Service names in the documentation sidebar can be customized by editing `docs/service-names.yaml`.

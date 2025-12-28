@@ -78,7 +78,7 @@ func hasInterfaceInnerType(fieldType reflect.Type) bool {
 	return false
 }
 
-func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string) map[string]schema.Attribute {
+func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string) map[string]schema.Attribute {
 	modelType := reflect.TypeOf(inputModel)
 	if modelType.Kind() == reflect.Pointer {
 		modelType = modelType.Elem()
@@ -98,6 +98,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 		isRequired := strings.Contains(required, "true") || strings.Contains(validate, "required") || slices.Contains(extraRequiredAttrs, fieldName)
 		isSensitive := slices.Contains(sensitiveAttrs, fieldName)
 		isForceNew := strings.Contains(forceNew, "true")
+		isImmutable := slices.Contains(immutableAttrs, fieldName)
 		if fieldType.Kind() == reflect.Pointer {
 			fieldType = fieldType.Elem()
 		}
@@ -129,7 +130,11 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			if choices != "" {
 				strAttr.Validators = append(strAttr.Validators, StringInChoicesValidator{Choices: strings.Split(choices, ",")})
 			}
-			if isForceNew {
+			if isImmutable {
+				strAttr.PlanModifiers = []planmodifier.String{
+					ImmutableString(),
+				}
+			} else if isForceNew {
 				strAttr.PlanModifiers = []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				}
@@ -160,7 +165,11 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 				boolAttr.Optional = true
 				boolAttr.Computed = true
 			}
-			if isForceNew {
+			if isImmutable {
+				boolAttr.PlanModifiers = []planmodifier.Bool{
+					ImmutableBool(),
+				}
+			} else if isForceNew {
 				boolAttr.PlanModifiers = []planmodifier.Bool{
 					boolplanmodifier.RequiresReplace(),
 				}
@@ -192,7 +201,11 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 				int64Attr.Optional = true
 				int64Attr.Computed = true
 			}
-			if isForceNew {
+			if isImmutable {
+				int64Attr.PlanModifiers = []planmodifier.Int64{
+					ImmutableInt64(),
+				}
+			} else if isForceNew {
 				int64Attr.PlanModifiers = []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				}
@@ -279,7 +292,11 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					if choices != "" {
 						sliceAttr.Validators = append(sliceAttr.Validators, SliceInSetValidator{Choices: strings.Split(choices, ",")})
 					}
-					if isForceNew {
+					if isImmutable {
+						sliceAttr.PlanModifiers = []planmodifier.Set{
+							ImmutableSet(),
+						}
+					} else if isForceNew {
 						sliceAttr.PlanModifiers = []planmodifier.Set{
 							setplanmodifier.RequiresReplace(),
 						}
@@ -340,7 +357,11 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					if choices != "" {
 						sliceAttr.Validators = append(sliceAttr.Validators, SliceInChoicesValidator{Choices: strings.Split(choices, ",")})
 					}
-					if isForceNew {
+					if isImmutable {
+						sliceAttr.PlanModifiers = []planmodifier.List{
+							ImmutableList(),
+						}
+					} else if isForceNew {
 						sliceAttr.PlanModifiers = []planmodifier.List{
 							listplanmodifier.RequiresReplace(),
 						}
@@ -370,7 +391,11 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 						Computed:    !isRequired,
 						Sensitive:   isSensitive,
 					}
-					if isForceNew {
+					if isImmutable {
+						sliceAttr.PlanModifiers = []planmodifier.List{
+							ImmutableList(),
+						}
+					} else if isForceNew {
 						sliceAttr.PlanModifiers = []planmodifier.List{
 							listplanmodifier.RequiresReplace(),
 						}
@@ -380,7 +405,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			}
 			if fieldType.Elem().Kind() == reflect.Struct {
 				// Handle nested structs by recursively generating their schema
-				nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs)
+				nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs)
 				if setAsComputed {
 					attributes[fieldName] = schema.ListNestedAttribute{
 						NestedObject: schema.NestedAttributeObject{
@@ -449,7 +474,11 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Computed:    !isRequired,
 					Sensitive:   isSensitive,
 				}
-				if isForceNew {
+				if isImmutable {
+					mapAttr.PlanModifiers = []planmodifier.Map{
+						ImmutableMap(),
+					}
+				} else if isForceNew {
 					mapAttr.PlanModifiers = []planmodifier.Map{
 						mapplanmodifier.RequiresReplace(),
 					}
@@ -473,7 +502,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Sensitive:   isSensitive,
 				}
 			} else if fieldType.Elem().Kind() == reflect.Struct {
-				nestedAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs)
+				nestedAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs)
 				if setAsComputed {
 					complexMapAttr := schema.MapNestedAttribute{
 						NestedObject: schema.NestedAttributeObject{
@@ -501,7 +530,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			}
 		case reflect.Struct:
 			// Handle nested structs by recursively generating their schema
-			nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs)
+			nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs)
 			if setAsComputed {
 				attributes[fieldName] = schema.SingleNestedAttribute{
 					Attributes:  nestedSchemaAttrs,
@@ -545,10 +574,10 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 }
 
 // GenerateResourceSchemaFromStruct generates a Terraform schema from a Go struct.
-func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel interface{}, stateModel interface{}, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string) schema.Schema {
-	schemaAttrs := resourceSchemaAttrsFromStruct(createModel, false, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs)
+func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel interface{}, stateModel interface{}, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string) schema.Schema {
+	schemaAttrs := resourceSchemaAttrsFromStruct(createModel, false, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs)
 	if updateModel != nil {
-		updateModelAttrs := resourceSchemaAttrsFromStruct(updateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs)
+		updateModelAttrs := resourceSchemaAttrsFromStruct(updateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs)
 		for key, updateAttr := range updateModelAttrs {
 			if _, exists := schemaAttrs[key]; !exists {
 				schemaAttrs[key] = updateAttr
@@ -556,7 +585,7 @@ func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel inter
 		}
 	}
 	if stateModel != nil {
-		outputModelAttrs := resourceSchemaAttrsFromStruct(stateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs)
+		outputModelAttrs := resourceSchemaAttrsFromStruct(stateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs)
 		for key, outputAttr := range outputModelAttrs {
 			if _, exists := schemaAttrs[key]; !exists {
 				schemaAttrs[key] = outputAttr

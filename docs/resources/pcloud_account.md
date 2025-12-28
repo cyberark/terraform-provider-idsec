@@ -1,20 +1,25 @@
 ---
 page_title: "terraform-provider-idsec - idsec_pcloud_account"
 subcategory: "Privilege Cloud"
-description: PCloud Account data source, reads account information and metadata, based on the id of the account.
+description: pCloud account resource, manages pCloud accounts information / metadata and credentials.
 ---
 
-# idsec_pcloud_account (Data Source)
+# idsec_pcloud_account (Resource)
 
-PCloud Account data source, reads account information and metadata, based on the id of the account.
+pCloud account resource, manages pCloud accounts information / metadata and credentials.
 
 ## Example Usage
 
 ```terraform
 # Copyright (c) HashiCorp, Inc.
 
-data "idsec_pcloud_account" "example_account" {
-  account_id = var.account_id
+resource "idsec_pcloud_account" "example_account" {
+  name        = "example_account"
+  platform_id = "WinDesktopLocal"
+  username    = var.username
+  address     = var.address
+  secret      = var.secret
+  safe_name   = var.safe_name
 }
 ```
 
@@ -23,18 +28,24 @@ data "idsec_pcloud_account" "example_account" {
 
 ### Required
 
-- `account_id` (String) The id of the account to retrieve
+- `address` (String) Address of the account
+- `safe_name` (String) Safe name to store the account in
+- `secret` (String) The secret of the account
 
 ### Optional
 
-- `address` (String) Address of the account
+- `access_restricted_to_remote_machines` (Boolean) Whether the access is only restricted to those remote machines
+- `account_id` (String) The account id to update
+- `automatic_management_enabled` (Boolean) Whether automatic management of the account is enabled or not
 - `category_modification_time` (Number) Category modification time of the account
 - `created_time` (Number) Creation time of the account
+- `last_modified_time` (Number) Last time the management properties were modified
+- `manual_management_reason` (String) The reason for disabling automatic management
 - `name` (String) Name of the account
 - `platform_account_properties` (Dynamic) Different properties related to the platform the account is related to
 - `platform_id` (String) Platform id to relate the account to
+- `remote_machines` (List of String) Remote machines the access of this account is allowed
 - `remote_machines_access` (Attributes) Remote machines access related properties (see [below for nested schema](#nestedatt--remote_machines_access))
-- `safe_name` (String) Safe name to store the account in
 - `secret_management` (Attributes) Secret mgmt related properties (see [below for nested schema](#nestedatt--secret_management))
 - `secret_type` (String) Type of the secret of the account (password,key)
 - `status` (String) Status of the account

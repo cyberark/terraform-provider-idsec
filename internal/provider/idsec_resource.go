@@ -57,6 +57,19 @@ func (s *IdsecResource) schemaForOperation(operation actions.IdsecServiceActionO
 	return schemas.DeepCopy(operationSchema), nil
 }
 
+func (s *IdsecResource) getImmutableAttributes() []string {
+	// Use reflection to safely check if ImmutableAttributes field exists
+	// This provides backward compatibility with SDK versions that don't have this field yet
+	val := reflect.ValueOf(s.actionDefinition.IdsecServiceBaseTerraformActionDefinition)
+	field := val.FieldByName("ImmutableAttributes")
+	if field.IsValid() && field.Kind() == reflect.Slice {
+		if attrs, ok := field.Interface().([]string); ok {
+			return attrs
+		}
+	}
+	return []string{}
+}
+
 func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions.IdsecServiceActionOperation, diagnostics *diag.Diagnostics, plan *tfsdk.Plan, state *tfsdk.State) (interface{}, error) {
 	var operationSchemaInput interface{}
 	if plan != nil && state != nil {
@@ -254,6 +267,7 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 			s.actionDefinition.SensitiveAttributes,
 			s.actionDefinition.ExtraRequiredAttributes,
 			s.actionDefinition.ComputedAsSetAttributes,
+			s.getImmutableAttributes(),
 		)
 		schemaAttrs := schemas.ResourceSchemaToSchemaAttrTypes(outputSchemaDef)
 		stateResult, err := schemas.StructToStateObject(ctx, resultElem.Interface(), state, plan, schemaAttrs)
@@ -305,6 +319,7 @@ func (s *IdsecResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 		s.actionDefinition.SensitiveAttributes,
 		s.actionDefinition.ExtraRequiredAttributes,
 		s.actionDefinition.ComputedAsSetAttributes,
+		s.getImmutableAttributes(),
 	)
 	resp.Schema.Description = s.actionDefinition.ActionDescription
 	if s.actionDefinition.ActionVersion != 0 {
