@@ -11,8 +11,6 @@ The SIA Secrets VM data source, reads VM Secrets information and metadata, based
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 data "idsec_sia_secrets_vm" "example_secret" {
   secret_id = var.secret_id
 }

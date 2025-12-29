@@ -11,8 +11,6 @@ The SIA workspaces target set resource, manages target set information about one
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 resource "idsec_sia_secrets_vm" "example_pcloud_secret" {
   secret_name         = "example_pcloud_secret"
   secret_type         = "PCloudAccount"

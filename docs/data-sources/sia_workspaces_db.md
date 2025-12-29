@@ -11,8 +11,6 @@ The SIA workspaces database data source, reads database information and metadata
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 data "idsec_sia_workspaces_db" "example_db" {
   id = var.database_id
 }

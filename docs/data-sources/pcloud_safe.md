@@ -11,8 +11,6 @@ PCloud Safe data source, reads safe information and metadata, based on the id of
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 data "idsec_pcloud_safe" "example_safe" {
   safe_id = var.safe_id
 }

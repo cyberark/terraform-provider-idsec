@@ -11,8 +11,6 @@ The SIA workspaces database resource, manages database workspaces information an
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 resource "idsec_sia_strong_accounts" "pam_account" {
   store_type   = "pam"
   name         = "MyPAMAccount"

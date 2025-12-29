@@ -11,8 +11,6 @@ The Connector Management service pool resource that manages the pool of Secure I
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 resource "idsec_cmgr_pool" "example_pool" {
   name                 = "example_db_pool"
   description          = "A pool for example"

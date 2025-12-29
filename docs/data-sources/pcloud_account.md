@@ -11,8 +11,6 @@ PCloud Account data source, reads account information and metadata, based on the
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 data "idsec_pcloud_account" "example_account" {
   account_id = var.account_id
 }

@@ -11,8 +11,6 @@ The Connector Management service network resource that is used to manage network
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 resource "idsec_cmgr_network" "example_network" {
   name = "example_network"
 }

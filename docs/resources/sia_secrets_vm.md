@@ -11,8 +11,6 @@ The SIA Secrets VM resource, manages VM Secrets information and metadata, based 
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 resource "idsec_sia_secrets_vm" "example_provisioner_secret" {
   secret_name          = "example_provisioner_secret"
   secret_type          = "ProvisionerUser"

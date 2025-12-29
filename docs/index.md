@@ -39,8 +39,6 @@ The *idsec* Terraform provider centralizes the automation of identity security a
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 terraform {
   required_providers {
     idsec = {

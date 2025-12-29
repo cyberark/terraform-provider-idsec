@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_policy_db"
-subcategory: "POLICY"
+subcategory: "Access Policy"
 description: The infrastructure database policy resource.
 ---
 

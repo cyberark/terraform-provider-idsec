@@ -11,8 +11,6 @@ Discover structural updates to an organization/directory that has already been o
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 data "idsec_sca_discovery" "discovery_example" {
   csp             = var.csp
   organization_id = var.organization_id

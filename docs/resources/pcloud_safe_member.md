@@ -11,8 +11,6 @@ pCloud safe member resource, manages pCloud safe members and their relevant perm
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 resource "idsec_pcloud_safe_member" "example_member" {
   safe_id        = var.safe_id
   member_name    = var.member_name

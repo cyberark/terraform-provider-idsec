@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_policy_vm"
-subcategory: "POLICY"
+subcategory: "Access Policy"
 description: Infrastructure Virtual Machine (VM) policy data source.
 ---
 

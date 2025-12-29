@@ -11,8 +11,6 @@ pCloud account resource, manages pCloud accounts information / metadata and cred
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 resource "idsec_pcloud_account" "example_account" {
   name        = "example_account"
   platform_id = "WinDesktopLocal"

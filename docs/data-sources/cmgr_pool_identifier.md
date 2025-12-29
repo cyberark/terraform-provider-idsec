@@ -11,8 +11,6 @@ The Connector Management service pool data source. It reads the pool information
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 data "idsec_cmgr_pool_identifier" "example_identifier" {
   pool_id       = var.pool_id
   identifier_id = var.identifier_id

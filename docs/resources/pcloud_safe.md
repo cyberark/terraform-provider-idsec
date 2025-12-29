@@ -11,8 +11,6 @@ pCloud safe resource, manages pCloud safes information and metadata.
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 resource "idsec_pcloud_safe" "example_safe" {
   safe_name                = "example_safe"
   description              = "An example safe"

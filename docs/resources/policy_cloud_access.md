@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_policy_cloud_access"
-subcategory: "POLICY"
+subcategory: "Access Policy"
 description: Cloud Access Policy resource.
 ---
 

@@ -11,8 +11,6 @@ PCloud Safe Member data source, reads safe member information and metadata, base
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 data "idsec_pcloud_safe_member" "example_member" {
   safe_id     = var.safe_id
   member_name = var.member_name

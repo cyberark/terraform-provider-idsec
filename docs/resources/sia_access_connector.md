@@ -11,8 +11,6 @@ SIA connector resource, manages SIA connector installation and removal on SIA an
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 resource "aws_instance" "connector" {
   ami                         = "ami-0bb84b8ffd87024d8"
   instance_type               = "t2.micro"

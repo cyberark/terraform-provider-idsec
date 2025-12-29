@@ -11,8 +11,6 @@ The Connector Management service pool identifier resource that is associated wit
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 resource "idsec_cmgr_pool_identifier" "example_identifier" {
   type    = "GENERAL_FQDN"
   value   = var.pool_identifier_fqdn

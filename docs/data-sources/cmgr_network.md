@@ -11,8 +11,6 @@ The Connector Management service network data source. It reads the network infor
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 data "idsec_cmgr_network" "example_network" {
   network_id = var.network_id
 }
