@@ -32,6 +32,7 @@ resource "idsec_sia_workspaces_db" "example_db" {
 
 ### Required
 
+- `configured_auth_method_type` (String) The target configured auth method type.
 - `name` (String) The name of the database, often referenced in policies and other APIs.
 - `read_write_endpoint` (String) The read/write endpoint of the database.
 
@@ -40,7 +41,6 @@ resource "idsec_sia_workspaces_db" "example_db" {
 - `account` (String) The account to be used for provider based databases such as Atlas.
 - `auth_database` (String) The authentication database used, most commonly used with MongoDB.
 - `certificate` (String) The certificate ID used for this database that resides in the certificates service.
-- `configured_auth_method_type` (String) The target configured auth method type.
 - `domain` (String) The domain where the database resides.
 - `domain_controller_enable_certificate_validation` (Boolean) Indicates whether to enforce certificate validation on TLS comm to the DC.
 - `domain_controller_ldaps_certificate` (String) The certificate ID to use for the domain controller TLS comm.

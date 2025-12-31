@@ -33,6 +33,9 @@ func resolveFieldsSquashed(schema reflect.Type) []reflect.StructField {
 			fields = append(fields, nestedFields...)
 			continue
 		}
+		if field.Tag.Get("mapstructure") == "-" { // skip fields marked to be ignored
+			continue
+		}
 		if field.PkgPath != "" { // unexported field
 			continue
 		}
@@ -52,6 +55,9 @@ func resolveFieldsValueSquashed(value reflect.Value) []reflect.Value {
 		if fieldType.Tag.Get("mapstructure") == ",squash" {
 			nestedFields := resolveFieldsValueSquashed(field)
 			fields = append(fields, nestedFields...)
+			continue
+		}
+		if fieldType.Tag.Get("mapstructure") == "-" { // skip fields marked to be ignored
 			continue
 		}
 		if fieldType.PkgPath != "" { // unexported field

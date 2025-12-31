@@ -18,36 +18,21 @@ The SIA strong accounts resource, manages strong account information and metadat
 - `auth_database` (String) The authentication database of the account.
 - `aws_access_key_id` (String) The AWS access key ID of the account.
 - `aws_account_id` (String) The AWS account ID of the account.
-- `created_by` (String) The creator the Secret.
-- `creation_time` (String) The creation time of the Secret.
+- `created_at` (String) The creation timestamp.
+- `created_by` (String) The user who created the account.
 - `database` (String) The database of the account.
-- `description` (String) The description of the Secret.
-- `is_active` (Boolean) Indicates whether the Secret is active or not.
-- `last_update_time` (String) The time the Secret was last updated.
-- `last_updated_by` (String) The last user who updated the Secret.
+- `dsn` (String) The DSN of the account.
+- `modified_at` (String) The last modification timestamp.
+- `modified_by` (String) The user who last modified the account.
 - `name` (String) The Name of the account.
 - `password` (String, Sensitive) The password of the account.
 - `platform` (String) The platform of the account. The required propeties are dependent on the platform.
 - `port` (Number) The port of the account.
-- `purpose` (String) The purpose of the Secret.
+- `reconcile_is_win_account` (Boolean) Whether to reconcile as Windows account for MSSql.
+- `replica_set` (String) The replica set name for MongoDB.
 - `safe` (String) The Safe of the account.
 - `secret_access_key` (String, Sensitive) The Secret access key of the account.
-- `secret_exposed_data` (Dynamic) The portion of the Secret data which can be exposed to the user.
-- `secret_id` (String) The Secret identifier.
-- `secret_link` (Dynamic) The link details of the Secret.
-- `secret_name` (String) The name of the Secret.
-- `secret_store` (Attributes) The Secret store details of the Secret. (see [below for nested schema](#nestedatt--secret_store))
-- `secret_type` (String) The type of the Secret.
 - `store_type` (String) The Store type of the account (managed,pam).
 - `strong_account_id` (String) The ID of the account to update.
-- `tags` (Map of String) The tags of the Secret.
+- `use_ssl` (String) The SSL usage setting for MongoDB.
 - `username` (String) The username of the account.
-
-<a id="nestedatt--secret_store"></a>
-### Nested Schema for `secret_store`
-
-Optional:
-
-- `store_id` (String) The ID of the store.
-- `store_type` (String) The type of the store.
-
