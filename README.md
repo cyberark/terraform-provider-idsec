@@ -16,35 +16,6 @@
 
 CyberArk's Official Terraform Provider for CyberArk. This provider allows you to manage CyberArk resources using Terraform.
 
-## Features and Services
-
-- [x] Supported Resources
-  - [x] SIA VM Secret
-  - [x] SIA DB Secret
-  - [x] SIA Target Set Workspace
-  - [x] SIA DB Workspace
-  - [x] SIA Access Connector
-  - [x] Connector Manager Pool
-  - [x] Connector Manager Pool Identifier
-  - [x] Connector Manager Network
-  - [x] PCloud Account
-  - [x] PCloud Safe
-  - [x] PCloud Safe Member
-- [x] Supported Data Sources
-  - [x] SIA VM Secret
-  - [x] SIA DB Secret
-  - [x] SIA Target Set Workspace
-  - [x] SIA DB Workspace
-  - [x] SIA Access Connector
-  - [x] Connector Manager Pool
-  - [x] Connector Manager Pool Identifier
-  - [x] Connector Manager Network
-  - [x] PCloud Account
-  - [x] PCloud Safe
-  - [x] PCloud Safe Member
-
-## TL;DR
-
 ## Installation
 
 ### Install from Terraform Registry
@@ -54,7 +25,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 1.0"
+      version = ">= 0.1"
     }
   }
 }
@@ -68,6 +39,33 @@ cd terraform-provider-idsec
 make build
 ```
 
+## Provider Configuration
+
+The provider automatically discovers your tenant based on your credentials. You only need to provide:
+
+- **`auth_method`** - Authentication method (`identity` or `identity_service_user`)
+- **`username`** - Your CyberArk username (for `identity` method)
+- **`secret`** - Your password (for `identity` method)
+
+<!-- <NG> -->
+**Optional:** Set `DEPLOY_ENV` environment variable for non-production environments (e.g., `integration-dev`).
+<!-- </NG> -->
+
+**Note:** No subdomain or tenant URL configuration is required. The provider automatically discovers your tenant from your username and environment.
+
+<!-- <NG> -->
+### Environment Variables
+
+You can configure the provider using environment variables:
+
+```bash
+export DEPLOY_ENV=integration-dev          # Optional: for non-production environments
+export IDSEC_USERNAME=user@cyberark.cloud  # Your CyberArk username
+export IDSEC_SECRET=your-password          # Your password
+export IDSEC_AUTH_METHOD=identity          # Authentication method
+```
+<!-- </NG> -->
+
 ## Example Usage
 
 ```terraform
@@ -75,7 +73,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 1.0"
+      version = ">= 0.1"
     }
   }
 }
@@ -148,7 +146,7 @@ Services not listed in the YAML file will automatically display their directory 
 Refer to the acceptance tests guide for adding or maintaining provider tests: [Acceptance Tests Documentation](internal/acctest/README.md).
 
 <!-- <NG> -->
-## Container based development
+## Container-based development
 
 Refer to the [Local Container Setup instructions file](local-dev.md)
 <!-- </NG> -->
