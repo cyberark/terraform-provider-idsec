@@ -44,3 +44,8 @@ filesigner/
 # Local development module files (created by setup-dev.sh)
 go.local.mod
 go.local.sum
+
+<!-- <NG> -->
+# Auto-generated documentation (generated from templates/guides/)
+docs/guides/
+<!-- </NG> -->

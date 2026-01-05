@@ -1,7 +1,8 @@
 ---
-page_title: "Create Azure resource policy on the resource group level"
+page_title: "Create GCP Policy - Project level"
+subcategory: "Cloud Access Policy"
 description: |-
-  The following workflow describes how to create an Azure resource policy on the resource group level.
+  The following workflow describes how to create a GCP policy on project level.
 ---
 
 # Workflow
@@ -16,20 +17,12 @@ This workflow demonstrates how to:
 2. Run a discovery for structural updates to the workspace that was previously onboarded
     - Uses the following details:  cloud provider, organization_id, and account_info
 
-3. Create a policy for Azure resource policy on the resource group level
+3. Create a policy for GCP on the project level
 
 main.tf
 
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = "0.1.0"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 provider "idsec" {
   auth_method = "identity"
   username    = var.idsec_username
@@ -43,7 +36,7 @@ data "idesc_sca_discovery" "discovery_example" {
     new_account =  var.new_account
   }
 }
-resource "idsec_policy_cloud_access" "example_azure_resource_group_policy" {
+resource "idsec_policy_cloud_access" "example_gcp_project_policy" {
   # Remove if no need for discovery 
   depends_on = [data.idesc_sca_discovery.discovery_example]
   
@@ -62,7 +55,7 @@ resource "idsec_policy_cloud_access" "example_azure_resource_group_policy" {
     }
     policyEntitlement = {
       targetCategory = "Cloud console" #var.target_category
-      locationType   = "Azure" #var.location_type
+      locationType   = "GCP" #var.location_type
       policyType     = "Recurring" #var.policy_type
     }
     policyTags = var.policy_tags
@@ -79,10 +72,16 @@ resource "idsec_policy_cloud_access" "example_azure_resource_group_policy" {
   targets = {
     targets = [
       {
-      roleId        = "subscriptions/34b70f3f-r591-34bd-a166-7966beb1669u/providers/Microsoft.Authorization/roleDefinitions/r2f4ef05-c454-48eb-af81-4b1b4947fb11" #var.role_id
-      workspaceId   = "/subscriptions/34b70f3f-r591-34bd-a166-7966beb1669u/resourceGroups/cloud-storage-rg" #var.workspace_id
-      orgId         = "5ca77f05-sgd6-79f5-9f0b-6h3f65b8d1a5" #var.org_id
-      workspaceType = "resource_group" #var.workspace_type
+      roleId        = "roles/actions.Examplerole" #var.role_id
+      workspaceId   = "test-123456" #var.workspace_id
+      orgId         = "12345678911" #var.org_id
+      workspaceType = "project" #var.workspace_type
+      },
+      {
+        roleId        = "roles/analytics.Examplerole"
+        workspaceId   = "test-123456"
+        orgId         = "12345678911"
+        workspaceType = "project"
       }
     ]
   }
@@ -186,7 +185,7 @@ variable "policy_type" {
   type        = string
 }
 variable "policy_tags" {
-  description = "Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy. (e.g. ['test_azure_resource_group'])"
+  description = "Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy. (e.g. ['test_gcp_project'])"
   type        = list(string)
   default     = []
   validation {

@@ -27,10 +27,7 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 4.0"
     }
-    idsec = {
-      source  = "cyberark/idsec"
-      version = "0.1.0"
-    }
+--8<-- "idsec-provider.md"
   }
 }
 

@@ -43,15 +43,7 @@ Enables RDP access to all machines in an Active Directory domain.
 
 main.tf
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = ">= 0.1"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 
 provider "idsec" {
   auth_method = "identity"
@@ -151,15 +143,7 @@ Enables RDP access to servers matching a wildcard pattern.
 
 main.tf
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = ">= 0.1"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 
 provider "idsec" {
   auth_method = "identity"
@@ -261,15 +245,7 @@ Enables RDP access to a specific server by FQDN or IP address.
 
 main.tf
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = ">= 0.1"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 
 provider "idsec" {
   auth_method = "identity"

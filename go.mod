@@ -3,7 +3,7 @@ module github.com/cyberark/terraform-provider-idsec
 go 1.24.0
 
 require (
-	github.com/cyberark/idsec-sdk-golang v0.1.4
+	github.com/cyberark/idsec-sdk-golang v0.1.7
 	github.com/hashicorp/terraform-plugin-framework v1.15.0
 	github.com/hashicorp/terraform-plugin-go v0.29.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
@@ -12,6 +12,12 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	golang.org/x/text v0.31.0
 )
+
+// <!-- <NG> -->
+// If you wish to work locally with idsec-sdk-golang, uncomment the following line and
+// replace the path with the local path to your idsec-sdk-golang repository
+// replace github.com/cyberark/idsec-sdk-golang => /path/to/idsec-sdk-golang
+// <!-- </NG> -->
 
 require (
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
@@ -37,6 +43,7 @@ require (
 	github.com/frankban/quicktest v1.14.6 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect

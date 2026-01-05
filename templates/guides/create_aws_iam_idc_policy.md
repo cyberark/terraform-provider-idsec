@@ -1,5 +1,6 @@
 ---
 page_title: "Create AWS IAM Identity Center policy"
+subcategory: "Cloud Access Policy"
 description: |-
   The following workflow describes how to create an AWS IAM Identity Center policy.
 ---
@@ -21,15 +22,7 @@ This workflow demonstrates how to:
 main.tf
 
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = "0.1.0"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 provider "idsec" {
   auth_method = "identity"
   username    = var.idsec_username

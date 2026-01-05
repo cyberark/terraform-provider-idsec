@@ -1,7 +1,8 @@
 ---
-page_title: "Create azure Resource policy on the subscription level"
+page_title: "Create AWS IAM policy"
+subcategory: "Cloud Access Policy"
 description: |-
-  The following workflow describes how to create an Azure resource policy on the subscription level.
+  The following workflow describes how to create an AWS IAM policy.
 ---
 
 # Workflow
@@ -16,26 +17,18 @@ This workflow demonstrates how to:
 2. Run a discovery for structural updates to the workspace that was previously onboarded
     - Uses the following details:  cloud provider, organization_id, and account_info
 
-3. Create an Azure resource policy for access to resources under a subscription
+3. Create an AWS IAM policy for access to AWS organizations and accounts
 
 main.tf
 
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = "0.1.0"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 provider "idsec" {
   auth_method = "identity"
   username    = var.idsec_username
   secret      = var.idsec_secret
 }
-data "idesc_sca_discovery" "discovery_example" {
+data "idsec_sca_discovery" "discovery_example" {
   csp             = var.csp
   organization_id = var.organization_id
   account_info = {
@@ -43,9 +36,10 @@ data "idesc_sca_discovery" "discovery_example" {
     new_account =  var.new_account
   }
 }
-resource "idsec_policy_cloud_access" "example_azure_resource_subscription_policy" {
+resource "idsec_policy_cloud_access" "example_aws_iam_policy" {
+  
   # Remove if no need for discovery 
-  depends_on = [data.idesc_sca_discovery.discovery_example]
+  depends_on = [data.idsec_sca_discovery.discovery_example]
   
   metadata = {
     name        = var.name
@@ -62,7 +56,7 @@ resource "idsec_policy_cloud_access" "example_azure_resource_subscription_policy
     }
     policyEntitlement = {
       targetCategory = "Cloud console" #var.target_category
-      locationType   = "Azure" #var.location_type
+      locationType   = "AWS" #var.location_type
       policyType     = "Recurring" #var.policy_type
     }
     policyTags = var.policy_tags
@@ -71,38 +65,31 @@ resource "idsec_policy_cloud_access" "example_azure_resource_subscription_policy
   conditions = {
     accessWindow = {
       daysOfTheWeek = var.days_of_the_week
-      fromHour      = var.from_hour
-      toHour        = var.to_hour
+      fromHour = var.from_hour
+      toHour   = var.to_hour
     }
     maxSessionDuration = var.max_session_duration
   }
   targets = {
     targets = [
       {
-      roleId        = "/subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d/providers/Microsoft.Authorization/roleDefinitions/8d6517c1-e434-405c-9f3f-e0ae65085d76" #var.role_id
-      workspaceId   = "subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d" #var.workspace_id
-      orgId         = "2ca55f05-abc1-12f3-9f0b-6b3f65b8d100" #var.org_id
-      workspaceType = "subscription" #var.workspace_type
-      },
-      {
-        roleId        = "/subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d/providers/Microsoft.Authorization/roleDefinitions/11076f67-66f6-4be0-8f6b-f0609fd05cc9"
-        workspaceId   = "subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d"
-        orgId         = "2ca55f05-abc1-12f3-9f0b-6b3f65b8d100"
-        workspaceType = "subscription"
+        roleId      = "arn:aws:iam::123456789123:role/examplerole" # var.role_id
+        workspaceId = "123456789123" # var.workspace_id
       }
     ]
   }
   principals = [
     {
-      id                  = "c2c7bcc6-1234-44e0-8dff-5be222cd37ee" #var.principal_id
-      name                = "John@cyberark.cloud.1234" #var.principal_name
-      sourceDirectoryName = "CyberArk Cloud Directory" #var.principal_source_directory_name
-      sourceDirectoryId   = "08B9A9B0-8CE8-123F-CD03-12345D33B05H" #var.principal_source_directory_id
+      id                  = "c2c7bcc6-9560-44e0-8dff-5be221cd37ee" #var.principal_id
+      name                = "John@cyberark.cloud.28905" #var.principal_name
+      sourceDirectoryName = "CyberArk Cloud Directory"  #var.principal_source_directory_name
+      sourceDirectoryId   = "95B8A9B0-6DE8-465F-AB03-65766D33B05U" #var.principal_source_directory_id
       type                = "USER" #var.principal_type
     }
   ]
   delegation_classification = var.delegation_classification
 }
+ 
 ```
 
 variables.tf
@@ -118,7 +105,7 @@ variable "idsec_secret" {
   sensitive   = true
 }
 variable "csp" {
-  description = "The cloud provider that hosts the workspace to discover (AWS | AZURE | GCP)"
+  description = "The cloud provider associated with the workspace to discover (AWS | AZURE | GCP)"
   type        = string
 }
 variable "organization_id" {
@@ -130,7 +117,7 @@ variable "id" {
   type        = string
 }
 variable "new_account" {
-  description = "Indicates whether the account is new to an organization, and has not yet been discovered"
+  description = "Indicates whether the account is new to an organization, and has not yet been onboarded"
   type        = bool
   default     = false
 }
@@ -192,7 +179,7 @@ variable "policy_type" {
   type        = string
 }
 variable "policy_tags" {
-  description = "Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy. (e.g. ['test_azure_subscription'])"
+  description = "Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy. (e.g. ['test_aws_iam'])"
   type        = list(string)
   default     = []
   validation {
@@ -237,7 +224,7 @@ variable "to_hour" {
   }
 }
 variable "max_session_duration" {
-  description = "The maximum length of time (in hours) a user can remain connected in a single session. Allowed range: 1-12."
+  description = "The maximum length of time (in hours) a user can remain connected in a single session.Allowed range: 1-12."
   type        = number
   default     = 1
   validation {
@@ -251,14 +238,6 @@ variable "role_id" {
 }
 variable "workspace_id" {
   description = "The workspace ID given to the standalone AWS account when it was onboarded to CyberArk. Required."
-  type        = string
-}
-variable "org_id" {
-  description = "AWSOrg:Management account ID (required only for AWS IAM Identity Center). Required."
-  type        = string
-}
-variable "workspace_type" {
-  description = "The level at which the Google Cloud organization workspace was onboarded to CyberArk"
   type        = string
 }
 variable "principal_id" {
@@ -306,4 +285,5 @@ variable "delegation_classification" {
     error_message = "delegation_classification must be either 'Restricted' or 'Unrestricted'."
   }
 }
+
 ```

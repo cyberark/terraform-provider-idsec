@@ -1,7 +1,8 @@
 ---
-page_title: "Create Azure resource policy on the management group level"
+page_title: "Create Azure Resource policy"
+subcategory: "Cloud Access Policy"
 description: |-
-  The following workflow describes how to create an Azure resource policy on the management group level.
+  The following workflow describes how to create an Azure Resource policy.
 ---
 
 # Workflow
@@ -16,20 +17,12 @@ This workflow demonstrates how to:
 2. Run a discovery for structural updates to the workspace that was previously onboarded
     - Uses the following details:  cloud provider, organization_id, and account_info
 
-3. Create an Azure resource policy for access to resources under a management group
+3. Create an Azure resource for access to resources in the Microsoft Entra ID directory
 
 main.tf
 
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = "0.1.0"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 provider "idsec" {
   auth_method = "identity"
   username    = var.idsec_username
@@ -43,7 +36,7 @@ data "idesc_sca_discovery" "discovery_example" {
     new_account =  var.new_account
   }
 }
-resource "idsec_policy_cloud_access" "example_azure_resource_management_group_policy" {
+resource "idsec_policy_cloud_access" "example_azure_resource_policy" {
   # Remove if no need for discovery 
   depends_on = [data.idesc_sca_discovery.discovery_example]
   
@@ -79,10 +72,16 @@ resource "idsec_policy_cloud_access" "example_azure_resource_management_group_po
   targets = {
     targets = [
       {
-      roleId        = "/providers/Microsoft.Authorization/roleDefinitions/7f951dda-9ed3-0000-a5ca-43fe172d538d" #var.role_id
-      workspaceId   = "providers/Microsoft.Management/managementGroups/7ca66f05-abc6-50f5-9f0b-6b3f65b8d1a5" #var.workspace_id
-      orgId         = "7ca66f05-abc6-50f5-9f0b-6b3f65b8d1a5" #var.org_id
-      workspaceType = "management_group" #var.workspace_type
+      roleId        = "/subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d/providers/Microsoft.Authorization/roleDefinitions/8d6517c1-e434-405c-9f3f-e0ae65085d76" #var.role_id
+      workspaceId   = "subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d" #var.workspace_id
+      orgId         = "2ca55f05-abc1-12f3-9f0b-6b3f65b8d100" #var.org_id
+      workspaceType = "subscription" #var.workspace_type
+      },
+      {
+        roleId        = "/subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d/providers/Microsoft.Authorization/roleDefinitions/11076f67-66f6-4be0-8f6b-f0609fd05cc9"
+        workspaceId   = "subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d"
+        orgId         = "2ca55f05-abc1-12f3-9f0b-6b3f65b8d100"
+        workspaceType = "subscription"
       }
     ]
   }
@@ -186,7 +185,7 @@ variable "policy_type" {
   type        = string
 }
 variable "policy_tags" {
-  description = "Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy. (e.g. ['test_azure_management_group'])"
+  description = "Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy. (e.g. ['test_azure_resource'])"
   type        = list(string)
   default     = []
   validation {

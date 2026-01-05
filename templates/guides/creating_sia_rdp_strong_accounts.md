@@ -50,15 +50,7 @@ The workflow demonstrates creating strong accounts for different scenarios:
 
 main.tf
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = ">= 0.1"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 
 provider "idsec" {
   auth_method = "identity"
@@ -125,15 +117,7 @@ variable "secret_description" {
 
 main.tf
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = ">= 0.1"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 
 provider "idsec" {
   auth_method = "identity"
@@ -206,15 +190,7 @@ For production environments, reference credentials stored in Privilege Cloud:
 
 main.tf
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = ">= 0.1"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 
 provider "idsec" {
   auth_method = "identity"

@@ -1,7 +1,8 @@
 ---
-page_title: "Create GCP policy on the project level"
+page_title: "Create GCP Policy - Organization level"
+subcategory: "Cloud Access Policy"
 description: |-
-  The following workflow describes how to create GCP policy on the project level.
+  The following workflow describes how to create a GCP policy on organization level.
 ---
 
 # Workflow
@@ -16,20 +17,12 @@ This workflow demonstrates how to:
 2. Run a discovery for structural updates to the workspace that was previously onboarded
     - Uses the following details:  cloud provider, organization_id, and account_info
 
-3. Create a policy for GCP on the project level
+3. Create a GCP policy that gives access on the organization level
 
 main.tf
 
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = "0.1.0"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 provider "idsec" {
   auth_method = "identity"
   username    = var.idsec_username
@@ -43,7 +36,7 @@ data "idesc_sca_discovery" "discovery_example" {
     new_account =  var.new_account
   }
 }
-resource "idsec_policy_cloud_access" "example_gcp_project_policy" {
+resource "idsec_policy_cloud_access" "example_gcp_organization_policy" {
   # Remove if no need for discovery 
   depends_on = [data.idesc_sca_discovery.discovery_example]
   
@@ -79,16 +72,28 @@ resource "idsec_policy_cloud_access" "example_gcp_project_policy" {
   targets = {
     targets = [
       {
-      roleId        = "roles/actions.Examplerole" #var.role_id
-      workspaceId   = "test-123456" #var.workspace_id
-      orgId         = "12345678911" #var.org_id
-      workspaceType = "project" #var.workspace_type
+        roleId        = "roles/accessapproval.examplerole" #var.role_id
+        workspaceId   = "123456789123" #var.workspace_id
+        orgId         = "123456789123" # var.org_id
+        workspaceType = "gcp_organization" #var.workspace_type
       },
       {
-        roleId        = "roles/analytics.Examplerole"
-        workspaceId   = "test-123456"
-        orgId         = "12345678911"
-        workspaceType = "project"
+        roleId        = "roles/accessapproval.examplerole"
+        workspaceId   = "222222222222"
+        orgId         = "123456789123"
+        workspaceType = "folder"
+      },
+      {
+      roleId        = "roles/accessapproval.examplerole"
+      workspaceId   = "444444444444"
+      orgId         = "123456789123"
+      workspaceType = "folder"
+      },
+      {
+        roleId        = "roles/accessapproval.examplerole"
+        workspaceId   = "555555555555"
+        orgId         = "123456789123"
+        workspaceType = "folder"
       }
     ]
   }
@@ -192,7 +197,7 @@ variable "policy_type" {
   type        = string
 }
 variable "policy_tags" {
-  description = "Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy. (e.g. ['test_gcp_project'])"
+  description = "Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy. (e.g. ['test_gcp_organization'])"
   type        = list(string)
   default     = []
   validation {

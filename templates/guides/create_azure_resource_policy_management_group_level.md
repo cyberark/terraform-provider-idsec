@@ -1,7 +1,8 @@
 ---
-page_title: "Create GCP policy on the organization level"
+page_title: "Create Azure Resource policy - Management group level"
+subcategory: "Cloud Access Policy"
 description: |-
-  The following workflow describes how to create GCP policy on the organization level.
+  The following workflow describes how to create an Azure Resource policy on management group level.
 ---
 
 # Workflow
@@ -16,20 +17,12 @@ This workflow demonstrates how to:
 2. Run a discovery for structural updates to the workspace that was previously onboarded
     - Uses the following details:  cloud provider, organization_id, and account_info
 
-3. Create a GCP policy that gives access on the organization level
+3. Create an Azure resource policy for access to resources under a management group
 
 main.tf
 
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = "0.1.0"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 provider "idsec" {
   auth_method = "identity"
   username    = var.idsec_username
@@ -43,7 +36,7 @@ data "idesc_sca_discovery" "discovery_example" {
     new_account =  var.new_account
   }
 }
-resource "idsec_policy_cloud_access" "example_gcp_organization_policy" {
+resource "idsec_policy_cloud_access" "example_azure_resource_management_group_policy" {
   # Remove if no need for discovery 
   depends_on = [data.idesc_sca_discovery.discovery_example]
   
@@ -62,7 +55,7 @@ resource "idsec_policy_cloud_access" "example_gcp_organization_policy" {
     }
     policyEntitlement = {
       targetCategory = "Cloud console" #var.target_category
-      locationType   = "GCP" #var.location_type
+      locationType   = "Azure" #var.location_type
       policyType     = "Recurring" #var.policy_type
     }
     policyTags = var.policy_tags
@@ -79,28 +72,10 @@ resource "idsec_policy_cloud_access" "example_gcp_organization_policy" {
   targets = {
     targets = [
       {
-        roleId        = "roles/accessapproval.examplerole" #var.role_id
-        workspaceId   = "123456789123" #var.workspace_id
-        orgId         = "123456789123" # var.org_id
-        workspaceType = "gcp_organization" #var.workspace_type
-      },
-      {
-        roleId        = "roles/accessapproval.examplerole"
-        workspaceId   = "222222222222"
-        orgId         = "123456789123"
-        workspaceType = "folder"
-      },
-      {
-      roleId        = "roles/accessapproval.examplerole"
-      workspaceId   = "444444444444"
-      orgId         = "123456789123"
-      workspaceType = "folder"
-      },
-      {
-        roleId        = "roles/accessapproval.examplerole"
-        workspaceId   = "555555555555"
-        orgId         = "123456789123"
-        workspaceType = "folder"
+      roleId        = "/providers/Microsoft.Authorization/roleDefinitions/7f951dda-9ed3-0000-a5ca-43fe172d538d" #var.role_id
+      workspaceId   = "providers/Microsoft.Management/managementGroups/7ca66f05-abc6-50f5-9f0b-6b3f65b8d1a5" #var.workspace_id
+      orgId         = "7ca66f05-abc6-50f5-9f0b-6b3f65b8d1a5" #var.org_id
+      workspaceType = "management_group" #var.workspace_type
       }
     ]
   }
@@ -204,7 +179,7 @@ variable "policy_type" {
   type        = string
 }
 variable "policy_tags" {
-  description = "Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy. (e.g. ['test_gcp_organization'])"
+  description = "Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy. (e.g. ['test_azure_management_group'])"
   type        = list(string)
   default     = []
   validation {

@@ -17,15 +17,7 @@ The workflow will:
 
 main.tf
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = "0.1.0"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 
 provider "idsec" {
   auth_method = "identity"

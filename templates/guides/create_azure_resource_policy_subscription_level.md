@@ -1,7 +1,8 @@
 ---
-page_title: "Create Entra ID policy for entire Microsoft Entra ID directory"
+page_title: "Create Azure Resource policy - Subscription level"
+subcategory: "Cloud Access Policy"
 description: |-
-  The following workflow describes how to create an Entra ID policy.
+  The following workflow describes how to create an Azure Resource policy on subscription level.
 ---
 
 # Workflow
@@ -16,20 +17,12 @@ This workflow demonstrates how to:
 2. Run a discovery for structural updates to the workspace that was previously onboarded
     - Uses the following details:  cloud provider, organization_id, and account_info
 
-3. Create an Entra ID policy that gives access on the directory level
+3. Create an Azure resource policy for access to resources under a subscription
 
 main.tf
 
 ```terraform
-terraform {
-  required_version = ">= 0.13"
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = "0.1.0"
-    }
-  }
-}
+--8<-- "terraform-block.md"
 provider "idsec" {
   auth_method = "identity"
   username    = var.idsec_username
@@ -43,7 +36,7 @@ data "idesc_sca_discovery" "discovery_example" {
     new_account =  var.new_account
   }
 }
-resource "idsec_policy_cloud_access" "example_entra_id_directory_policy" {
+resource "idsec_policy_cloud_access" "example_azure_resource_subscription_policy" {
   # Remove if no need for discovery 
   depends_on = [data.idesc_sca_discovery.discovery_example]
   
@@ -79,16 +72,16 @@ resource "idsec_policy_cloud_access" "example_entra_id_directory_policy" {
   targets = {
     targets = [
       {
-      roleId        = "9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3" #var.role_id
-      workspaceId   = "2ca00f05-abc6-11f5-9f0b-6b3f65b8d1b6" #var.workspace_id
-      orgId         = "2ca00f05-abc6-11f5-9f0b-6b3f65b8d1b6" #var.org_id
-      workspaceType = "directory" #var.workspace_type
+      roleId        = "/subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d/providers/Microsoft.Authorization/roleDefinitions/8d6517c1-e434-405c-9f3f-e0ae65085d76" #var.role_id
+      workspaceId   = "subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d" #var.workspace_id
+      orgId         = "2ca55f05-abc1-12f3-9f0b-6b3f65b8d100" #var.org_id
+      workspaceType = "subscription" #var.workspace_type
       },
       {
-        roleId        = "d2562ede-74db-457e-a7b6-544e236ebb61"
-        workspaceId   = "2ca00f05-abc6-11f5-9f0b-6b3f65b8d1b6"
-        orgId         = "2ca00f05-abc6-11f5-9f0b-6b3f65b8d1b6"
-        workspaceType = "directory"
+        roleId        = "/subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d/providers/Microsoft.Authorization/roleDefinitions/11076f67-66f6-4be0-8f6b-f0609fd05cc9"
+        workspaceId   = "subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d"
+        orgId         = "2ca55f05-abc1-12f3-9f0b-6b3f65b8d100"
+        workspaceType = "subscription"
       }
     ]
   }
@@ -192,7 +185,7 @@ variable "policy_type" {
   type        = string
 }
 variable "policy_tags" {
-  description = "Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy. (e.g. ['test_azure_microsoft_entra_id'])"
+  description = "Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy. (e.g. ['test_azure_subscription'])"
   type        = list(string)
   default     = []
   validation {

@@ -47,24 +47,9 @@ The provider automatically discovers your tenant based on your credentials. You 
 - **`username`** - Your CyberArk username (for `identity` method)
 - **`secret`** - Your password (for `identity` method)
 
-<!-- <NG> -->
-**Optional:** Set `DEPLOY_ENV` environment variable for non-production environments (e.g., `integration-dev`).
-<!-- </NG> -->
 
 **Note:** No subdomain or tenant URL configuration is required. The provider automatically discovers your tenant from your username and environment.
 
-<!-- <NG> -->
-### Environment Variables
-
-You can configure the provider using environment variables:
-
-```bash
-export DEPLOY_ENV=integration-dev          # Optional: for non-production environments
-export IDSEC_USERNAME=user@cyberark.cloud  # Your CyberArk username
-export IDSEC_SECRET=your-password          # Your password
-export IDSEC_AUTH_METHOD=identity          # Authentication method
-```
-<!-- </NG> -->
 
 ## Example Usage
 
@@ -112,44 +97,6 @@ Provider Configuration can be found in the [provider](docs/index.md) documentati
 
 Schemas can be found in the relevant documentation for each resource / data source.
 
-## Immutable Attributes
-
-Resources can mark attributes as immutable to prevent changes after resource creation. Configure immutable attributes in your action definition:
-
-```go
-&actions.IdsecServiceTerraformResourceActionDefinition{
-    IdsecServiceBaseTerraformActionDefinition: actions.IdsecServiceBaseTerraformActionDefinition{
-        // ... other fields
-        ImmutableAttributes: []string{"field_name", "another_field"},
-    },
-}
-```
-
-Attempts to modify immutable attributes will result in clear error messages during terraform plan.
-
-## Customizing Documentation Service Names
-
-Service names in the documentation sidebar can be customized by editing `docs/service-names.yaml`.
-
-### How to Add or Modify Service Names
-
-1. Open `docs/service-names.yaml`
-2. Add or update a line with the format: `directory-name: "Display Name"`
-3. Run `go run tools/gen-nav.go` to regenerate the navigation
-4. Review the changes in `mkdocs.yml`
-5. Commit both files to git
-
-Services not listed in the YAML file will automatically display their directory name in uppercase.
-
-## Acceptance tests
-
-Refer to the acceptance tests guide for adding or maintaining provider tests: [Acceptance Tests Documentation](internal/acctest/README.md).
-
-<!-- <NG> -->
-## Container-based development
-
-Refer to the [Local Container Setup instructions file](local-dev.md)
-<!-- </NG> -->
 ## License
 
 This project is licensed under Apache License 2.0 - see [`LICENSE`](LICENSE.txt) for more details
