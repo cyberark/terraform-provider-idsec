@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_identity_role"
-subcategory: "IDENTITY"
+subcategory: "Identity"
 description: The Identity service role resource that is used to manage roles.
 ---
 

@@ -1,6 +1,6 @@
 # Copyright (c) HashiCorp, Inc.
 
-resource "idesec_policy_cloud_access" "example_policy" {
+resource "idsec_policy_cloud_access" "example_policy" {
   metadata = {
     name        = "example_policy"
     description = "Example policy for cloud console/service access",

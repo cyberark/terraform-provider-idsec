@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_identity_role_member"
-subcategory: "IDENTITY"
+subcategory: "Identity"
 description: The Identity service role member data source. It reads the role member information and metadata and is based on the ID of the role member.
 ---
 

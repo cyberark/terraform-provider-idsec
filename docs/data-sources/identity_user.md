@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_identity_user"
-subcategory: "IDENTITY"
+subcategory: "Identity"
 description: The Identity service user data source. It reads the user information and metadata and is based on the ID of the user.
 ---
 

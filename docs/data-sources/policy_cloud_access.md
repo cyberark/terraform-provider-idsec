@@ -13,7 +13,7 @@ Cloud Access Policy data source.
 ```terraform
 # Copyright (c) HashiCorp, Inc.
 
-data "idesec_policy_cloud_access" "example_policy" {
+data "idsec_policy_cloud_access" "example_policy" {
   policy_id = "example_policy_id"
 }
 ```

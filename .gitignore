@@ -45,7 +45,3 @@ filesigner/
 go.local.mod
 go.local.sum
 
-<!-- <NG> -->
-# Auto-generated documentation (generated from templates/guides/)
-docs/guides/
-<!-- </NG> -->

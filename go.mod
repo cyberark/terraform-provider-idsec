@@ -13,12 +13,6 @@ require (
 	golang.org/x/text v0.31.0
 )
 
-// <!-- <NG> -->
-// If you wish to work locally with idsec-sdk-golang, uncomment the following line and
-// replace the path with the local path to your idsec-sdk-golang repository
-// replace github.com/cyberark/idsec-sdk-golang => /path/to/idsec-sdk-golang
-// <!-- </NG> -->
-
 require (
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect

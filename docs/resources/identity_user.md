@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_identity_user"
-subcategory: "IDENTITY"
+subcategory: "Identity"
 description: The Identity service user resource that is used to manage users.
 ---
 
