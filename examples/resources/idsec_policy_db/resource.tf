@@ -1,4 +1,4 @@
-resource "idsec_uap_db" "example_policy" {
+resource "idsec_policy_db" "example_policy" {
   metadata = {
     name        = "example_policy"
     description = "Policy for example database access",

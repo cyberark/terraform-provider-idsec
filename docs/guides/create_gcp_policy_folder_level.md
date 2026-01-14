@@ -5,7 +5,9 @@ description: |-
   The following workflow describes how to create a GCP policy on folder level.
 ---
 
-# Workflow
+# Create GCP Policy - Folder level
+
+## Workflow
 
 This workflow demonstrates how to:
 

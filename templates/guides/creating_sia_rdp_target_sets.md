@@ -4,13 +4,15 @@ description: |-
   Creates and configures target sets for secure RDP access to Windows servers using different targeting strategies.
 ---
 
-# Motivation
+# Creating SIA-RDP Target Sets
+
+## Motivation
 
 Target sets define Windows targets (domains, specific targets, or suffixes) for secure RDP access through CyberArk's Secure Infrastructure Access. Each target set is associated with a strong account.
 
 The following workflow describes how to create target sets for various scenarios, from enterprise-wide domain access to individual server management.
 
-# Understanding Target Set Types
+## Understanding Target Set Types
 
 | Type | Name Format | Use Case |
 |------|-------------|----------|
@@ -18,26 +20,27 @@ The following workflow describes how to create target sets for various scenarios
 | **Suffix** | `*.web.example.com` | Groups of servers matching a wildcard pattern |
 | **Target** | `server01.example.com` or `192.168.1.100` | Specific server by FQDN or IP address |
 
-## Notes (How the provider models target sets)
+### Notes (How the provider models target sets)
 
 - **Target sets must reference a secret**: `idsec_sia_workspaces_target_set` requires a `secret_id` (from `idsec_sia_secrets_vm.secret_id`). If you delete the secret first, the target set deletion may fail. In Terraform, this usually “just works” due to the implicit reference, but if you ever decouple them, keep the deletion order in mind.
 - **`type` drives `name` format**:
   - **Domain**: AD domain name (e.g., `corp.local` or `MYDOMAIN`)
   - **Suffix**: wildcard DNS pattern (e.g., `*.web.corp.local`)
   - **Target**: single FQDN or IP
+
 ---
 
-# Workflow
+## Workflow
 
 The workflow demonstrates creating target sets for different scenarios. All target sets require an existing strong account (VM secret).
 
-## Prerequisites
+### Prerequisites
 
 Before creating target sets, you need a strong account. See [Creating RDP Strong Accounts](creating_sia_rdp_strong_accounts.md) for details.
 
 ---
 
-## Domain Target Set
+### Domain Target Set
 
 Enables RDP access to all machines in an Active Directory domain.
 
@@ -137,7 +140,7 @@ variable "enable_certificate_validation" {
 
 ---
 
-## Suffix Target Set
+### Suffix Target Set
 
 Enables RDP access to servers matching a wildcard pattern.
 
@@ -239,7 +242,7 @@ variable "enable_certificate_validation" {
 
 ---
 
-## Target Set for Specific Server
+### Target Set for Specific Server
 
 Enables RDP access to a specific server by FQDN or IP address.
 
@@ -341,9 +344,9 @@ variable "enable_certificate_validation" {
 
 ---
 
-# Common Patterns
+## Common Patterns
 
-## Environment-Based Segregation
+### Environment-Based Segregation
 
 Create separate target sets for different environments:
 
@@ -371,7 +374,7 @@ resource "idsec_sia_workspaces_target_set" "prod_servers" {
 }
 ```
 
-## Multiple Target Sets Sharing One Account
+### Multiple Target Sets Sharing One Account
 
 A single strong account can be associated with multiple target sets:
 
@@ -416,7 +419,7 @@ resource "idsec_sia_workspaces_target_set" "db_server" {
 
 ---
 
-# Optional Fields Reference
+## Optional Fields Reference
 
 | Field | Type | Description | Example |
 |-------|------|-------------|---------|
@@ -424,7 +427,7 @@ resource "idsec_sia_workspaces_target_set" "db_server" {
 | `provision_format` | string | Format for ephemeral usernames | `"eph_{guid}"`, `"prod_{guid}"` |
 | `enable_certificate_validation` | bool | Validate server certificates | `true` or `false` |
 
-## Provision Format Placeholders
+### Provision Format Placeholders
 
 The `provision_format` field supports these placeholders:
 
@@ -439,9 +442,9 @@ Examples:
 
 ---
 
-# Updating Target Sets
+## Updating Target Sets
 
-## Update Description
+### Update Description
 
 ```terraform
 resource "idsec_sia_workspaces_target_set" "servers" {
@@ -453,7 +456,7 @@ resource "idsec_sia_workspaces_target_set" "servers" {
 }
 ```
 
-## Change Provision Format
+### Change Provision Format
 
 ```terraform
 resource "idsec_sia_workspaces_target_set" "servers" {
@@ -465,7 +468,7 @@ resource "idsec_sia_workspaces_target_set" "servers" {
 }
 ```
 
-## Enable Certificate Validation
+### Enable Certificate Validation
 
 ```terraform
 resource "idsec_sia_workspaces_target_set" "servers" {
@@ -479,7 +482,7 @@ resource "idsec_sia_workspaces_target_set" "servers" {
 
 ---
 
-# Best Practices
+## Best Practices
 
 1. **Start broad, refine later**: Begin with Domain target sets, add specific Suffix or Target sets as needed
 2. **Use meaningful names**: The `name` field should clearly identify the target scope
@@ -490,9 +493,9 @@ resource "idsec_sia_workspaces_target_set" "servers" {
 
 ---
 
-# Troubleshooting
+## Troubleshooting
 
-## Secret Not Found
+### Secret Not Found
 
 **Error**: Target set cannot find associated secret
 
@@ -509,7 +512,7 @@ resource "idsec_sia_workspaces_target_set" "servers" {
 }
 ```
 
-## Certificate Validation Errors
+### Certificate Validation Errors
 
 **Error**: Certificate validation fails on target
 
@@ -517,14 +520,14 @@ resource "idsec_sia_workspaces_target_set" "servers" {
 
 ---
 
-# Related Resources
+## Related Resources
 
 - [Creating RDP Strong Accounts](creating_sia_rdp_strong_accounts.md) - Create VM secrets for authentication
 - [Managing RDP Target Sets and Secrets](managing_rdp_target_sets_and_secrets.md) - Comprehensive management guide
 
 ---
 
-# Additional Information
+## Additional Information
 
 For more details on the resources used in this workflow:
 

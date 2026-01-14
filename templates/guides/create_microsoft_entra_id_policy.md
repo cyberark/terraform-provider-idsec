@@ -5,7 +5,9 @@ description: |-
   The following workflow describes how to create a Microsoft Entra ID policy.
 ---
 
-# Workflow
+# Create Microsoft Entra ID Policy
+
+## Workflow
 
 This workflow demonstrates how to:
 

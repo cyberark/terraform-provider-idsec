@@ -26,14 +26,13 @@ resource "idsec_pcloud_account" "example_account" {
 
 ### Required
 
-- `address` (String) Address of the account
 - `safe_name` (String) Safe name to store the account in
-- `secret` (String) The secret of the account
 
 ### Optional
 
 - `access_restricted_to_remote_machines` (Boolean) Whether the access is only restricted to those remote machines
 - `account_id` (String) The account id to update
+- `address` (String) Address of the account
 - `automatic_management_enabled` (Boolean) Whether automatic management of the account is enabled or not
 - `category_modification_time` (Number) Category modification time of the account
 - `created_time` (Number) Creation time of the account
@@ -44,6 +43,7 @@ resource "idsec_pcloud_account" "example_account" {
 - `platform_id` (String) Platform id to relate the account to
 - `remote_machines` (List of String) Remote machines the access of this account is allowed
 - `remote_machines_access` (Attributes) Remote machines access related properties (see [below for nested schema](#nestedatt--remote_machines_access))
+- `secret` (String) The secret of the account
 - `secret_management` (Attributes) Secret mgmt related properties (see [below for nested schema](#nestedatt--secret_management))
 - `secret_type` (String) Type of the secret of the account (password,key)
 - `status` (String) Status of the account

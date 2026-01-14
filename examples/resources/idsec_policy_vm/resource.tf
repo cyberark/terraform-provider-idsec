@@ -1,4 +1,4 @@
-resource "idsec_uap_vm" "example_policy" {
+resource "idsec_policy_vm" "example_policy" {
   metadata = {
     name        = "example_policy"
     description = "Policy for example virtual machine access",

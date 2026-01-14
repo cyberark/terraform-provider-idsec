@@ -4,13 +4,15 @@ description: |-
   Creates and configures a sample connector pool with two assigned networks and two unique identifiers.
 ---
 
-# Motivation
+# Working with Connector Pools
+
+## Motivation
 
 Connector pools are used to group together SIA connectors with other SIA connectors, or system connectors with other system connectors.
 
 The following workflow describes how to create and configure a sample connector pool with two assigned networks and two unique identifiers.
 
-# Workflow
+## Workflow
 The workflow does the following:
 - Creates and configures two networks.
 - Creates a connector pool and assigns the networks to it.

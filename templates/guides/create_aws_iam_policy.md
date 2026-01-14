@@ -5,7 +5,9 @@ description: |-
   The following workflow describes how to create an AWS IAM policy.
 ---
 
-# Workflow
+# Create AWS IAM policy
+
+## Workflow
 
 This workflow demonstrates how to:
 

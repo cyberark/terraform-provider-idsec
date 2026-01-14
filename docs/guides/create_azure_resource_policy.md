@@ -5,7 +5,9 @@ description: |-
   The following workflow describes how to create an Azure Resource policy.
 ---
 
-# Workflow
+# Create Azure Resource policy
+
+## Workflow
 
 This workflow demonstrates how to:
 

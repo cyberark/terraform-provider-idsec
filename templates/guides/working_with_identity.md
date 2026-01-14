@@ -4,11 +4,13 @@ description: |-
   Working with Identity
 ---
 
-# Motivation
+# Working with Identity
+
+## Motivation
 
 This workflow describes how to create users, roles and associate role members using the Idsec Terraform Provider.
 
-# Workflow
+## Workflow
 The workflow will:
 - Authenticate to CyberArk with a user who has admin permissions to create users / roles.
 - Create an identity user

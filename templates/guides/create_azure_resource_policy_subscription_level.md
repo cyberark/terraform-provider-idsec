@@ -5,7 +5,9 @@ description: |-
   The following workflow describes how to create an Azure Resource policy on subscription level.
 ---
 
-# Workflow
+# Create Azure Resource policy - Subscription level
+
+## Workflow
 
 This workflow demonstrates how to:
 

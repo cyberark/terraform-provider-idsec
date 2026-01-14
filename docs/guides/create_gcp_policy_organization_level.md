@@ -5,7 +5,9 @@ description: |-
   The following workflow describes how to create a GCP policy on organization level.
 ---
 
-# Workflow
+# Create GCP Policy - Organization level
+
+## Workflow
 
 This workflow demonstrates how to:
 

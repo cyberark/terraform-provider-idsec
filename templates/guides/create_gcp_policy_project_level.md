@@ -5,7 +5,9 @@ description: |-
   The following workflow describes how to create a GCP policy on project level.
 ---
 
-# Workflow
+# Create GCP Policy - Project level
+
+## Workflow
 
 This workflow demonstrates how to:
 

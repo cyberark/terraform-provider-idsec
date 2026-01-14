@@ -4,33 +4,35 @@ description: |-
   Creates and configures VM secrets (strong accounts) for secure RDP connections to Windows servers.
 ---
 
-# Motivation
+# Creating SIA-RDP Strong Accounts
+
+## Motivation
 
 When an end user logs in to a Windows machine (a protected platform resource) using Remote Desktop Access, SIA creates an ephemeral user either on the local machine (in C:\ Users) or on the domain controller depending on how access has been configured. This ephemeral user gives the end user the necessary permissions to perform their work, and the user profile is deleted from the machine when the end user logs out. To provision this ephemeral user, SIA needs to access a strong account (VM secret), which can in turn create the ephemeral users. For more, see https://docs.cyberark.com/ispss-access/latest/en/content/introduction/dpa_strong-account.htm
 
 
 The following workflow describes how to create and configure VM secrets for SIA-RDP, including various account types and domain configurations.
 
-# Understanding Strong Accounts
+## Understanding Strong Accounts
 
-## Secret Types
+### Secret Types
 
-### ProvisionerUser
+#### ProvisionerUser
 Credentials stored directly in CyberArk's secrets service.
 - **Best For**: Environments with no pCloud.
 - **Requires**: Username and password.
 
-### PCloudAccount
+#### PCloudAccount
 Reference to credentials stored in Privilege Cloud vault.
 - **Best For**: Production environments requiring compliance, password rotation, and centralized management
 - **Requires**: Account name and safe name in Privilege Cloud
 
-## Notes (How the provider models secrets)
+### Notes (How the provider models secrets)
 
 - **`secret_details` defaults**: `secret_details` is a JSON string. The provider merges your JSON with defaults that include `account_domain` (defaults to `"local"`) and other fields. It’s still a good idea to set `account_domain` explicitly so intent is obvious in code review.
 - **`secret_name` for `PCloudAccount`**: the provider schema notes that for `PCloudAccount` the name is auto-generated from the Privilege Cloud account + safe. Keep `secret_name` descriptive in Terraform, but expect the API/provider to derive the actual display name.
 
-## Account Domain Options
+### Account Domain Options
 
 | Domain Type | Example | Use Case |
 |-------------|---------|----------|
@@ -39,7 +41,7 @@ Reference to credentials stored in Privilege Cloud vault.
 
 ---
 
-# Workflow
+## Workflow
 
 The workflow demonstrates creating strong accounts for different scenarios:
 - Local administrator accounts

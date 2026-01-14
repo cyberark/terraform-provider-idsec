@@ -5,7 +5,9 @@ description: |-
   The following workflow describes how to create an Azure Resource policy on resource group level.
 ---
 
-# Workflow
+# Create Azure Resource policy - Resource group level
+
+## Workflow
 
 This workflow demonstrates how to:
 
