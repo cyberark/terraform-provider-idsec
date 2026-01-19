@@ -238,10 +238,17 @@ func attrToInterface(key string, val attr.Value, prototype interface{}) (interfa
 	switch v := val.(type) {
 	case types.String:
 		return v.ValueString(), nil
+	case types.Number:
+		value, _ := v.ValueBigFloat().Float64()
+		return value, nil
+	case types.Int32:
+		return v.ValueInt32(), nil
 	case types.Int64:
 		return v.ValueInt64(), nil
 	case types.Bool:
 		return v.ValueBool(), nil
+	case types.Float32:
+		return v.ValueFloat32(), nil
 	case types.Float64:
 		return v.ValueFloat64(), nil
 	case types.Object:

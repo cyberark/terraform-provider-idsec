@@ -48,7 +48,7 @@ The workflow demonstrates creating strong accounts for different scenarios:
 - Domain administrator accounts
 - Accounts with different credential formats
 
-## Basic Strong Account (Local Admin)
+### Basic Strong Account (Local Admin)
 
 main.tf
 ```terraform
@@ -123,7 +123,7 @@ variable "secret_description" {
 
 ---
 
-## Domain Administrator Strong Account
+### Domain Administrator Strong Account
 
 main.tf
 ```terraform
@@ -202,7 +202,7 @@ variable "secret_description" {
 
 ---
 
-## Privilege Cloud Account Reference
+### Privilege Cloud Account Reference
 
 For production environments, reference credentials stored in Privilege Cloud:
 
@@ -281,7 +281,7 @@ variable "secret_description" {
 
 ---
 
-# Username Format Examples
+## Username Format Examples
 
 The `provisioner_username` field supports various formats:
 
@@ -294,9 +294,9 @@ The `provisioner_username` field supports various formats:
 
 ---
 
-# Managing Account Lifecycle
+## Managing Account Lifecycle
 
-## Rotating Credentials
+### Rotating Credentials
 
 Update the password by changing the `provisioner_password`:
 
@@ -316,7 +316,7 @@ resource "idsec_sia_secrets_vm" "admin_account" {
 
 ---
 
-# Best Practices
+## Best Practices
 
 1. **Use descriptive names**: Include purpose or environment in `secret_name` (e.g., `Prod-WebServers-RDP`)
 2. **Use PCloudAccount for production**: Leverage Privilege Cloud's password rotation and audit features
@@ -325,7 +325,7 @@ resource "idsec_sia_secrets_vm" "admin_account" {
 
 ---
 
-# Related Resources
+## Related Resources
 
 - [Creating RDP Target Sets](creating_sia_rdp_target_sets.md) - Associate strong accounts with Windows targets
 - [Managing RDP Target Sets and Secrets](managing_rdp_target_sets_and_secrets.md) - Comprehensive management guide
@@ -333,7 +333,7 @@ resource "idsec_sia_secrets_vm" "admin_account" {
 
 ---
 
-# Additional Information
+## Additional Information
 
 For more details on the resources used in this workflow:
 
