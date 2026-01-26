@@ -3,7 +3,7 @@ module github.com/cyberark/terraform-provider-idsec
 go 1.24.0
 
 require (
-	github.com/cyberark/idsec-sdk-golang v0.1.10
+	github.com/cyberark/idsec-sdk-golang v0.1.11
 	github.com/hashicorp/terraform-plugin-framework v1.15.0
 	github.com/hashicorp/terraform-plugin-go v0.29.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0

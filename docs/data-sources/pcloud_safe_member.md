@@ -1,12 +1,12 @@
 ---
 page_title: "terraform-provider-idsec - idsec_pcloud_safe_member"
 subcategory: "Privilege Cloud"
-description: PCloud Safe Member data source, reads safe member information and metadata, based on the id of the safe and the member name.
+description: Privilege Cloud Safe Member data source, reads Safe member information and metadata, based on the Safe ID and the member name.
 ---
 
 # idsec_pcloud_safe_member (Data Source)
 
-PCloud Safe Member data source, reads safe member information and metadata, based on the id of the safe and the member name.
+Privilege Cloud Safe Member data source, reads Safe member information and metadata, based on the Safe ID and the member name.
 
 ## Example Usage
 
@@ -22,47 +22,47 @@ data "idsec_pcloud_safe_member" "example_member" {
 
 ### Required
 
-- `member_name` (String) Name of the member to get
-- `safe_id` (String) Safe url id to get the member from
+- `member_name` (String) The Vault user name, Domain user name or group name of the Safe member
+- `safe_id` (String) The URL encoding of the Safe name. For special characters, enter the encoding of the special character. For example, enter %20 to represent a space
 
 ### Optional
 
-- `is_expired_membership_enabled` (Boolean) Whether expired membership is enabled or not
-- `is_predefined_user` (Boolean) Whether this is a predefined user or not
-- `is_read_only` (Boolean) Whether this member is read only
-- `member_id` (Dynamic) Member id
+- `is_expired_membership_enabled` (Boolean) Whether or not the membership for the Safe is expired. For expired members, the value is True
+- `is_predefined_user` (Boolean) Whether the member is a predefined Vault user or group
+- `is_read_only` (Boolean) Whether or not the current user can update the permissions of the member
+- `member_id` (Dynamic) The user, group or role ID
 - `member_type` (String) Type of the member of the safe (User,Group,Role)
-- `membership_expiration_date` (Number) Expiration date of the member on the safe
+- `membership_expiration_date` (Number) The member's expiration date for this Safe. For members that do not have an expiration date, this value will be null
 - `permission_set` (String) Permission set type the permissions are set to (connect_only,read_only,approver,accounts_manager,full,custom)
-- `permissions` (Attributes) Permissions of the safe member (see [below for nested schema](#nestedatt--permissions))
-- `safe_name` (String) Name of the safe of the member
-- `safe_number` (Number) Number id of the safe
+- `permissions` (Attributes) The permissions that the user or group has on this Safe (see [below for nested schema](#nestedatt--permissions))
+- `safe_name` (String) The unique name of the Safe to which the member belongs
+- `safe_number` (Number) The unique numerical ID of the Safe to which the member belongs
 
 <a id="nestedatt--permissions"></a>
 ### Nested Schema for `permissions`
 
 Optional:
 
-- `access_without_confirmation` (Boolean) Access without confirmation permission
-- `add_accounts` (Boolean) Add accounts permission
-- `backup_safe` (Boolean) Backup safe permission
-- `create_folders` (Boolean) Create folders permission
-- `delete_accounts` (Boolean) Delete accounts permission
-- `delete_folders` (Boolean) Delete folders permission
-- `initiate_cpm_account_management_operations` (Boolean) Initiate CPM account management operations permission
-- `list_accounts` (Boolean) List accounts permission
-- `manage_safe` (Boolean) Manage safe permission
-- `manage_safe_members` (Boolean) Manage safe members
-- `move_accounts_and_folders` (Boolean) Move accounts and folders permission
-- `rename_accounts` (Boolean) Rename accounts permission
+- `access_without_confirmation` (Boolean) Access the Safe without confirmation from authorized users. This overrides the Safe properties that specify that Safe members require confirmation to access the Safe
+- `add_accounts` (Boolean) Add accounts in the Safe. Users who have this permission automatically have UpdateAccountProperties permissions
+- `backup_safe` (Boolean) Create a backup of a Safe and its contents, and store it in another location
+- `create_folders` (Boolean) Create folders in the Safe
+- `delete_accounts` (Boolean) Delete existing secrets in the Safe
+- `delete_folders` (Boolean) Delete folders in the Safe
+- `initiate_cpm_account_management_operations` (Boolean) Initiate secrets management operations such as changing, verifying, and reconciling secrets. When set to False, the SpecifyNextAccountContent parameter is also automatically set to False
+- `list_accounts` (Boolean) View the Safe's accounts list
+- `manage_safe` (Boolean) Perform administrative tasks in the Safe, including update properties and recover or delete the Safe
+- `manage_safe_members` (Boolean) Add and remove Safe members, and update their authorizations in the Safe
+- `move_accounts_and_folders` (Boolean) Move accounts and folders in the Safe to different folders and subfolders
+- `rename_accounts` (Boolean) Rename existing accounts in the Safe
 - `requests_authorization_level_1` (Boolean) Request authorization level 1 permission
 - `requests_authorization_level_2` (Boolean) Request authorization level 2 permission
-- `retrieve_accounts` (Boolean) Retrieve accounts permission
-- `specify_next_account_content` (Boolean) Specify next account content permissions
-- `unlock_accounts` (Boolean) Unlock accounts permission
-- `update_account_content` (Boolean) Update account content permission
-- `update_account_properties` (Boolean) Update account properties permission
-- `use_accounts` (Boolean) Use accounts permission
-- `view_audit_log` (Boolean) View audit log permission
-- `view_safe_members` (Boolean) View safe members permission
+- `retrieve_accounts` (Boolean) Retrieve and view accounts in the Safe
+- `specify_next_account_content` (Boolean) Specify the secret value for the next secrets rotation. can only be specified when the InitiateCPMAccountManagementOperations parameter is set to True. When InitiateCPMAccountManagementOperations is set to False this parameter is automatically set to False
+- `unlock_accounts` (Boolean) Unlock accounts that are locked by other users
+- `update_account_content` (Boolean) Update existing account content
+- `update_account_properties` (Boolean) Update existing account properties
+- `use_accounts` (Boolean) Use accounts but cannot view secrets
+- `view_audit_log` (Boolean) View account and user activity in the Safe
+- `view_safe_members` (Boolean) View permissions of Safe members
 

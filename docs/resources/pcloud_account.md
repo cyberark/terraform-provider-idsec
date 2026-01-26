@@ -1,12 +1,12 @@
 ---
 page_title: "terraform-provider-idsec - idsec_pcloud_account"
 subcategory: "Privilege Cloud"
-description: pCloud account resource, manages pCloud accounts information / metadata and credentials.
+description: Manage Privilege Cloud account information, metadata, and credentials
 ---
 
 # idsec_pcloud_account (Resource)
 
-pCloud account resource, manages pCloud accounts information / metadata and credentials.
+Manage Privilege Cloud account information, metadata, and credentials
 
 ## Example Usage
 
@@ -26,44 +26,23 @@ resource "idsec_pcloud_account" "example_account" {
 
 ### Required
 
-- `safe_name` (String) Safe name to store the account in
+- `safe_name` (String) The Safe where the account will be created
 
 ### Optional
 
-- `access_restricted_to_remote_machines` (Boolean) Whether the access is only restricted to those remote machines
-- `account_id` (String) The account id to update
-- `address` (String) Address of the account
-- `automatic_management_enabled` (Boolean) Whether automatic management of the account is enabled or not
-- `category_modification_time` (Number) Category modification time of the account
-- `created_time` (Number) Creation time of the account
-- `last_modified_time` (Number) Last time the management properties were modified
+- `access_restricted_to_remote_machines` (Boolean) Whether to restrict access only to the specified remote machines
+- `account_id` (String) The unique ID of the account to updatee
+- `address` (String) The name or address of the machine where the account will be used
+- `automatic_management_enabled` (Boolean) Whether the account secret is managed automatically
+- `category_modification_time` (Number) The last time the account or one of its file categories was created or changed
+- `created_time` (Number) The date and time the account was created
+- `last_modified_time` (Number) Last time the account was modified
 - `manual_management_reason` (String) The reason for disabling automatic management
 - `name` (String) Name of the account
-- `platform_account_properties` (Dynamic) Different properties related to the platform the account is related to
-- `platform_id` (String) Platform id to relate the account to
-- `remote_machines` (List of String) Remote machines the access of this account is allowed
-- `remote_machines_access` (Attributes) Remote machines access related properties (see [below for nested schema](#nestedatt--remote_machines_access))
-- `secret` (String) The secret of the account
-- `secret_management` (Attributes) Secret mgmt related properties (see [below for nested schema](#nestedatt--secret_management))
-- `secret_type` (String) Type of the secret of the account (password,key)
-- `status` (String) Status of the account
-- `username` (String) Username of the account
-
-<a id="nestedatt--remote_machines_access"></a>
-### Nested Schema for `remote_machines_access`
-
-Optional:
-
-- `access_restricted_to_remote_machines` (Boolean) Whether the access is only restricted to those remote machines
-- `remote_machines` (List of String) Remote machines the access of this account is allowed
-
-
-<a id="nestedatt--secret_management"></a>
-### Nested Schema for `secret_management`
-
-Optional:
-
-- `automatic_management_enabled` (Boolean) Whether automatic management of the account is enabled or not
-- `last_modified_time` (Number) Last time the management properties were modified
-- `manual_management_reason` (String) The reason for disabling automatic management
-
+- `platform_account_properties` (Dynamic) The object containing key-value pairs to associate with the account, as defined by the account platform. Optional properties that do not exist or internal properties are not returned
+- `platform_id` (String) The platform assigned to this account
+- `remote_machines` (List of String) List of remote machines that the account can access, separated by semicolons
+- `secret` (String) The secret value.
+- `secret_type` (String) The type of secret for the acccount (password,key)
+- `status` (String) The account's management status
+- `username` (String) Account user's name

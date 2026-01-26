@@ -1,12 +1,12 @@
 ---
 page_title: "terraform-provider-idsec - idsec_pcloud_safe"
 subcategory: "Privilege Cloud"
-description: PCloud Safe data source, reads safe information and metadata, based on the id of the safe.
+description: Privilege Cloud Safe data source, reads safe information and metadata, based on the Safe ID.
 ---
 
 # idsec_pcloud_safe (Data Source)
 
-PCloud Safe data source, reads safe information and metadata, based on the id of the safe.
+Privilege Cloud Safe data source, reads safe information and metadata, based on the Safe ID.
 
 ## Example Usage
 
@@ -21,29 +21,29 @@ data "idsec_pcloud_safe" "example_safe" {
 
 ### Required
 
-- `safe_id` (String) Safe id to get details for
+- `safe_id` (String) The URL encoding of the Safe name for retrieving the Safe's details. For special characters, enter the encoding of the special character. For example, enter %20 to represent a space
 
 ### Optional
 
-- `auto_purge_enabled` (Boolean) Whether auto purge is enabled on the safe
-- `creation_time` (Number) Creation time of the safe
-- `creator` (Attributes) Creator of the safe (see [below for nested schema](#nestedatt--creator))
-- `description` (String) Description about the safe
-- `is_expired_member` (Boolean) Whether any member is expired
-- `last_modification_time` (Number) Last time the safe was modified
-- `location` (String) Location of the safe in the vault
-- `managing_cpm` (String) Managing CPM of the safe
-- `number_of_days_retention` (Number) Number of retention days on the safe objects
-- `number_of_versions_retention` (Number) Number of retention versions on the safe objects
-- `olac_enabled` (Boolean) Whether object level access control is enabled
-- `safe_name` (String) Name of the safe
-- `safe_number` (Number) ID number of the safe
+- `auto_purge_enabled` (Boolean) Whether or not to automatically purge files after the end of the Object History Retention Period defined in the Safe properties. For Report Safes and PSM Recording Safes, automatically set to Yes
+- `creation_time` (Number) The Unix creation time of the Safe
+- `creator` (Attributes) Name/ID of the user that created the Safe (see [below for nested schema](#nestedatt--creator))
+- `description` (String) The description of the Safe
+- `is_expired_member` (Boolean) Whether the membership for the Safe is expired. For expired members, the value is True
+- `last_modification_time` (Number) The Unix time when the Safe was last updated
+- `location` (String) The location of the Safe in the Vault
+- `managing_cpm` (String) The managing CPM of the Safe
+- `number_of_days_retention` (Number) The number of days that secrets versions are saved in the Safe
+- `number_of_versions_retention` (Number) The number of retained versions of every secret that is stored in the Safe
+- `olac_enabled` (Boolean) Whether Object Level Access Control is enabled
+- `safe_name` (String) The unique ID of the Safe used when calling Safe APIs
+- `safe_number` (Number) The unique numerical ID of the Safe
 
 <a id="nestedatt--creator"></a>
 ### Nested Schema for `creator`
 
 Optional:
 
-- `id` (String) ID of the safe creator
-- `name` (String) Name of the safe creator
+- `id` (String) The ID of the user that created the Safe
+- `name` (String) The name of the user that created the Safe
 
