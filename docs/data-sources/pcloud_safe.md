@@ -36,7 +36,7 @@ data "idsec_pcloud_safe" "example_safe" {
 - `number_of_days_retention` (Number) The number of days that secrets versions are saved in the Safe
 - `number_of_versions_retention` (Number) The number of retained versions of every secret that is stored in the Safe
 - `olac_enabled` (Boolean) Whether Object Level Access Control is enabled
-- `safe_name` (String) The unique ID of the Safe used when calling Safe APIs
+- `safe_name` (String) The name of the Safe for retrieving the Safe's details
 - `safe_number` (Number) The unique numerical ID of the Safe
 
 <a id="nestedatt--creator"></a>

@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/cyberark/idsec-sdk-golang/pkg/auth"
+	idsecconfig "github.com/cyberark/idsec-sdk-golang/pkg/config"
 	"github.com/cyberark/idsec-sdk-golang/pkg/models/actions"
 	authmodels "github.com/cyberark/idsec-sdk-golang/pkg/models/auth"
 	"github.com/cyberark/idsec-sdk-golang/pkg/services"
@@ -68,6 +69,9 @@ type IdsecProviderSchema struct {
 	ServiceAuthorizedApp types.String `tfsdk:"service_authorized_app"`
 	Subdomain            types.String `tfsdk:"subdomain"`
 	CacheAuthentication  types.Bool   `tfsdk:"cache_authentication"`
+	ProxyAddress         types.String `tfsdk:"proxy_address"`
+	ProxyUsername        types.String `tfsdk:"proxy_username"`
+	ProxyPassword        types.String `tfsdk:"proxy_password"`
 }
 
 // IdsecProviderConfig holds the configuration for the Idsec provider.
@@ -173,6 +177,22 @@ func (p *IdsecProvider) Schema(ctx context.Context, req terraformprovider.Schema
 				Description:         "Cache authentication for the provider. Defaults to true. Resolved from environment variable IDSEC_CACHE_AUTHENTICATION.",
 				MarkdownDescription: "Cache authentication for the provider. Defaults to `true`. Resolved from environment variable `IDSEC_CACHE_AUTHENTICATION`.",
 			},
+			"proxy_address": schema.StringAttribute{
+				Optional:            true,
+				Description:         "Proxy address for the provider to use for outgoing requests. Resolved from environment variable IDSEC_PROXY_ADDRESS. or the standard HTTPS_PROXY/HTTP_PROXY env vars.",
+				MarkdownDescription: "Proxy address for the provider to use for outgoing requests. Resolved from environment variable `IDSEC_PROXY_ADDRESS`. or the standard `HTTPS_PROXY`/`HTTP_PROXY` env vars.",
+			},
+			"proxy_username": schema.StringAttribute{
+				Optional:            true,
+				Description:         "Proxy username for the provider to use for outgoing requests. Resolved from environment variable IDSEC_PROXY_USERNAME.",
+				MarkdownDescription: "Proxy username for the provider to use for outgoing requests. Resolved from environment variable `IDSEC_PROXY_USERNAME`.",
+			},
+			"proxy_password": schema.StringAttribute{
+				Optional:            true,
+				Description:         "Proxy password for the provider to use for outgoing requests. Resolved from environment variable IDSEC_PROXY_PASSWORD.",
+				MarkdownDescription: "Proxy password for the provider to use for outgoing requests. Resolved from environment variable `IDSEC_PROXY_PASSWORD`.",
+				Sensitive:           true,
+			},
 		},
 	}
 }
@@ -193,6 +213,19 @@ func (p *IdsecProvider) Configure(ctx context.Context, req terraformprovider.Con
 	config.CacheAuthentication = p.resolveTerraformBoolVar(config.CacheAuthentication, IdsecCacheAuthenticationEnvVar, IdsecCacheAuthenticationDefault)
 	config.AuthMethod = p.resolveTerraformStringVar(config.AuthMethod, IdsecAuthMethodEnvVar)
 	config.Subdomain = p.resolveTerraformStringVar(config.Subdomain, IdsecSubdomainEnvVar)
+
+	// If no proxy is set in TF or in env vars, HTTPS_PROXY and HTTP_PROXY env vars will be used as the standard fallback by the SDK.
+	config.ProxyAddress = p.resolveTerraformStringVar(config.ProxyAddress, idsecconfig.IdsecProxyAddressEnvVar)
+	config.ProxyUsername = p.resolveTerraformStringVar(config.ProxyUsername, idsecconfig.IdsecProxyUsernameEnvVar)
+	config.ProxyPassword = p.resolveTerraformStringVar(config.ProxyPassword, idsecconfig.IdsecProxyPasswordEnvVar)
+	if !config.ProxyAddress.IsNull() {
+		idsecconfig.SetProxyAddress(config.ProxyAddress.String())
+	}
+	if !config.ProxyUsername.IsNull() && !config.ProxyPassword.IsNull() {
+		idsecconfig.SetProxyUsername(config.ProxyUsername.String())
+		idsecconfig.SetProxyPassword(config.ProxyPassword.String())
+	}
+
 	if config.AuthMethod.IsNull() {
 		resp.Diagnostics.AddError("Invalid Configuration", "Auth method is required.")
 		return

@@ -26,6 +26,7 @@ data "idsec_pcloud_account" "example_account" {
 ### Optional
 
 - `access_restricted_to_remote_machines` (Boolean) Whether to restrict access only to the specified remote machines
+- `account_name` (String) The name of the account to retrieve the account's details
 - `address` (String) The name or address of the machine where the account is used
 - `automatic_management_enabled` (Boolean) Whether the account secret is managed automatically
 - `category_modification_time` (Number) The last time the account or one of its file categories was created or changed

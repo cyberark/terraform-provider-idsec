@@ -81,6 +81,9 @@ resource "idsec_sia_access_connector" "example_connector" {
 
 - `auth_method` (String) Authentication method. Defaults to `identity`. When set to `identity`, both `username` and `secret` are **required**. When set to `identity_service_user`, both `service_user` and `service_token` are **required**. Resolved from environment variable `IDSEC_AUTH_METHOD`.
 - `cache_authentication` (Boolean) Cache authentication for the provider. Defaults to `true`. Resolved from environment variable `IDSEC_CACHE_AUTHENTICATION`.
+- `proxy_address` (String) Proxy address for the provider to use for outgoing requests. Resolved from environment variable `IDSEC_PROXY_ADDRESS`. or the standard `HTTPS_PROXY`/`HTTP_PROXY` env vars.
+- `proxy_password` (String, Sensitive) Proxy password for the provider to use for outgoing requests. Resolved from environment variable `IDSEC_PROXY_PASSWORD`.
+- `proxy_username` (String) Proxy username for the provider to use for outgoing requests. Resolved from environment variable `IDSEC_PROXY_USERNAME`.
 - `secret` (String, Sensitive) Secret for identity authentication. **Required** when `auth_method` is `identity` (default). Resolved from environment variable `IDSEC_SECRET`.
 - `service_authorized_app` (String) Authorized application for identity service user authentication. Used when `auth_method` is `identity_service_user`. Defaults to `__idaptive_cybr_user_oidc`. Resolved from environment variable `IDSEC_SERVICE_AUTHORIZED_APP`.
 - `service_token` (String, Sensitive) Service token for identity service user authentication. **Required** when `auth_method` is `identity_service_user`. Resolved from environment variable `IDSEC_SERVICE_TOKEN`.
