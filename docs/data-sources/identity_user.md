@@ -27,10 +27,14 @@ data "idsec_identity_user" "myuser_by_id" {
 
 - `display_name` (String) Display name of the user
 - `email` (String) Email of the user
+- `in_everybody_role` (Boolean) Whether to add the user to the 'Everybody' role
+- `is_oauth_client` (Boolean) Whether the user is an OAuth client
+- `is_service_user` (Boolean) Whether the user is a service user
 - `last_login` (Attributes) Last login time of the user (see [below for nested schema](#nestedatt--last_login))
 - `mobile_number` (String) Mobile number of the user
 - `password` (String) Password of the user
 - `suffix` (String) Suffix of the user
+- `user_attributes` (Map of String) Custom attributes of the user
 - `user_id` (String) User ID found by name
 - `username` (String) User name to find the id for
 
