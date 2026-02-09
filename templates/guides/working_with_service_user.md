@@ -26,7 +26,7 @@ provider "idsec" {
   service_token = var.idsec_service_token
 }
 
-resource "idsec_sia_strong_accounts" "db_account" {
+resource "idsec_sia_db_strong_accounts" "db_account" {
   store_type        = "managed"
   name              = "MSSQL_Enterprise"
   address           = "sqlserver.example.com"
@@ -41,7 +41,7 @@ resource "idsec_sia_workspaces_db" "db" {
   name                = "mssql_db"
   provider_engine     = "mssql-sh-vm"
   read_write_endpoint = var.address
-  secret_id           = idsec_sia_strong_accounts.db_account.id
+  secret_id           = idsec_sia_db_strong_accounts.db_account.id
 }
 ```
 

@@ -1,6 +1,6 @@
 
 # PAM Account
-resource "idsec_sia_strong_accounts" "pam_account" {
+resource "idsec_sia_db_strong_accounts" "pam_account" {
   store_type   = "pam"
   name         = "MyPAMAccount"
   account_name = var.account_name
@@ -9,7 +9,7 @@ resource "idsec_sia_strong_accounts" "pam_account" {
 
 # PostgreSQL
 # Managed PostgreSQL database account
-resource "idsec_sia_strong_accounts" "postgresql" {
+resource "idsec_sia_db_strong_accounts" "postgresql" {
   store_type = "managed"
   name       = "PostgreSQL_Production_DB"
   address    = "postgres.example.com"
@@ -22,7 +22,7 @@ resource "idsec_sia_strong_accounts" "postgresql" {
 
 # MySQL
 # Managed MySQL database account
-resource "idsec_sia_strong_accounts" "mysql" {
+resource "idsec_sia_db_strong_accounts" "mysql" {
   store_type = "managed"
   name       = "MySQL_App_DB"
   address    = "mysql.example.com"
@@ -35,7 +35,7 @@ resource "idsec_sia_strong_accounts" "mysql" {
 
 # MariaDB
 # Managed MariaDB database account
-resource "idsec_sia_strong_accounts" "mariadb" {
+resource "idsec_sia_db_strong_accounts" "mariadb" {
   store_type = "managed"
   name       = "MariaDB_Analytics"
   address    = "mariadb.example.com"
@@ -48,7 +48,7 @@ resource "idsec_sia_strong_accounts" "mariadb" {
 
 # Microsoft SQL Server
 # Managed Microsoft SQL Server account
-resource "idsec_sia_strong_accounts" "mssql" {
+resource "idsec_sia_db_strong_accounts" "mssql" {
   store_type = "managed"
   name       = "MSSQL_Enterprise"
   address    = "sqlserver.example.com"
@@ -61,7 +61,7 @@ resource "idsec_sia_strong_accounts" "mssql" {
 
 # Oracle Database
 # Managed Oracle database account
-resource "idsec_sia_strong_accounts" "oracle" {
+resource "idsec_sia_db_strong_accounts" "oracle" {
   store_type = "managed"
   name       = "Oracle_ERP_System"
   address    = "oracle.example.com"
@@ -75,7 +75,7 @@ resource "idsec_sia_strong_accounts" "oracle" {
 
 # MongoDB
 # Managed MongoDB database account (requires address and database)
-resource "idsec_sia_strong_accounts" "mongodb" {
+resource "idsec_sia_db_strong_accounts" "mongodb" {
   store_type    = "managed"
   name          = "MongoDB_DocStore"
   address       = "mongodb.example.com"
@@ -89,7 +89,7 @@ resource "idsec_sia_strong_accounts" "mongodb" {
 
 # DB2 Unix SSH
 # Managed DB2 Unix SSH account (requires address)
-resource "idsec_sia_strong_accounts" "db2_unix_ssh" {
+resource "idsec_sia_db_strong_accounts" "db2_unix_ssh" {
   store_type = "managed"
   name       = "DB2_Mainframe"
   address    = "db2server.example.com"
@@ -100,7 +100,7 @@ resource "idsec_sia_strong_accounts" "db2_unix_ssh" {
 
 # Windows Domain
 # Managed Windows Domain account (requires address)
-resource "idsec_sia_strong_accounts" "windows_domain" {
+resource "idsec_sia_db_strong_accounts" "windows_domain" {
   store_type = "managed"
   name       = "WinDomain_ServiceAccount"
   address    = "dc.example.com"
@@ -111,7 +111,7 @@ resource "idsec_sia_strong_accounts" "windows_domain" {
 
 # AWS Access Keys
 # AWS IAM user access keys (uses secretAccessKey instead of password)
-resource "idsec_sia_strong_accounts" "aws_access_keys" {
+resource "idsec_sia_db_strong_accounts" "aws_access_keys" {
   store_type        = "managed"
   name              = "AWS_Production_User"
   aws_access_key_id = var.iam_access_key_id

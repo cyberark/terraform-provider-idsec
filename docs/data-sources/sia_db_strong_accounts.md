@@ -1,10 +1,10 @@
 ---
-page_title: "terraform-provider-idsec - idsec_sia_strong_accounts"
+page_title: "terraform-provider-idsec - idsec_sia_db_strong_accounts"
 subcategory: "Secure Infrastructure Access"
 description: The SIA strong accounts data source, reads strong account information and metadata, based on the ID of the account.
 ---
 
-# idsec_sia_strong_accounts (Data Source)
+# idsec_sia_db_strong_accounts (Data Source)
 
 The SIA strong accounts data source, reads strong account information and metadata, based on the ID of the account.
 

@@ -1,4 +1,4 @@
-resource "idsec_sia_strong_accounts" "pam_account" {
+resource "idsec_sia_db_strong_accounts" "pam_account" {
   store_type   = "pam"
   name         = "MyPAMAccount"
   account_name = var.account_name
@@ -10,5 +10,5 @@ resource "idsec_sia_workspaces_db" "example_db" {
   name                = "example_mssql_db"
   provider_engine     = "mssql-sh-vm"
   read_write_endpoint = var.address
-  secret_id           = idsec_sia_strong_accounts.pam_account.id
+  secret_id           = idsec_sia_db_strong_accounts.pam_account.id
 }
