@@ -34,11 +34,13 @@ resource "idsec_identity_policy" "myrole_policy" {
 
 ### Optional
 
+- `after_policy` (String) Name of an existing policy to place this policy after in the order of policies, If both are given, the before policy will be prioritized and the new policy will be added before the given existing policy. If none given, the new policy will be added at the start / top prioritized of the policies list.
 - `auth_profile_name` (String) Name of the auth profile associated with the policy
+- `before_policy` (String) Name of an existing policy to place this policy before in the order of policies, If both are given, the before policy will be prioritized and the new policy will be added before the given existing policy. If none given, the new policy will be added at the start / top prioritized of the policies list.
 - `description` (String) Description of the policy to create
 - `do_not_use_defaults` (Boolean) Indicates whether to avoid using default settings when creating the policy
 - `policy_name` (String) Name of the policy to create
 - `policy_status` (String) Status of the policy to create
 - `rev_stamp` (String) Revision stamp of the policy
-- `role_names` (List of String) List of role names associated with the policy
+- `role_names` (Set of String) List of role names associated with the policy
 - `settings` (Dynamic) Additional settings for the policy

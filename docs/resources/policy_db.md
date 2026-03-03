@@ -18,6 +18,10 @@ resource "idsec_policy_db" "example_policy" {
     status = {
       status = "Active"
     },
+    time_frame = {
+      from_time = null
+      to_time   = null
+    },
     policy_entitlement = {
       target_category = "DB",
       location_type   = "FQDN/IP"

@@ -5,6 +5,7 @@ package schemas
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -2527,6 +2528,413 @@ func TestSetTargetValueFromPlanAndState(t *testing.T) {
 			// Validate result
 			if tt.validateFunc != nil {
 				tt.validateFunc(t, target)
+			}
+		})
+	}
+}
+
+func TestConvertGoValueToAttr(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	tests := []struct {
+		name          string
+		input         interface{}
+		expectedValue attr.Value
+		expectedError bool
+		validateFunc  func(t *testing.T, result attr.Value)
+	}{
+		{
+			name:          "success_nil_value",
+			input:         nil,
+			expectedValue: types.StringNull(),
+		},
+		{
+			name:          "success_string_value",
+			input:         "hello world",
+			expectedValue: types.StringValue("hello world"),
+		},
+		{
+			name:          "success_empty_string",
+			input:         "",
+			expectedValue: types.StringValue(""),
+		},
+		{
+			name:          "success_bool_true",
+			input:         true,
+			expectedValue: types.BoolValue(true),
+		},
+		{
+			name:          "success_bool_false",
+			input:         false,
+			expectedValue: types.BoolValue(false),
+		},
+		{
+			name:          "success_int_value",
+			input:         int(42),
+			expectedValue: types.Int64Value(42),
+		},
+		{
+			name:          "success_int8_value",
+			input:         int8(10),
+			expectedValue: types.Int64Value(10),
+		},
+		{
+			name:          "success_int16_value",
+			input:         int16(300),
+			expectedValue: types.Int64Value(300),
+		},
+		{
+			name:          "success_int32_value",
+			input:         int32(70000),
+			expectedValue: types.Int64Value(70000),
+		},
+		{
+			name:          "success_int64_value",
+			input:         int64(9876543210),
+			expectedValue: types.Int64Value(9876543210),
+		},
+		{
+			name:          "success_uint_value",
+			input:         uint(100),
+			expectedValue: types.Int64Value(100),
+		},
+		{
+			name:          "success_uint64_value",
+			input:         uint64(999),
+			expectedValue: types.Int64Value(999),
+		},
+		{
+			name:          "success_float32_value",
+			input:         float32(3.14),
+			expectedValue: types.Float64Value(float64(float32(3.14))),
+		},
+		{
+			name:          "success_float64_value",
+			input:         float64(2.718281828),
+			expectedValue: types.Float64Value(2.718281828),
+		},
+		{
+			name:          "success_pointer_to_string",
+			input:         stringPtr("pointed"),
+			expectedValue: types.StringValue("pointed"),
+		},
+		{
+			name:          "success_nil_pointer",
+			input:         (*string)(nil),
+			expectedValue: types.StringNull(),
+		},
+		{
+			name:  "success_nil_slice",
+			input: []interface{}(nil),
+			validateFunc: func(t *testing.T, result attr.Value) {
+				t.Helper()
+				tupleVal, ok := result.(types.Tuple)
+				if !ok {
+					t.Errorf("expected types.Tuple, got %T", result)
+					return
+				}
+				if len(tupleVal.Elements()) != 0 {
+					t.Errorf("expected empty tuple, got %d elements", len(tupleVal.Elements()))
+				}
+			},
+		},
+		{
+			name:  "success_empty_slice",
+			input: []interface{}{},
+			validateFunc: func(t *testing.T, result attr.Value) {
+				t.Helper()
+				tupleVal, ok := result.(types.Tuple)
+				if !ok {
+					t.Errorf("expected types.Tuple, got %T", result)
+					return
+				}
+				if len(tupleVal.Elements()) != 0 {
+					t.Errorf("expected empty tuple, got %d elements", len(tupleVal.Elements()))
+				}
+			},
+		},
+		{
+			name:  "success_slice_of_strings",
+			input: []interface{}{"a", "b", "c"},
+			validateFunc: func(t *testing.T, result attr.Value) {
+				t.Helper()
+				tupleVal, ok := result.(types.Tuple)
+				if !ok {
+					t.Errorf("expected types.Tuple, got %T", result)
+					return
+				}
+				elems := tupleVal.Elements()
+				if len(elems) != 3 {
+					t.Errorf("expected 3 elements, got %d", len(elems))
+					return
+				}
+				expected := []string{"a", "b", "c"}
+				for i, elem := range elems {
+					sv, ok := elem.(types.String)
+					if !ok {
+						t.Errorf("element %d: expected types.String, got %T", i, elem)
+						continue
+					}
+					if sv.ValueString() != expected[i] {
+						t.Errorf("element %d: expected %q, got %q", i, expected[i], sv.ValueString())
+					}
+				}
+			},
+		},
+		{
+			name:  "success_slice_of_ints",
+			input: []interface{}{int64(1), int64(2), int64(3)},
+			validateFunc: func(t *testing.T, result attr.Value) {
+				t.Helper()
+				tupleVal, ok := result.(types.Tuple)
+				if !ok {
+					t.Errorf("expected types.Tuple, got %T", result)
+					return
+				}
+				elems := tupleVal.Elements()
+				if len(elems) != 3 {
+					t.Errorf("expected 3 elements, got %d", len(elems))
+					return
+				}
+				for i, elem := range elems {
+					iv, ok := elem.(types.Int64)
+					if !ok {
+						t.Errorf("element %d: expected types.Int64, got %T", i, elem)
+						continue
+					}
+					if iv.ValueInt64() != int64(i+1) {
+						t.Errorf("element %d: expected %d, got %d", i, i+1, iv.ValueInt64())
+					}
+				}
+			},
+		},
+		{
+			name: "success_map_string_to_string",
+			input: map[string]interface{}{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			validateFunc: func(t *testing.T, result attr.Value) {
+				t.Helper()
+				objVal, ok := result.(types.Object)
+				if !ok {
+					t.Errorf("expected types.Object, got %T", result)
+					return
+				}
+				attrs := objVal.Attributes()
+				if len(attrs) != 2 {
+					t.Errorf("expected 2 attrs, got %d", len(attrs))
+					return
+				}
+				sv, ok := attrs["key1"].(types.String)
+				if !ok {
+					t.Errorf("key1: expected types.String, got %T", attrs["key1"])
+					return
+				}
+				if sv.ValueString() != "value1" {
+					t.Errorf("key1: expected %q, got %q", "value1", sv.ValueString())
+				}
+			},
+		},
+		{
+			name: "success_map_string_to_mixed_types",
+			input: map[string]interface{}{
+				"name":    "test",
+				"count":   int64(5),
+				"enabled": true,
+			},
+			validateFunc: func(t *testing.T, result attr.Value) {
+				t.Helper()
+				objVal, ok := result.(types.Object)
+				if !ok {
+					t.Errorf("expected types.Object, got %T", result)
+					return
+				}
+				attrs := objVal.Attributes()
+				if len(attrs) != 3 {
+					t.Errorf("expected 3 attrs, got %d", len(attrs))
+				}
+				if sv, ok := attrs["name"].(types.String); !ok || sv.ValueString() != "test" {
+					t.Errorf("name: expected types.String(\"test\"), got %T(%v)", attrs["name"], attrs["name"])
+				}
+				if iv, ok := attrs["count"].(types.Int64); !ok || iv.ValueInt64() != 5 {
+					t.Errorf("count: expected types.Int64(5), got %T(%v)", attrs["count"], attrs["count"])
+				}
+				if bv, ok := attrs["enabled"].(types.Bool); !ok || !bv.ValueBool() {
+					t.Errorf("enabled: expected types.Bool(true), got %T(%v)", attrs["enabled"], attrs["enabled"])
+				}
+			},
+		},
+		{
+			name: "success_nested_map",
+			input: map[string]interface{}{
+				"outer": map[string]interface{}{
+					"inner": "value",
+				},
+			},
+			validateFunc: func(t *testing.T, result attr.Value) {
+				t.Helper()
+				outerObj, ok := result.(types.Object)
+				if !ok {
+					t.Errorf("expected types.Object, got %T", result)
+					return
+				}
+				outerAttr, exists := outerObj.Attributes()["outer"]
+				if !exists {
+					t.Errorf("expected key 'outer' in object")
+					return
+				}
+				innerObj, ok := outerAttr.(types.Object)
+				if !ok {
+					t.Errorf("outer: expected types.Object, got %T", outerAttr)
+					return
+				}
+				innerAttr, exists := innerObj.Attributes()["inner"]
+				if !exists {
+					t.Errorf("expected key 'inner' in nested object")
+					return
+				}
+				sv, ok := innerAttr.(types.String)
+				if !ok || sv.ValueString() != "value" {
+					t.Errorf("inner: expected types.String(\"value\"), got %T(%v)", innerAttr, innerAttr)
+				}
+			},
+		},
+		{
+			name:  "success_json_number_integer",
+			input: json.Number("12345"),
+			validateFunc: func(t *testing.T, result attr.Value) {
+				t.Helper()
+				iv, ok := result.(types.Int64)
+				if !ok {
+					t.Errorf("expected types.Int64, got %T", result)
+					return
+				}
+				if iv.ValueInt64() != 12345 {
+					t.Errorf("expected 12345, got %d", iv.ValueInt64())
+				}
+			},
+		},
+		{
+			name:  "success_json_number_float",
+			input: json.Number("3.14159"),
+			validateFunc: func(t *testing.T, result attr.Value) {
+				t.Helper()
+				fv, ok := result.(types.Float64)
+				if !ok {
+					t.Errorf("expected types.Float64, got %T", result)
+					return
+				}
+				if fv.ValueFloat64() != 3.14159 {
+					t.Errorf("expected 3.14159, got %f", fv.ValueFloat64())
+				}
+			},
+		},
+		{
+			name:  "success_json_number_non_numeric_falls_back_to_string",
+			input: json.Number("not-a-number"),
+			validateFunc: func(t *testing.T, result attr.Value) {
+				t.Helper()
+				sv, ok := result.(types.String)
+				if !ok {
+					t.Errorf("expected types.String, got %T", result)
+					return
+				}
+				if sv.ValueString() != "not-a-number" {
+					t.Errorf("expected %q, got %q", "not-a-number", sv.ValueString())
+				}
+			},
+		},
+		{
+			name:  "success_interface_wrapping_string",
+			input: interface{}("wrapped"),
+			validateFunc: func(t *testing.T, result attr.Value) {
+				t.Helper()
+				sv, ok := result.(types.String)
+				if !ok {
+					t.Errorf("expected types.String, got %T", result)
+					return
+				}
+				if sv.ValueString() != "wrapped" {
+					t.Errorf("expected %q, got %q", "wrapped", sv.ValueString())
+				}
+			},
+		},
+		{
+			name: "success_slice_with_nested_map",
+			input: []interface{}{
+				map[string]interface{}{"id": "1", "active": true},
+			},
+			validateFunc: func(t *testing.T, result attr.Value) {
+				t.Helper()
+				tupleVal, ok := result.(types.Tuple)
+				if !ok {
+					t.Errorf("expected types.Tuple, got %T", result)
+					return
+				}
+				elems := tupleVal.Elements()
+				if len(elems) != 1 {
+					t.Errorf("expected 1 element, got %d", len(elems))
+					return
+				}
+				objVal, ok := elems[0].(types.Object)
+				if !ok {
+					t.Errorf("element 0: expected types.Object, got %T", elems[0])
+					return
+				}
+				attrs := objVal.Attributes()
+				if sv, ok := attrs["id"].(types.String); !ok || sv.ValueString() != "1" {
+					t.Errorf("id: expected types.String(\"1\"), got %T(%v)", attrs["id"], attrs["id"])
+				}
+				if bv, ok := attrs["active"].(types.Bool); !ok || !bv.ValueBool() {
+					t.Errorf("active: expected types.Bool(true), got %T(%v)", attrs["active"], attrs["active"])
+				}
+			},
+		},
+		{
+			name:  "success_empty_map",
+			input: map[string]interface{}{},
+			validateFunc: func(t *testing.T, result attr.Value) {
+				t.Helper()
+				objVal, ok := result.(types.Object)
+				if !ok {
+					t.Errorf("expected types.Object, got %T", result)
+					return
+				}
+				if len(objVal.Attributes()) != 0 {
+					t.Errorf("expected 0 attributes, got %d", len(objVal.Attributes()))
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := convertGoValueToAttr(ctx, tt.input)
+
+			if tt.expectedError {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if tt.validateFunc != nil {
+				tt.validateFunc(t, result)
+				return
+			}
+
+			if tt.expectedValue != nil && !result.Equal(tt.expectedValue) {
+				t.Errorf("expected %v, got %v", tt.expectedValue, result)
 			}
 		})
 	}

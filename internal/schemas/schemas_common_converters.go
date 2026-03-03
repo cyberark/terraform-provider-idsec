@@ -260,11 +260,11 @@ func attrToInterface(key string, val attr.Value, prototype interface{}) (interfa
 	case types.Dynamic:
 		if s, ok := v.UnderlyingValue().(types.String); ok {
 			var result interface{}
+			// Backwards compatible for json strings
 			err := json.Unmarshal([]byte(s.ValueString()), &result)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal dynamic JSON value: %w", err)
+			if err == nil {
+				return result, nil
 			}
-			return result, nil
 		}
 		underlying := v.UnderlyingValue()
 		if actualField != nil {
@@ -375,6 +375,112 @@ func reflectTypeToTerraformType(t reflect.Type) (attr.Type, error) {
 	default:
 		return nil, fmt.Errorf("unsupported type: %s", t.Kind())
 	}
+}
+
+// convertGoValueToAttr recursively converts a Go value to a Terraform attr.Value by
+// inferring the Terraform type from the runtime type of the value.
+//
+// This is used for DynamicType attributes (e.g. map[string]interface{} fields) so that
+// the state representation uses proper typed objects rather than JSON-encoded strings.
+// Using typed objects ensures the state is consistent with how HCL config represents the
+// same data, which prevents spurious diffs on subsequent terraform plan/apply runs.
+//
+// Parameters:
+//   - ctx: Context used for type introspection on attr.Value instances
+//   - val: The Go value to convert (may be nil, scalar, map, or slice)
+//
+// Returns the converted attr.Value, or an error if the value cannot be represented.
+func convertGoValueToAttr(ctx context.Context, val interface{}) (attr.Value, error) {
+	if val == nil {
+		return types.StringNull(), nil
+	}
+
+	// Handle json.Number explicitly – json.Unmarshal uses this type when the decoder
+	// is configured with UseNumber(), and it may also appear in API responses.
+	if jn, ok := val.(json.Number); ok {
+		if i, err := jn.Int64(); err == nil {
+			return types.Int64Value(i), nil
+		}
+		if f, err := jn.Float64(); err == nil {
+			return types.Float64Value(f), nil
+		}
+		return types.StringValue(jn.String()), nil
+	}
+
+	v := reflect.ValueOf(val)
+	for v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return types.StringNull(), nil
+		}
+		v = v.Elem()
+	}
+
+	switch v.Kind() {
+	case reflect.String:
+		return types.StringValue(v.String()), nil
+	case reflect.Bool:
+		return types.BoolValue(v.Bool()), nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return types.Int64Value(v.Int()), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		uintVal := v.Uint()
+		if uintVal > uint64(math.MaxInt64) {
+			return nil, fmt.Errorf("uint value %d overflows int64", uintVal)
+		}
+		return types.Int64Value(int64(uintVal)), nil
+	case reflect.Float32, reflect.Float64:
+		return types.Float64Value(v.Float()), nil
+	case reflect.Interface:
+		if v.IsNil() {
+			return types.StringNull(), nil
+		}
+		return convertGoValueToAttr(ctx, v.Elem().Interface())
+	case reflect.Map:
+		if v.Type().Key().Kind() != reflect.String {
+			break
+		}
+		attrTypes := make(map[string]attr.Type, v.Len())
+		attrValues := make(map[string]attr.Value, v.Len())
+		for _, key := range v.MapKeys() {
+			elemAttr, err := convertGoValueToAttr(ctx, v.MapIndex(key).Interface())
+			if err != nil {
+				return nil, fmt.Errorf("map key %q: %w", key.String(), err)
+			}
+			attrTypes[key.String()] = elemAttr.Type(ctx)
+			attrValues[key.String()] = elemAttr
+		}
+		objVal, diag := types.ObjectValue(attrTypes, attrValues)
+		if diag.HasError() {
+			return nil, fmt.Errorf("failed to build object from map: %v", diag)
+		}
+		return objVal, nil
+	case reflect.Slice, reflect.Array:
+		if v.IsNil() || v.Len() == 0 {
+			tupleVal, diag := types.TupleValue([]attr.Type{}, []attr.Value{})
+			if diag.HasError() {
+				return nil, fmt.Errorf("failed to build empty tuple: %v", diag)
+			}
+			return tupleVal, nil
+		}
+		elemTypes := make([]attr.Type, v.Len())
+		elems := make([]attr.Value, v.Len())
+		for i := 0; i < v.Len(); i++ {
+			elemAttr, err := convertGoValueToAttr(ctx, v.Index(i).Interface())
+			if err != nil {
+				return nil, fmt.Errorf("slice index %d: %w", i, err)
+			}
+			elemTypes[i] = elemAttr.Type(ctx)
+			elems[i] = elemAttr
+		}
+		tupleVal, diag := types.TupleValue(elemTypes, elems)
+		if diag.HasError() {
+			return nil, fmt.Errorf("failed to build tuple: %v", diag)
+		}
+		return tupleVal, nil
+	}
+
+	// Fallback: represent unknown types as their string form.
+	return types.StringValue(fmt.Sprintf("%v", val)), nil
 }
 
 func interfaceTypeToAttr(ctx context.Context, val interface{}, t attr.Type) (attr.Value, error) {
@@ -509,12 +615,15 @@ func interfaceTypeToAttr(ctx context.Context, val interface{}, t attr.Type) (att
 		}
 		return mapVal, nil
 	case isType[basetypes.DynamicTypable](t):
-		jsonBytes, err := json.Marshal(val)
+		// Convert the Go value to a properly-typed Terraform value (object/tuple/scalar)
+		// instead of JSON-encoding it as a string. This ensures the state representation
+		// matches what Terraform produces when reading an HCL config that contains the
+		// same data, preventing spurious diffs on re-apply.
+		innerVal, err := convertGoValueToAttr(ctx, val)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal dynamic value to JSON: %w", err)
+			return nil, fmt.Errorf("failed to convert dynamic value: %w", err)
 		}
-		dyn := basetypes.NewDynamicValue(types.StringValue(string(jsonBytes)))
-		return dyn, nil
+		return basetypes.NewDynamicValue(innerVal), nil
 	default:
 		return nil, fmt.Errorf("unsupported type: %T", t)
 	}
@@ -682,7 +791,7 @@ func StructFromStateObject(ctx context.Context, state *tfsdk.State, prototype in
 	}
 	dataMap, err := objectToMap(stateObj, prototype)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert plan object to map: %v", diags)
+		return nil, fmt.Errorf("failed to convert plan object to map: %v - %v", diags, err)
 	}
 	protoType := reflect.TypeOf(prototype)
 	if protoType.Kind() == reflect.Pointer {
@@ -705,7 +814,7 @@ func StructFromConfigObject(ctx context.Context, config *tfsdk.Config, prototype
 	}
 	dataMap, err := objectToMap(stateObj, prototype)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert plan object to map: %v", diags)
+		return nil, fmt.Errorf("failed to convert plan object to map: %v - %v", diags, err)
 	}
 	protoType := reflect.TypeOf(prototype)
 	newStruct := reflect.New(protoType).Interface()
@@ -730,11 +839,11 @@ func StructFromPlanAndStateObject(ctx context.Context, plan *tfsdk.Plan, state *
 	}
 	stateDataMap, err := objectToMap(stateObj, statePrototype)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert state object to map: %v", diags)
+		return nil, fmt.Errorf("failed to convert state object to map: %v - %v", diags, err)
 	}
 	planDataMap, err := objectToMap(planObj, planPrototype)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert plan object to map: %v", diags)
+		return nil, fmt.Errorf("failed to convert plan object to map: %v - %v", diags, err)
 	}
 	planReflectedPrototype := reflect.TypeOf(planPrototype)
 	if planReflectedPrototype.Kind() == reflect.Pointer {

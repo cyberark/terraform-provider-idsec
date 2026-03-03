@@ -20,13 +20,19 @@ resource "idsec_policy_cloud_access" "example_policy" {
     status = {
       status = "Active"
     },
+    time_frame = {
+      from_time = "2025-12-28T00:00:00"
+      to_time   = "2026-02-18T00:00:00"
+    },
     policy_entitlement = {
       target_category = "Cloud console",
-      location_type   = "AWS"
+      location_type   = "AWS",
+      policy_type     = "Recurring"
     },
     policy_tags = ["test_policy", "example"],
     time_zone   = "Asia/Jerusalem"
   }
+  delegation_classification = "Unrestricted"
   principals = [
     {
       id   = "12345-deac-4bd2-1234-d5b3d112345",
@@ -36,6 +42,7 @@ resource "idsec_policy_cloud_access" "example_policy" {
   ]
   conditions = {
     access_window = {
+      time_zone        = "Asia/Jerusalem"
       days_of_the_week = [1, 2, 3, 4, 5, 6],
       from_hour        = "09:00:00",
       to_hour          = "17:00:00"

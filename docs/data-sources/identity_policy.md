@@ -26,5 +26,5 @@ data "idsec_identity_policy" "myrole_policy" {
 - `policy_name` (String) Policy Name to retrieve
 - `policy_status` (String) Status of the policy
 - `rev_stamp` (String) Revision stamp of the policy
-- `role_names` (List of String) List of role names associated with the policy
+- `role_names` (Set of String) List of role names associated with the policy
 - `settings` (Dynamic) Additional settings for the policy

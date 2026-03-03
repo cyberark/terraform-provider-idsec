@@ -26,6 +26,8 @@ resource "idsec_identity_role" "myrole" {
 
 ### Optional
 
-- `admin_rights` (List of String) Admin rights to add to the role
+- `admin_rights` (Set of String) Admin rights to add to the role
 - `description` (String) Description of the role
+- `dynamic_role_script` (String) Script for dynamic role, required if RoleType is Script
 - `role_id` (String) Role id to update
+- `role_type` (String) Type of the role to create, can be PrincipalList, Script, or Everybody

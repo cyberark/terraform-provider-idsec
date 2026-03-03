@@ -33,12 +33,12 @@ resource "idsec_identity_user" "myserviceuser" {
 
 ### Required
 
-- `email` (String) Email of the user
 - `username` (String) Name of the user to create
 
 ### Optional
 
 - `display_name` (String) Display name of the user
+- `email` (String) Email of the user
 - `force_password_change_next` (Boolean) Whether to force the user to change their password on next login
 - `in_everybody_role` (Boolean) Whether to add the user to the 'Everybody' role
 - `in_sysadmin_role` (Boolean) Whether to add the user to the 'SysAdmin' role
@@ -47,8 +47,10 @@ resource "idsec_identity_user" "myserviceuser" {
 - `last_login` (Attributes) Last login time of the user (see [below for nested schema](#nestedatt--last_login))
 - `mobile_number` (String) Mobile number of the user
 - `password` (String, Sensitive) Password of the user
+- `password_never_expire` (Boolean) Whether the user's password never expires
 - `send_email_invite` (Boolean) Whether to send an email invite to the user upon creation
 - `send_sms_invite` (Boolean) Whether to send an SMS invite to the user upon creation
+- `state` (String) State of the user to create, can be None, Locked, Disabled, or Expired
 - `suffix` (String) Suffix to use for the username, will use the default tenant one if not given
 - `user_attributes` (Map of String) Custom attributes of the user
 - `user_id` (String) Users id that we change the details for

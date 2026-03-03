@@ -25,5 +25,5 @@ data "idsec_identity_role_admin_rights" "myrole_admin_rights" {
 
 ### Optional
 
-- `admin_rights` (List of String) Admin rights assigned to the role
+- `admin_rights` (Set of String) Admin rights assigned to the role
 - `role_id` (String) Role ID found by name

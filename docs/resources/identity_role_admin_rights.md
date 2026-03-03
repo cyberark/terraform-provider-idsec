@@ -24,7 +24,7 @@ resource "idsec_identity_role_admin_rights" "myrole_admin_rights" {
 
 ### Required
 
-- `admin_rights` (List of String) Admin rights to add to the role
+- `admin_rights` (Set of String) Admin rights to add to the role
 
 ### Optional
 

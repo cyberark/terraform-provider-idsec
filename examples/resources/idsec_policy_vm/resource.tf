@@ -5,6 +5,10 @@ resource "idsec_policy_vm" "example_policy" {
     status = {
       status = "Active"
     },
+    time_frame = {
+      from_time = null
+      to_time   = null
+    },
     policy_entitlement = {
       target_category = "VM",
       location_type   = "FQDN/IP"
@@ -28,36 +32,36 @@ resource "idsec_policy_vm" "example_policy" {
     max_session_duration = 8
   }
   targets = {
-    fqdnipResource = {
-      fqdnRules = [
+    fqdnip_resource = {
+      fqdn_rules = [
         {
-          operator            = "EXACTLY",
-          computernamePattern = "myvm.mydomain.com",
-          domain              = "domain.com"
+          operator             = "EXACTLY",
+          computername_pattern = "myvm.mydomain.com",
+          domain               = "domain.com"
         }
       ],
-      ipRules = [
+      ip_rules = [
         {
           operator = "EXACTLY",
-          ipAddresses = [
+          ip_addresses = [
             "192.168.12.34"
           ],
-          logicalName = "CoolLogicalName"
+          logical_name = "CoolLogicalName"
         }
       ]
     }
   }
   behavior = {
-    sshProfile = {
+    ssh_profile = {
       username = "ssh_user"
     },
-    rdpProfile = {
-      domainEphemeralUser = {
-        assignGroups = [
+    rdp_profile = {
+      domain_ephemeral_user = {
+        assign_groups = [
           "rdp_users"
         ],
-        enableEphemeralUserReconnect = false,
-        assignDomainGroups = [
+        enable_ephemeral_user_reconnect = false,
+        assign_domain_groups = [
           "domain_rdp_users"
         ]
       }

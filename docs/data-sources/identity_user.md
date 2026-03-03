@@ -33,6 +33,7 @@ data "idsec_identity_user" "myuser_by_id" {
 - `last_login` (Attributes) Last login time of the user (see [below for nested schema](#nestedatt--last_login))
 - `mobile_number` (String) Mobile number of the user
 - `password` (String) Password of the user
+- `state` (String) State of the user, can be None, Locked, Disabled, or Expired
 - `suffix` (String) Suffix of the user
 - `user_attributes` (Map of String) Custom attributes of the user
 - `user_id` (String) User ID found by name
