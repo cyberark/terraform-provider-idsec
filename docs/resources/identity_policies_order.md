@@ -26,3 +26,4 @@ resource "idsec_identity_policies_order" "my_policy_order" {
 ### Optional
 
 - `policies_order` (List of String) List of policy names in the desired order, where the first policy in the list will be the most prioritized one. policies which do not appear in the list will be ordered after the listed policies based on the existing order.
+- `return_all_policies_orders` (Boolean) Whether to return the order of all policies after the update, including those that were not included in the request. If false, only the order of the policies included in the request will be returned.
