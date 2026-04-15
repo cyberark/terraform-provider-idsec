@@ -34,8 +34,6 @@ func main() {
 		Address: "registry.terraform.io/cyberark/idsec",
 		Debug:   debug,
 	}
-	config.SetIdsecToolInUse(config.IdsecToolTerraformProvider)
-	config.GenerateCorrelationID()
 	if debug || os.Getenv("TF_LOG") != "" {
 		config.EnableVerboseLogging("DEBUG")
 	}

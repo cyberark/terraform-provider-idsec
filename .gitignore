@@ -19,6 +19,7 @@ website/node_modules
 *.backup
 ./*.tfstate
 .terraform/
+.terraform.lock.hcl
 *.log
 *.bak
 *~
@@ -39,9 +40,13 @@ test_results.txt
 tmp/
 .vscode/
 filesigner/
-/provider.tf
+/*.tf
 .env
+# Exception: track .env in acctest for test configuration
+!internal/acctest/**/.env
 # Local development module files (created by setup-dev.sh)
 go.local.mod
 go.local.sum
 
+# Local development folder
+/local/

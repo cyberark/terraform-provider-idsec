@@ -58,3 +58,13 @@ Optional:
 - `id` (String) The ID of the user that created the Safe
 - `name` (String) The name of the user that created the Safe
 
+
+
+
+## Import
+
+The `idsec_pcloud_safe` resource can be imported using the following command:
+
+```shell
+terraform import idsec_pcloud_safe.example safe-id-123
+```

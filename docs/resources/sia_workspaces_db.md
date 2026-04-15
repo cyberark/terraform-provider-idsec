@@ -58,3 +58,13 @@ resource "idsec_sia_workspaces_db" "example_db" {
 - `region` (String) The region of the database, most commonly used with IAM authentication.
 - `secret_id` (String) The secret identifier stored in the secret service related to this database.
 - `services` (List of String) The services related to the database, most commonly used with Oracle/SQL Server.
+
+
+
+## Import
+
+The `idsec_sia_workspaces_db` resource can be imported using the following command:
+
+```shell
+terraform import idsec_sia_workspaces_db.example workspace-db-id-123
+```

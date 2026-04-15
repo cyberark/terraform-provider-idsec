@@ -28,8 +28,11 @@ data "idsec_pcloud_account_credentials" "mycreds" {
 
 - `action_type` (String) The action the secret will be used for (show,copy,connect)
 - `machine` (String) The address of the remote machine to which the account will connect
-- `password` (String) Secret
 - `reason` (String) Reason for retrieving the the account's secrets (password or SSH key)
 - `ticket_id` (String) Ticket ID of the ticketing system for retrieval of the secret
 - `ticketing_system_name` (String) Ticketing system name to use to retrieve the account secret
 - `version` (String) The version of the required secret. If there are no previous versions, the current password/key version is returned
+
+### Read-Only
+
+- `password` (String, Sensitive) Secret

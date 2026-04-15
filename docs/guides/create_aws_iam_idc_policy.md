@@ -1,13 +1,10 @@
 ---
-page_title: "Create AWS IAM Identity Center policy"
-subcategory: "Cloud Access Policy"
+page_title: "Create access control policy for AWS IAM Identity Center"
 description: |-
   The following workflow describes how to create an AWS IAM Identity Center policy.
 ---
 
-# Create AWS IAM Identity Center policy
-
-## Workflow
+# Workflow
 
 This workflow demonstrates how to:
 
@@ -29,7 +26,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }
@@ -80,7 +77,7 @@ resource "idsec_policy_cloud_access" "example_aws_iam_idc_policy" {
     maxSessionDuration = var.max_session_duration
   }
   targets = {
-    targets = [
+    aws_organization_targets = [
       {
         roleId      = "arn:aws:sso:::permissionSet/ssoins-55555cf0998b940/ps-48b59e1afd27e74e" #var.role_id
         workspaceId = "123451234000" #var.workspace_id

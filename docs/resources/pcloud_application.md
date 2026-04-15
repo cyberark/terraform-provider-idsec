@@ -38,3 +38,13 @@ resource "idsec_pcloud_application" "myapp" {
 - `disabled` (Boolean) Whether the application is disabled or not
 - `expiration_date` (String) The application expiration date
 - `location` (String) The application location
+
+
+
+## Import
+
+The `idsec_pcloud_application` resource can be imported using the following command:
+
+```shell
+terraform import idsec_pcloud_application.example app-id-123
+```

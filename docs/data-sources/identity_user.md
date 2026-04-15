@@ -25,6 +25,11 @@ data "idsec_identity_user" "myuser_by_id" {
 
 ### Optional
 
+- `user_id` (String) User ID found by name
+- `username` (String) User name to find the id for
+
+### Read-Only
+
 - `display_name` (String) Display name of the user
 - `email` (String) Email of the user
 - `in_everybody_role` (Boolean) Whether to add the user to the 'Everybody' role
@@ -36,8 +41,6 @@ data "idsec_identity_user" "myuser_by_id" {
 - `state` (String) State of the user, can be None, Locked, Disabled, or Expired
 - `suffix` (String) Suffix of the user
 - `user_attributes` (Map of String) Custom attributes of the user
-- `user_id` (String) User ID found by name
-- `username` (String) User name to find the id for
 
 <a id="nestedatt--last_login"></a>
 ### Nested Schema for `last_login`

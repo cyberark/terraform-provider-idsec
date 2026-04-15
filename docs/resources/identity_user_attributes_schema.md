@@ -50,3 +50,13 @@ Optional:
 - `title` (String) Display title of the attribute column
 - `user_editable` (Boolean) Indicates if the attribute column is editable by the user
 
+
+
+
+## Import
+
+The `idsec_identity_user_attributes_schema` resource can be imported using the following command:
+
+```shell
+terraform import idsec_identity_user_attributes.example user-id-123
+```

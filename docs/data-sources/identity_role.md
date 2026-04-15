@@ -25,7 +25,10 @@ data "idsec_identity_role" "myrole" {
 
 ### Optional
 
+- `role_id` (String) Role ID found by name
+
+### Read-Only
+
 - `admin_rights` (Set of String) Admin rights assigned to the role
 - `description` (String) Description of the role
-- `role_id` (String) Role ID found by name
 - `role_type` (String) Type of the role, can be PrincipalList, Script, or Everybody

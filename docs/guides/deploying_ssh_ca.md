@@ -4,16 +4,14 @@ description: |-
   Deploy an SSH Certificate Authority (CA) to one or more target machines
 ---
 
-# Deploying SSH CA
-
-## Motivation
+# Motivation
 The following workflow describes how to securely deploy the SSH Certificate Authority (CA) to existing target machines using the Idsec Terraform Provider.
 
 The SSH CA enables secure, certificate-based SSH authentication by distributing trusted an SSH CA public key to remote target machines. 
 
 The deployment is done over SSH, and the provider fetches and installs the CA script onto each target machine.
 
-## Workflow
+# Workflow
 The workflow will:
 - Authenticate to CyberArk using a user who is a member of the DpaAdmin role.
 - Deploy the SSH CA public key to one or more existing target machines over SSH using Terraform.
@@ -25,7 +23,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }

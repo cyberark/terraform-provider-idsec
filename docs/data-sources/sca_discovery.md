@@ -30,7 +30,7 @@ data "idsec_sca_discovery" "discovery_example" {
 - `csp` (String) The cloud provider that hosts the workspace to discover (AWS | AZURE | GCP)
 - `organization_id` (String) The ID of the organization to discover (AWS - The AWS organization ID | AZURE: Microsoft Entra ID Directory (Tenant) ID | GCP: Google Cloud organization ID)
 
-### Optional
+### Read-Only
 
 - `already_running` (Boolean) Indicates that a discovery job for the same scope was already in progress
 - `job_id` (String) The ID of the job associated with the discovery process

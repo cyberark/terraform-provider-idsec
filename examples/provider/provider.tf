@@ -1,12 +1,3 @@
-terraform {
-  required_providers {
-    idsec = {
-      source  = "cyberark/idsec"
-      version = ">= 0.1"
-    }
-  }
-}
-
 provider "idsec" {
   auth_method = "identity"
   username    = var.idsec_username

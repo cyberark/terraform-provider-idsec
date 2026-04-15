@@ -15,7 +15,7 @@ SIA certificate source, reads certificate information.
 
 - `certificate_id` (String) The ID of the certificate to retrieve.
 
-### Optional
+### Read-Only
 
 - `cert_body` (String) The body content of the certificate.
 - `cert_description` (String) The description of the certificate.
@@ -34,7 +34,7 @@ SIA certificate source, reads certificate information.
 <a id="nestedatt--metadata"></a>
 ### Nested Schema for `metadata`
 
-Optional:
+Read-Only:
 
 - `issuer` (String) The issuer of the certificate.
 - `serial_number` (String) The serial number of the certificate.

@@ -69,3 +69,13 @@ Optional:
 - `view_audit_log` (Boolean) View account and user activity in the Safe
 - `view_safe_members` (Boolean) View permissions of Safe members
 
+
+
+
+## Import
+
+The `idsec_pcloud_safe_member` resource can be imported using the following command:
+
+```shell
+terraform import idsec_pcloud_safe_member.example_member safe-id-123:example.member@example.com
+```

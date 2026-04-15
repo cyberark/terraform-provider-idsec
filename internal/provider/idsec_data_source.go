@@ -15,8 +15,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	api "github.com/cyberark/idsec-sdk-golang/pkg"
 	"github.com/cyberark/idsec-sdk-golang/pkg/auth"
-	"github.com/cyberark/idsec-sdk-golang/pkg/models/actions"
 	"github.com/cyberark/idsec-sdk-golang/pkg/services"
+	"github.com/cyberark/terraform-provider-idsec/internal/actions"
+	"github.com/cyberark/terraform-provider-idsec/internal/featureadoption"
 	"github.com/cyberark/terraform-provider-idsec/internal/schemas"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -25,18 +26,44 @@ import (
 // IdsecDataSource is a struct that implements the datasource.DataSource interface.
 type IdsecDataSource struct {
 	datasource.DataSourceWithConfigure
+	IdsecServiceHelper
 	serviceConfig    *services.IdsecServiceConfig
 	actionDefinition *actions.IdsecServiceTerraformDataSourceActionDefinition
 	idsecAPI         *api.IdsecAPI
 }
 
-// NewIdsecDataSource creates a new instance of IdsecResource.
+// NewIdsecDataSource creates a new instance of IdsecDataSource.
 func NewIdsecDataSource(serviceConfig *services.IdsecServiceConfig,
 	actionDefinition *actions.IdsecServiceTerraformDataSourceActionDefinition) datasource.DataSource {
 	return &IdsecDataSource{
+		IdsecServiceHelper: IdsecServiceHelper{
+			serviceConfig: serviceConfig,
+		},
 		serviceConfig:    serviceConfig,
 		actionDefinition: actionDefinition,
 	}
+}
+
+// setTerraformContext sets terraform context on the service for telemetry.
+func (s *IdsecDataSource) setTerraformContext(operation string) {
+	service := s.getService()
+	if service == nil {
+		return
+	}
+
+	s.addTelemetryContextField(service, "terraform_data_source", "tfd", s.getTerraformTypeName(s.actionDefinition.ActionName))
+	s.addTelemetryContextField(service, "terraform_operation", "tfo", operation)
+	s.addTelemetryContextField(service, "provider_version", "tfv", providerVersion)
+}
+
+// clearTerraformContext clears terraform context from the SDK's telemetry.
+func (s *IdsecDataSource) clearTerraformContext() {
+	service := s.getService()
+	if service == nil {
+		return
+	}
+
+	s.clearTelemetryContext(service)
 }
 
 // Metadata defines the resource type name.
@@ -71,14 +98,32 @@ func (s *IdsecDataSource) Configure(ctx context.Context, req datasource.Configur
 		return
 	}
 	ispAuth, ok := req.ProviderData.(*auth.IdsecISPAuth)
-	if !ok || ispAuth == nil {
-		resp.Diagnostics.AddError("Authentication Error", "Unable to authenticate with the provided credentials.")
-		return
+	if !ok {
+		// Try PVWA auth
+		pvwaAuth, ok := req.ProviderData.(*auth.IdsecPVWAAuth)
+		if !ok {
+			resp.Diagnostics.AddError("Authentication Error", "Unable to authenticate with the provided credentials.")
+			return
+		}
+		var err error
+		s.idsecAPI, err = api.NewIdsecAPI([]auth.IdsecAuth{pvwaAuth}, nil)
+		if err != nil {
+			resp.Diagnostics.AddError("Service Initialization Error", fmt.Sprintf("Unable to create API: %s", err.Error()))
+			return
+		}
+	} else {
+		var err error
+		s.idsecAPI, err = api.NewIdsecAPI([]auth.IdsecAuth{ispAuth}, nil)
+		if err != nil {
+			resp.Diagnostics.AddError("Service Initialization Error", fmt.Sprintf("Unable to create API: %s", err.Error()))
+			return
+		}
 	}
-	var err error
-	s.idsecAPI, err = api.NewIdsecAPI([]auth.IdsecAuth{ispAuth}, nil)
+
+	// Configure the service instance using the helper
+	err := s.configureService(s.idsecAPI)
 	if err != nil {
-		resp.Diagnostics.AddError("Service Initialization Error", fmt.Sprintf("Unable to create SIA API: %s", err.Error()))
+		resp.Diagnostics.AddError("Service Configuration Error", fmt.Sprintf("Unable to configure service: %s", err.Error()))
 		return
 	}
 }
@@ -100,43 +145,31 @@ func (s *IdsecDataSource) parseConfig(ctx context.Context, diagnostics *diag.Dia
 
 // Read is called when the provider must read data source values in.
 func (s *IdsecDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	s.setTerraformContext("Read")
+	defer s.clearTerraformContext()
+	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Read"))()
+
 	tflog.Info(ctx, "Triggering datasource read")
 	operationSchemaInput, err := s.parseConfig(ctx, &resp.Diagnostics, req.Config)
 	if resp.Diagnostics.HasError() || err != nil {
 		tflog.Error(ctx, "Failed to get operation schema input")
 		return
 	}
-	serviceParts := strings.Split(s.serviceConfig.ServiceName, "-")
 
 	titleCase := cases.Title(language.English)
-
 	actionNameTitled := strings.ReplaceAll(titleCase.String(s.actionDefinition.DataSourceAction), "-", "")
-	serviceNameTitled := ""
-	for _, part := range serviceParts {
-		serviceNameTitled += titleCase.String(part)
-	}
-	serviceNameTitled = strings.ReplaceAll(serviceNameTitled, "-", "")
+	serviceNameTitled := s.getServiceNameTitled()
 	tflog.Info(ctx, fmt.Sprintf("Searching for Service Name: %s, Action Name: %s", serviceNameTitled, actionNameTitled))
-	serviceMethod, err := schemas.FindMethodByName(reflect.ValueOf(s.idsecAPI), serviceNameTitled)
-	if err != nil {
-		resp.Diagnostics.AddError("Service Method Error", fmt.Sprintf("Unable to find service method: %s", err.Error()))
+
+	// Get the service from the helper
+	service := s.getServiceInstance()
+	if service == nil {
+		resp.Diagnostics.AddError("Service Error", "Service instance not configured")
 		return
 	}
-	tflog.Info(ctx, fmt.Sprintf("Calling service method: %s", serviceNameTitled))
-	// Call the service method to get the actual service
-	serviceErr := serviceMethod.Call(nil)
 
-	// Check if the service method returned an error in any of the return data
-	service := serviceErr[0]
-	if len(serviceErr) > 1 {
-		if err, ok := serviceErr[1].Interface().(error); ok && err != nil {
-			tflog.Error(ctx, fmt.Sprintf("Failed to call service method: %s", err.Error()))
-			resp.Diagnostics.AddError("Service Error", fmt.Sprintf("Unable to call service method: %s", err.Error()))
-			return
-		}
-	}
-	// Get the method from the deduced service above
-	actionMethod, err := schemas.FindMethodByName(reflect.ValueOf(service.Interface()), actionNameTitled)
+	// Get the method from the service
+	actionMethod, err := schemas.FindMethodByName(reflect.ValueOf(service), actionNameTitled)
 	if err != nil {
 		resp.Diagnostics.AddError("Action Method Error", fmt.Sprintf("Unable to find action method: %s", err.Error()))
 		return

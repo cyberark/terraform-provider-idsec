@@ -78,7 +78,7 @@ func hasInterfaceInnerType(fieldType reflect.Type) bool {
 	return false
 }
 
-func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string) map[string]schema.Attribute {
+func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string, forceNewAttrs []string, computedAttrs []string) map[string]schema.Attribute {
 	modelType := reflect.TypeOf(inputModel)
 	if modelType.Kind() == reflect.Pointer {
 		modelType = modelType.Elem()
@@ -93,21 +93,21 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 		validate := field.Tag.Get("validate")
 		choices := field.Tag.Get("choices")
 		defaultValue := field.Tag.Get("default")
-		forceNew := field.Tag.Get("forcenew")
 		fieldName := resolveFieldName(field)
 		isRequired := strings.Contains(required, "true") || strings.Contains(validate, "required") || slices.Contains(extraRequiredAttrs, fieldName)
 		isSensitive := slices.Contains(sensitiveAttrs, fieldName)
-		isForceNew := strings.Contains(forceNew, "true")
 		isImmutable := slices.Contains(immutableAttrs, fieldName)
+		isForceNew := slices.Contains(forceNewAttrs, fieldName)
+		isComputedOnly := slices.Contains(computedAttrs, fieldName)
 		if fieldType.Kind() == reflect.Pointer {
 			fieldType = fieldType.Elem()
 		}
 		switch fieldType.Kind() {
 		case reflect.String:
-			if setAsComputed {
+			if setAsComputed || isComputedOnly {
 				strAttr := schema.StringAttribute{
 					Description: desc,
-					Optional:    true,
+					Optional:    !isComputedOnly,
 					Computed:    true,
 					Sensitive:   isSensitive,
 				}
@@ -118,8 +118,13 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 				Description: desc,
 				Optional:    !isRequired,
 				Required:    isRequired,
-				Computed:    !isRequired,
+				Computed:    !isRequired || isComputedOnly,
 				Sensitive:   isSensitive,
+			}
+			if isComputedOnly {
+				strAttr.Optional = false
+				strAttr.Required = false
+				strAttr.Computed = true
 			}
 			if defaultValue != "" {
 				strAttr.Default = StringDefault{Value: defaultValue}
@@ -141,10 +146,10 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			}
 			attributes[fieldName] = strAttr
 		case reflect.Bool:
-			if setAsComputed {
+			if setAsComputed || isComputedOnly {
 				boolAttr := schema.BoolAttribute{
 					Description: desc,
-					Optional:    true,
+					Optional:    !isComputedOnly,
 					Computed:    true,
 					Sensitive:   isSensitive,
 				}
@@ -155,8 +160,13 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 				Description: desc,
 				Optional:    !isRequired,
 				Required:    isRequired,
-				Computed:    !isRequired,
+				Computed:    !isRequired || isComputedOnly,
 				Sensitive:   isSensitive,
+			}
+			if isComputedOnly {
+				boolAttr.Optional = false
+				boolAttr.Required = false
+				boolAttr.Computed = true
 			}
 			if defaultValue != "" {
 				boolValue, _ := strconv.ParseBool(defaultValue)
@@ -177,10 +187,10 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			attributes[fieldName] = boolAttr
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			if setAsComputed {
+			if setAsComputed || isComputedOnly {
 				intAttr := schema.Int64Attribute{
 					Description: desc,
-					Optional:    true,
+					Optional:    !isComputedOnly,
 					Computed:    true,
 					Sensitive:   isSensitive,
 				}
@@ -191,8 +201,13 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 				Description: desc,
 				Optional:    !isRequired,
 				Required:    isRequired,
-				Computed:    !isRequired,
+				Computed:    !isRequired || isComputedOnly,
 				Sensitive:   isSensitive,
+			}
+			if isComputedOnly {
+				int64Attr.Optional = false
+				int64Attr.Required = false
+				int64Attr.Computed = true
 			}
 			if defaultValue != "" {
 				intValue, _ := strconv.ParseInt(defaultValue, 10, 64)
@@ -238,11 +253,11 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					continue
 				}
 				if slices.Contains(computedAsSetAttrs, fieldName) {
-					if setAsComputed {
+					if setAsComputed || isComputedOnly {
 						sliceAttr := schema.SetAttribute{
 							ElementType: terraType,
 							Description: desc,
-							Optional:    true,
+							Optional:    !isComputedOnly,
 							Computed:    true,
 							Sensitive:   isSensitive,
 						}
@@ -254,8 +269,13 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 						Description: desc,
 						Optional:    !isRequired,
 						Required:    isRequired,
-						Computed:    !isRequired,
+						Computed:    !isRequired || isComputedOnly,
 						Sensitive:   isSensitive,
+					}
+					if isComputedOnly {
+						sliceAttr.Optional = false
+						sliceAttr.Required = false
+						sliceAttr.Computed = true
 					}
 					if defaultValue != "" {
 						if fieldType.Elem().Kind() == reflect.String {
@@ -303,11 +323,11 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					}
 					attributes[fieldName] = sliceAttr
 				} else {
-					if setAsComputed {
+					if setAsComputed || isComputedOnly {
 						sliceAttr := schema.ListAttribute{
 							ElementType: terraType,
 							Description: desc,
-							Optional:    true,
+							Optional:    !isComputedOnly,
 							Computed:    true,
 							Sensitive:   isSensitive,
 						}
@@ -319,8 +339,13 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 						Description: desc,
 						Optional:    !isRequired,
 						Required:    isRequired,
-						Computed:    !isRequired,
+						Computed:    !isRequired || isComputedOnly,
 						Sensitive:   isSensitive,
+					}
+					if isComputedOnly {
+						sliceAttr.Optional = false
+						sliceAttr.Required = false
+						sliceAttr.Computed = true
 					}
 					if defaultValue != "" {
 						if fieldType.Elem().Kind() == reflect.String {
@@ -405,7 +430,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			}
 			if fieldType.Elem().Kind() == reflect.Struct {
 				// Handle nested structs by recursively generating their schema
-				nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs)
+				nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs)
 				if setAsComputed {
 					attributes[fieldName] = schema.ListNestedAttribute{
 						NestedObject: schema.NestedAttributeObject{
@@ -502,7 +527,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Sensitive:   isSensitive,
 				}
 			} else if fieldType.Elem().Kind() == reflect.Struct {
-				nestedAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs)
+				nestedAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs)
 				if setAsComputed {
 					complexMapAttr := schema.MapNestedAttribute{
 						NestedObject: schema.NestedAttributeObject{
@@ -530,12 +555,12 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			}
 		case reflect.Struct:
 			// Handle nested structs by recursively generating their schema
-			nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs)
-			if setAsComputed {
+			nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs)
+			if setAsComputed || isComputedOnly {
 				attributes[fieldName] = schema.SingleNestedAttribute{
 					Attributes:  nestedSchemaAttrs,
 					Description: desc,
-					Optional:    true,
+					Optional:    !isComputedOnly,
 					Computed:    true,
 					Sensitive:   isSensitive,
 				}
@@ -546,8 +571,16 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 				Description: desc,
 				Optional:    !isRequired,
 				Required:    isRequired,
-				Computed:    !isRequired,
+				Computed:    !isRequired || isComputedOnly,
 				Sensitive:   isSensitive,
+			}
+			if isComputedOnly {
+				if attr, ok := attributes[fieldName].(schema.SingleNestedAttribute); ok {
+					attr.Optional = false
+					attr.Required = false
+					attr.Computed = true
+					attributes[fieldName] = attr
+				}
 			}
 		case reflect.Interface:
 			if setAsComputed {
@@ -573,25 +606,227 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 	return attributes
 }
 
+// forceComputedAttributesReadOnly recursively marks computed-only attributes as read-only
+// (Optional=false, Required=false, Computed=true) in both top-level and nested attributes.
+// Supports dot-notation paths like "secret_management.last_modified_time" for nested attributes.
+func forceComputedAttributesReadOnly(attributes map[string]schema.Attribute, computedAttrs []string) {
+	for _, computedAttrPath := range computedAttrs {
+		// Check if this is a path (contains a dot)
+		if strings.Contains(computedAttrPath, ".") {
+			// Handle path-based attribute (e.g., "secret_management.last_modified_time")
+			pathParts := strings.SplitN(computedAttrPath, ".", 2)
+			nestedAttrName := pathParts[0]
+			remainingPath := pathParts[1]
+
+			if attr, exists := attributes[nestedAttrName]; exists {
+				// Navigate to the nested attribute
+				switch a := attr.(type) {
+				case schema.SingleNestedAttribute:
+					if a.Attributes != nil {
+						// Recursively process with the remaining path
+						forceComputedAttributesReadOnly(a.Attributes, []string{remainingPath})
+						attributes[nestedAttrName] = a
+					}
+				case schema.ListNestedAttribute:
+					if a.NestedObject.Attributes != nil {
+						// Recursively process with the remaining path
+						forceComputedAttributesReadOnly(a.NestedObject.Attributes, []string{remainingPath})
+						attributes[nestedAttrName] = a
+					}
+				case schema.MapNestedAttribute:
+					if a.NestedObject.Attributes != nil {
+						// Recursively process with the remaining path
+						forceComputedAttributesReadOnly(a.NestedObject.Attributes, []string{remainingPath})
+						attributes[nestedAttrName] = a
+					}
+				}
+			}
+			continue
+		}
+
+		// Handle simple attribute name (no path)
+		if attr, exists := attributes[computedAttrPath]; exists {
+			// Use type assertion to update the attribute
+			switch a := attr.(type) {
+			case schema.StringAttribute:
+				a.Optional = false
+				a.Required = false
+				a.Computed = true
+				attributes[computedAttrPath] = a
+			case schema.BoolAttribute:
+				a.Optional = false
+				a.Required = false
+				a.Computed = true
+				attributes[computedAttrPath] = a
+			case schema.Int64Attribute:
+				a.Optional = false
+				a.Required = false
+				a.Computed = true
+				attributes[computedAttrPath] = a
+			case schema.ListAttribute:
+				a.Optional = false
+				a.Required = false
+				a.Computed = true
+				attributes[computedAttrPath] = a
+			case schema.SetAttribute:
+				a.Optional = false
+				a.Required = false
+				a.Computed = true
+				attributes[computedAttrPath] = a
+			case schema.MapAttribute:
+				a.Optional = false
+				a.Required = false
+				a.Computed = true
+				attributes[computedAttrPath] = a
+			case schema.DynamicAttribute:
+				a.Optional = false
+				a.Required = false
+				a.Computed = true
+				attributes[computedAttrPath] = a
+			case schema.SingleNestedAttribute:
+				// Recursively process nested attributes
+				if a.Attributes != nil {
+					forceComputedAttributesReadOnly(a.Attributes, computedAttrs)
+				}
+				a.Optional = false
+				a.Required = false
+				a.Computed = true
+				attributes[computedAttrPath] = a
+			case schema.ListNestedAttribute:
+				// Recursively process nested attributes
+				if a.NestedObject.Attributes != nil {
+					forceComputedAttributesReadOnly(a.NestedObject.Attributes, computedAttrs)
+				}
+				a.Optional = false
+				a.Required = false
+				a.Computed = true
+				attributes[computedAttrPath] = a
+			case schema.MapNestedAttribute:
+				// Recursively process nested attributes
+				if a.NestedObject.Attributes != nil {
+					forceComputedAttributesReadOnly(a.NestedObject.Attributes, computedAttrs)
+				}
+				a.Optional = false
+				a.Required = false
+				a.Computed = true
+				attributes[computedAttrPath] = a
+			}
+		}
+	}
+
+	// Also recursively process all nested attributes to find computed-only fields
+	for key, attr := range attributes {
+		switch a := attr.(type) {
+		case schema.SingleNestedAttribute:
+			if a.Attributes != nil {
+				forceComputedAttributesReadOnly(a.Attributes, computedAttrs)
+				// The map is modified in place, reassign to ensure the attribute is updated
+				attributes[key] = a
+			}
+		case schema.ListNestedAttribute:
+			if a.NestedObject.Attributes != nil {
+				forceComputedAttributesReadOnly(a.NestedObject.Attributes, computedAttrs)
+				// The map is modified in place, but we need to reassign to update the attribute
+				attributes[key] = a
+			}
+		case schema.MapNestedAttribute:
+			if a.NestedObject.Attributes != nil {
+				forceComputedAttributesReadOnly(a.NestedObject.Attributes, computedAttrs)
+				// The map is modified in place, but we need to reassign to update the attribute
+				attributes[key] = a
+			}
+		}
+	}
+}
+
+// getNestedStructFieldNames collects all field names that belong to nested structs in the state model.
+// This is used to identify flattened fields from create/update schemas that should be excluded.
+// Returns a set of field names that are part of nested structs (not squashed).
+func getNestedStructFieldNames(stateModel interface{}) map[string]bool {
+	fieldNames := make(map[string]bool)
+	if stateModel == nil {
+		return fieldNames
+	}
+	modelType := reflect.TypeOf(stateModel)
+	if modelType.Kind() == reflect.Pointer {
+		modelType = modelType.Elem()
+	}
+	if modelType.Kind() != reflect.Struct {
+		return fieldNames
+	}
+	// Iterate through the original struct fields to identify nested structs (not squashed)
+	for i := 0; i < modelType.NumField(); i++ {
+		field := modelType.Field(i)
+		if field.PkgPath != "" { // unexported field
+			continue
+		}
+		mapstructureTag := field.Tag.Get("mapstructure")
+		if mapstructureTag == "-" { // skip ignored fields
+			continue
+		}
+		// Skip squashed fields - they're already flattened
+		if mapstructureTag == ",squash" {
+			continue
+		}
+		fieldType := field.Type
+		if fieldType.Kind() == reflect.Pointer {
+			fieldType = fieldType.Elem()
+		}
+		// Check if this is a nested struct field (not squashed)
+		if fieldType.Kind() == reflect.Struct {
+			// Get all fields from the nested struct
+			nestedFields := resolveFieldsSquashed(fieldType)
+			for j := range nestedFields {
+				nestedFieldName := resolveFieldName(nestedFields[j])
+				// Mark this field as belonging to a nested struct
+				fieldNames[nestedFieldName] = true
+			}
+		}
+	}
+	return fieldNames
+}
+
 // GenerateResourceSchemaFromStruct generates a Terraform schema from a Go struct.
-func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel interface{}, stateModel interface{}, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string) schema.Schema {
-	schemaAttrs := resourceSchemaAttrsFromStruct(createModel, false, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs)
+func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel interface{}, stateModel interface{}, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string, forceNewAttrs []string, computedAttrs []string) schema.Schema {
+	schemaAttrs := resourceSchemaAttrsFromStruct(createModel, false, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs)
+
+	// Get field names that belong to nested structs in the state model
+	// These should not appear as flattened fields in the final schema
+	nestedStructFieldNames := getNestedStructFieldNames(stateModel)
+
 	if updateModel != nil {
-		updateModelAttrs := resourceSchemaAttrsFromStruct(updateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs)
+		updateModelAttrs := resourceSchemaAttrsFromStruct(updateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs)
 		for key, updateAttr := range updateModelAttrs {
+			// Skip flattened fields that belong to nested structs in the state model
+			if nestedStructFieldNames[key] {
+				continue
+			}
 			if _, exists := schemaAttrs[key]; !exists {
 				schemaAttrs[key] = updateAttr
 			}
 		}
 	}
+
+	// Remove any flattened fields from create schema that belong to nested structs
+	for key := range schemaAttrs {
+		if nestedStructFieldNames[key] {
+			delete(schemaAttrs, key)
+		}
+	}
+
 	if stateModel != nil {
-		outputModelAttrs := resourceSchemaAttrsFromStruct(stateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs)
+		outputModelAttrs := resourceSchemaAttrsFromStruct(stateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs)
 		for key, outputAttr := range outputModelAttrs {
 			if _, exists := schemaAttrs[key]; !exists {
 				schemaAttrs[key] = outputAttr
 			}
 		}
 	}
+
+	// Force computed-only attributes to be read-only (Optional=false, Required=false, Computed=true)
+	// This processes both top-level and nested attributes recursively
+	forceComputedAttributesReadOnly(schemaAttrs, computedAttrs)
+
 	return schema.Schema{
 		Attributes: schemaAttrs,
 	}

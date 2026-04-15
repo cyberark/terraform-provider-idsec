@@ -30,15 +30,18 @@ data "idsec_identity_webapp_permission" "my_webapp_permission_by_name" {
 ### Required
 
 - `principal_type` (String) Principal type of the grant
-- `rights` (Set of String) List of rights in the grant
 
 ### Optional
 
-- `directory_service_uuid` (String) Directory service UUID of the grant, if applicable
-- `external_uuid` (String) External UUID of the grant, if applicable
 - `principal` (String) Principal Name of the grant
 - `principal_id` (String) Principal ID of the grant
-- `system_name` (String) System name of the grant, if applicable
-- `type` (String) Type of the grant
 - `webapp_id` (String) Row key identifier of the webapp to fetch its permissions
 - `webapp_name` (String) Name of the webapp to fetch its permissions
+
+### Read-Only
+
+- `directory_service_uuid` (String) Directory service UUID of the grant, if applicable
+- `external_uuid` (String) External UUID of the grant, if applicable
+- `rights` (Set of String) List of rights in the grant
+- `system_name` (String) System name of the grant, if applicable
+- `type` (String) Type of the grant

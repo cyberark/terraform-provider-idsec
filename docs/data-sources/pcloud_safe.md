@@ -25,6 +25,10 @@ data "idsec_pcloud_safe" "example_safe" {
 
 ### Optional
 
+- `safe_name` (String) The name of the Safe for retrieving the Safe's details
+
+### Read-Only
+
 - `auto_purge_enabled` (Boolean) Whether or not to automatically purge files after the end of the Object History Retention Period defined in the Safe properties. For Report Safes and PSM Recording Safes, automatically set to Yes
 - `creation_time` (Number) The Unix creation time of the Safe
 - `creator` (Attributes) Name/ID of the user that created the Safe (see [below for nested schema](#nestedatt--creator))
@@ -36,13 +40,12 @@ data "idsec_pcloud_safe" "example_safe" {
 - `number_of_days_retention` (Number) The number of days that secrets versions are saved in the Safe
 - `number_of_versions_retention` (Number) The number of retained versions of every secret that is stored in the Safe
 - `olac_enabled` (Boolean) Whether Object Level Access Control is enabled
-- `safe_name` (String) The name of the Safe for retrieving the Safe's details
 - `safe_number` (Number) The unique numerical ID of the Safe
 
 <a id="nestedatt--creator"></a>
 ### Nested Schema for `creator`
 
-Optional:
+Read-Only:
 
 - `id` (String) The ID of the user that created the Safe
 - `name` (String) The name of the user that created the Safe

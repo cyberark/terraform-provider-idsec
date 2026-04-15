@@ -1,0 +1,1 @@
+terraform import idsec_identity_role_admin_rights.example role-id-123

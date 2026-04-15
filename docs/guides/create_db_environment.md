@@ -4,13 +4,11 @@ description: |-
   The following workflow describes how to create a ZSP DB environment.
 ---
 
-# Create DB Environment
-
-## Motivation
+# Motivation
 
 The following workflow describes how to configure a ZSP DB environment using the Idsec Terraform Provider. This will allow the users to perform connections via CyberArk to their target databases with ephemeral users.
 
-## Workflow
+# Workflow
 The workflow will:
 - Login to CyberArk with a normal user
 - Create a secret for the database strong user
@@ -24,7 +22,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }

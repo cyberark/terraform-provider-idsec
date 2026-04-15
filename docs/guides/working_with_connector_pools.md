@@ -4,15 +4,13 @@ description: |-
   Creates and configures a sample connector pool with two assigned networks and two unique identifiers.
 ---
 
-# Working with Connector Pools
-
-## Motivation
+# Motivation
 
 Connector pools are used to group together SIA connectors with other SIA connectors, or system connectors with other system connectors.
 
 The following workflow describes how to create and configure a sample connector pool with two assigned networks and two unique identifiers.
 
-## Workflow
+# Workflow
 The workflow does the following:
 - Creates and configures two networks.
 - Creates a connector pool and assigns the networks to it.
@@ -25,7 +23,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }

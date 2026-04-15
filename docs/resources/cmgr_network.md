@@ -38,3 +38,13 @@ Optional:
 - `name` (String) The name of the pool.
 - `pool_id` (String) The ID of the pool.
 
+
+
+
+## Import
+
+The `idsec_cmgr_network` resource can be imported using the following command:
+
+```shell
+terraform import idsec_cmgr_network.example network-id-123
+```

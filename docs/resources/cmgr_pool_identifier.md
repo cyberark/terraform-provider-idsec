@@ -32,3 +32,13 @@ resource "idsec_cmgr_pool_identifier" "example_identifier" {
 - `created_at` (String) The creation time of the identifier.
 - `identifier_id` (String) The ID of the identifier to update from the pool.
 - `updated_at` (String) The last update time of the identifier.
+
+
+
+## Import
+
+The `idsec_cmgr_pool_identifier` resource can be imported using the following command:
+
+```shell
+terraform import idsec_cmgr_pool_identifier.example pool-id-123:pool-identifier-id-123
+```

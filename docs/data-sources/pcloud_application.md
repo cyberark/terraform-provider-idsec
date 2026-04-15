@@ -21,9 +21,12 @@ data "idsec_pcloud_application" "myapp" {
 
 ### Optional
 
+- `app_id` (String) The application ID
+
+### Read-Only
+
 - `access_permitted_from` (Number) The timestamp from which access is permitted
 - `access_permitted_to` (Number) The timestamp until which access is permitted
-- `app_id` (String) The application ID
 - `business_owner_email` (String) The business owner's email address
 - `business_owner_f_name` (String) The business owner's first name
 - `business_owner_l_name` (String) The business owner's last name

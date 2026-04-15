@@ -15,7 +15,7 @@ Privilege Cloud target platform data source, reads target platform information a
 
 - `target_platform_id` (Number) ID of the target platform to retrieve
 
-### Optional
+### Read-Only
 
 - `active` (Boolean) Whether a platform is active or inactive
 - `allowed_safes` (String) Regex of safes in which accounts from this platform can be managed
@@ -30,7 +30,7 @@ Privilege Cloud target platform data source, reads target platform information a
 <a id="nestedatt--credentials_management_policy"></a>
 ### Nested Schema for `credentials_management_policy`
 
-Optional:
+Read-Only:
 
 - `change` (Attributes) Secrets rotation policy (see [below for nested schema](#nestedatt--credentials_management_policy--change))
 - `reconcile` (Attributes) Reconcile policy (see [below for nested schema](#nestedatt--credentials_management_policy--reconcile))
@@ -40,7 +40,7 @@ Optional:
 <a id="nestedatt--credentials_management_policy--change"></a>
 ### Nested Schema for `credentials_management_policy.change`
 
-Optional:
+Read-Only:
 
 - `allow_manual` (Boolean) Whether ad hoc rotation can be initiated manually
 - `auto_on_add` (Boolean) Whether accounts related to this platform will be rotated after being added
@@ -52,7 +52,7 @@ Optional:
 <a id="nestedatt--credentials_management_policy--reconcile"></a>
 ### Nested Schema for `credentials_management_policy.reconcile`
 
-Optional:
+Read-Only:
 
 - `allow_manual` (Boolean) Whether ad hoc reconcile can be initiated manually
 - `automatic_reconcile_when_unsynced` (Boolean) Whether to reconcile secrets automatically when non-synced secrets are noted on a remote machine
@@ -61,7 +61,7 @@ Optional:
 <a id="nestedatt--credentials_management_policy--secret_update_configuration"></a>
 ### Nested Schema for `credentials_management_policy.secret_update_configuration`
 
-Optional:
+Read-Only:
 
 - `change_password_in_reset_mode` (Boolean) Whether or not secrets rotation will be performed in reset mode using the reconciliation account. This is useful in cases where the secrets rotation policy prevents the user from changing his own secret or when a minimal secret age restriction is applied
 
@@ -69,7 +69,7 @@ Optional:
 <a id="nestedatt--credentials_management_policy--verification"></a>
 ### Nested Schema for `credentials_management_policy.verification`
 
-Optional:
+Read-Only:
 
 - `allow_manual` (Boolean) Whether ad hoc rotation can be initiated manually
 - `auto_on_add` (Boolean) Whether accounts related to this platform will be rotated after being added
@@ -82,7 +82,7 @@ Optional:
 <a id="nestedatt--privileged_access_workflows"></a>
 ### Nested Schema for `privileged_access_workflows`
 
-Optional:
+Read-Only:
 
 - `enforce_checkin_checkout_exclusive_access` (Attributes) Checkin-checkout workflow details (see [below for nested schema](#nestedatt--privileged_access_workflows--enforce_checkin_checkout_exclusive_access))
 - `enforce_onetime_password_access` (Attributes) One-time password workflow details (see [below for nested schema](#nestedatt--privileged_access_workflows--enforce_onetime_password_access))
@@ -92,7 +92,7 @@ Optional:
 <a id="nestedatt--privileged_access_workflows--enforce_checkin_checkout_exclusive_access"></a>
 ### Nested Schema for `privileged_access_workflows.enforce_checkin_checkout_exclusive_access`
 
-Optional:
+Read-Only:
 
 - `is_active` (Boolean) Whether workflow is active
 - `is_an_exception` (Boolean) Whether workflow is an exception
@@ -101,7 +101,7 @@ Optional:
 <a id="nestedatt--privileged_access_workflows--enforce_onetime_password_access"></a>
 ### Nested Schema for `privileged_access_workflows.enforce_onetime_password_access`
 
-Optional:
+Read-Only:
 
 - `is_active` (Boolean) Whether workflow is active
 - `is_an_exception` (Boolean) Whether workflow is an exception
@@ -110,7 +110,7 @@ Optional:
 <a id="nestedatt--privileged_access_workflows--require_dual_control_password_access_approval"></a>
 ### Nested Schema for `privileged_access_workflows.require_dual_control_password_access_approval`
 
-Optional:
+Read-Only:
 
 - `is_active` (Boolean) Whether workflow is active
 - `is_an_exception` (Boolean) Whether workflow is an exception
@@ -119,7 +119,7 @@ Optional:
 <a id="nestedatt--privileged_access_workflows--require_users_to_specify_reason_for_access"></a>
 ### Nested Schema for `privileged_access_workflows.require_users_to_specify_reason_for_access`
 
-Optional:
+Read-Only:
 
 - `is_active` (Boolean) Whether workflow is active
 - `is_an_exception` (Boolean) Whether workflow is an exception
@@ -129,7 +129,7 @@ Optional:
 <a id="nestedatt--privileged_session_management"></a>
 ### Nested Schema for `privileged_session_management`
 
-Optional:
+Read-Only:
 
 - `psm_server_id` (String) PSM server ID
 - `psm_server_name` (String) PSM server name

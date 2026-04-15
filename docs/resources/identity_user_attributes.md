@@ -41,3 +41,13 @@ resource "idsec_identity_user_attributes" "myuser_attributes" {
 
 - `attributes` (Map of String) Key-value pairs of attributes to upsert
 - `user_id` (String) ID of the user whose attributes are to be upserted
+
+
+
+## Import
+
+The `idsec_identity_user_attributes` resource can be imported using the following command:
+
+```shell
+terraform import idsec_identity_user_attributes.example user-id-123
+```

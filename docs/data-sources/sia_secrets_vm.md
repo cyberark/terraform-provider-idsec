@@ -23,22 +23,36 @@ data "idsec_sia_secrets_vm" "example_secret" {
 
 - `secret_id` (String) The Secret ID to get.
 
-### Optional
+### Read-Only
 
+- `account_domain` (String) Account domain of the secret (defaults to 'local').
 - `creation_time` (String) Creation time of the secret
+- `domain_controller_enable_certificate_validation` (Boolean) Enable certificate validation for domain controller LDAPS. Requires domain-controller-use-ldaps and domain-controller-ldaps-certificate. Default: false.
+- `domain_controller_ldaps_certificate` (String) LDAPS certificate ID for domain controller. Default: empty.
+- `domain_controller_name` (String) Domain controller name for ephemeral domain user creation. Default: empty.
+- `domain_controller_netbios` (String) Domain controller NetBIOS name for ephemeral domain user creation. Default: empty.
+- `domain_controller_use_ldaps` (Boolean) Use LDAPS for the domain controller. Default: true.
+- `enable_ephemeral_domain_user_creation` (Boolean) Enable creation of ephemeral domain users. Requires account_domain to be set to a non-local domain. Default: false.
+- `ephemeral_domain_user_location` (String) OU path for ephemeral domain user creation. Default: empty.
 - `is_active` (Boolean) Whether this secret is active or not and can be retrieved or modified
 - `is_rotatable` (Boolean) Whether this secret can be rotated
 - `last_modified` (String) Last time the secret was modified
+- `pcloud_account_name` (String) If Priviledge Cloud account type is selected, the account name.
+- `pcloud_account_safe` (String) If Priviledge Cloud account type is selected, the account Safe.
+- `provisioner_password` (String) If provisioner user type is selected, the password.
+- `provisioner_username` (String) If provisioner user type is selected, the username.
 - `secret` (Attributes) Secret itself (see [below for nested schema](#nestedatt--secret))
-- `secret_details` (String) Secret extra details as JSON string
 - `secret_name` (String) A friendly name label
 - `secret_type` (String) Type of the secret
 - `tenant_id` (String) Tenant ID of the secret
+- `use_winrm_for_https` (Boolean) Use WinRM over HTTPS. Default: true.
+- `winrm_certificate` (String) WinRM certificate ID. Default: empty.
+- `winrm_enable_certificate_validation` (Boolean) Enable certificate validation for WinRM. Requires use-winrm-for-https and winrm-certificate. Default: false.
 
 <a id="nestedatt--secret"></a>
 ### Nested Schema for `secret`
 
-Optional:
+Read-Only:
 
 - `secret_data` (Dynamic) The actual Secret data, can be of different types, and is base64 encoded if SecretBytes. Otherwise it is stored in the JIT data message as a string or as a dict of Secret data to be encrypted.
 - `tenant_encrypted` (Boolean) Indicates whether the Secret is encrypted by the tenant key.

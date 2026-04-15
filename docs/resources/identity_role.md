@@ -31,3 +31,13 @@ resource "idsec_identity_role" "myrole" {
 - `dynamic_role_script` (String) Script for dynamic role, required if RoleType is Script
 - `role_id` (String) Role id to update
 - `role_type` (String) Type of the role to create, can be PrincipalList, Script, or Everybody
+
+
+
+## Import
+
+The `idsec_identity_role` resource can be imported using the following command:
+
+```shell
+terraform import idsec_identity_role example role-id-123
+```

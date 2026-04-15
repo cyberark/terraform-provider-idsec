@@ -11,15 +11,18 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/mitchellh/mapstructure"
 	api "github.com/cyberark/idsec-sdk-golang/pkg"
 	"github.com/cyberark/idsec-sdk-golang/pkg/auth"
-	"github.com/cyberark/idsec-sdk-golang/pkg/models/actions"
 	"github.com/cyberark/idsec-sdk-golang/pkg/services"
+	"github.com/cyberark/terraform-provider-idsec/internal/actions"
+	"github.com/cyberark/terraform-provider-idsec/internal/featureadoption"
 	"github.com/cyberark/terraform-provider-idsec/internal/schemas"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -28,6 +31,7 @@ import (
 // IdsecResource is a struct that implements the resource.Resource interface.
 type IdsecResource struct {
 	resource.ResourceWithConfigure
+	IdsecServiceHelper
 	serviceConfig    *services.IdsecServiceConfig
 	actionDefinition *actions.IdsecServiceTerraformResourceActionDefinition
 	idsecAPI         *api.IdsecAPI
@@ -37,9 +41,34 @@ type IdsecResource struct {
 func NewIdsecResource(serviceConfig *services.IdsecServiceConfig,
 	actionDefinition *actions.IdsecServiceTerraformResourceActionDefinition) resource.Resource {
 	return &IdsecResource{
+		IdsecServiceHelper: IdsecServiceHelper{
+			serviceConfig: serviceConfig,
+		},
 		serviceConfig:    serviceConfig,
 		actionDefinition: actionDefinition,
 	}
+}
+
+// setTerraformContext sets terraform context on the service for telemetry.
+func (s *IdsecResource) setTerraformContext(operation string) {
+	service := s.getService()
+	if service == nil {
+		return
+	}
+
+	s.addTelemetryContextField(service, "terraform_resource", "tfr", s.getTerraformTypeName(s.actionDefinition.ActionName))
+	s.addTelemetryContextField(service, "terraform_operation", "tfo", operation)
+	s.addTelemetryContextField(service, "provider_version", "tfv", providerVersion)
+}
+
+// clearTerraformContext clears terraform context from the SDK's telemetry.
+func (s *IdsecResource) clearTerraformContext() {
+	service := s.getService()
+	if service == nil {
+		return
+	}
+
+	s.clearTelemetryContext(service)
 }
 
 func (s *IdsecResource) schemaForOperation(operation actions.IdsecServiceActionOperation) (interface{}, error) {
@@ -57,17 +86,43 @@ func (s *IdsecResource) schemaForOperation(operation actions.IdsecServiceActionO
 	return schemas.DeepCopy(operationSchema), nil
 }
 
-func (s *IdsecResource) getImmutableAttributes() []string {
-	// Use reflection to safely check if ImmutableAttributes field exists
-	// This provides backward compatibility with SDK versions that don't have this field yet
+// getStringSliceFromActionDefinition uses reflection to safely read a []string field from
+// IdsecServiceBaseTerraformActionDefinition. Provides backward compatibility with SDK
+// versions that don't have the field yet.
+func (s *IdsecResource) getStringSliceFromActionDefinition(fieldName string) []string {
 	val := reflect.ValueOf(s.actionDefinition.IdsecServiceBaseTerraformActionDefinition)
-	field := val.FieldByName("ImmutableAttributes")
+	field := val.FieldByName(fieldName)
 	if field.IsValid() && field.Kind() == reflect.Slice {
 		if attrs, ok := field.Interface().([]string); ok {
 			return attrs
 		}
 	}
 	return []string{}
+}
+
+func (s *IdsecResource) getImmutableAttributes() []string {
+	return s.getStringSliceFromActionDefinition("ImmutableAttributes")
+}
+
+func (s *IdsecResource) getForceNewAttributes() []string {
+	return s.getStringSliceFromActionDefinition("ForceNewAttributes")
+}
+
+func (s *IdsecResource) getComputedAttributes() []string {
+	return s.getStringSliceFromActionDefinition("ComputedAttributes")
+}
+
+func (s *IdsecResource) getImportID() string {
+	// Use reflection to safely check if ImportID field exists
+	// This provides backward compatibility with SDK versions that don't have this field yet
+	val := reflect.ValueOf(s.actionDefinition).Elem()
+	field := val.FieldByName("ImportID")
+	if field.IsValid() && field.Kind() == reflect.String {
+		if attr, ok := field.Interface().(string); ok && attr != "" {
+			return attr
+		}
+	}
+	return "" // Return empty string if not configured (import not supported)
 }
 
 func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions.IdsecServiceActionOperation, diagnostics *diag.Diagnostics, plan *tfsdk.Plan, state *tfsdk.State) (interface{}, error) {
@@ -184,7 +239,6 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 		}
 		return
 	}
-	serviceParts := strings.Split(s.serviceConfig.ServiceName, "-")
 	actionName, ok := s.actionDefinition.ActionsMappings[operation]
 	if !ok {
 		s.finalizeFailure(ctx, "Action Mapping Error", fmt.Sprintf("No action mapping found for operation: %s", operation), operation, originalState, respState, diagnostics)
@@ -192,33 +246,19 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 	}
 
 	titleCase := cases.Title(language.English)
-
 	actionNameTitled := strings.ReplaceAll(titleCase.String(actionName), "-", "")
-	serviceNameTitled := ""
-	for _, part := range serviceParts {
-		serviceNameTitled += titleCase.String(part)
-	}
-	serviceNameTitled = strings.ReplaceAll(serviceNameTitled, "-", "")
+	serviceNameTitled := s.getServiceNameTitled()
 	tflog.Info(ctx, fmt.Sprintf("Searching for Service Name: %s, Action Name: %s", serviceNameTitled, actionNameTitled))
-	serviceMethod, err := schemas.FindMethodByName(reflect.ValueOf(s.idsecAPI), serviceNameTitled)
-	if err != nil {
-		s.finalizeFailure(ctx, "Service Method Error", fmt.Sprintf("Unable to find service method: %s", err.Error()), operation, originalState, respState, diagnostics)
+
+	// Get the service from the helper
+	service := s.getServiceInstance()
+	if service == nil {
+		s.finalizeFailure(ctx, "Service Error", "Service instance not configured", operation, originalState, respState, diagnostics)
 		return
 	}
-	tflog.Info(ctx, fmt.Sprintf("Calling service method: %s", serviceNameTitled))
-	// Call the service method to get the actual service
-	serviceErr := serviceMethod.Call(nil)
 
-	// Check if the service method returned an error in any of the return data
-	service := serviceErr[0]
-	if len(serviceErr) > 1 {
-		if err, ok := serviceErr[1].Interface().(error); ok && err != nil {
-			s.finalizeFailure(ctx, "Service Error", fmt.Sprintf("Unable to call service method: %s", err.Error()), operation, originalState, respState, diagnostics)
-			return
-		}
-	}
-	// Get the method from the deduced service above
-	actionMethod, err := schemas.FindMethodByName(reflect.ValueOf(service.Interface()), actionNameTitled)
+	// Get the method from the service
+	actionMethod, err := schemas.FindMethodByName(reflect.ValueOf(service), actionNameTitled)
 	if err != nil {
 		s.finalizeFailure(ctx, "Action Method Error", fmt.Sprintf("Unable to find action method: %s", err.Error()), operation, originalState, respState, diagnostics)
 		return
@@ -268,7 +308,10 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 			s.actionDefinition.ExtraRequiredAttributes,
 			s.actionDefinition.ComputedAsSetAttributes,
 			s.getImmutableAttributes(),
+			s.getForceNewAttributes(),
+			s.getComputedAttributes(),
 		)
+
 		schemaAttrs := schemas.ResourceSchemaToSchemaAttrTypes(outputSchemaDef)
 		stateResult, err := schemas.StructToStateObject(ctx, resultElem.Interface(), state, plan, schemaAttrs)
 		if err != nil {
@@ -320,6 +363,8 @@ func (s *IdsecResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 		s.actionDefinition.ExtraRequiredAttributes,
 		s.actionDefinition.ComputedAsSetAttributes,
 		s.getImmutableAttributes(),
+		s.getForceNewAttributes(),
+		s.getComputedAttributes(),
 	)
 	resp.Schema.Description = s.actionDefinition.ActionDescription
 	if s.actionDefinition.ActionVersion != 0 {
@@ -333,34 +378,139 @@ func (s *IdsecResource) Configure(ctx context.Context, req resource.ConfigureReq
 		return
 	}
 	ispAuth, ok := req.ProviderData.(*auth.IdsecISPAuth)
-	if !ok || ispAuth == nil {
-		resp.Diagnostics.AddError("Authentication Error", "Unable to authenticate with the provided credentials.")
-		return
+	if !ok {
+		// Try PVWA auth
+		pvwaAuth, ok := req.ProviderData.(*auth.IdsecPVWAAuth)
+		if !ok {
+			resp.Diagnostics.AddError("Authentication Error", "Unable to authenticate with the provided credentials.")
+			return
+		}
+		var err error
+		s.idsecAPI, err = api.NewIdsecAPI([]auth.IdsecAuth{pvwaAuth}, nil)
+		if err != nil {
+			resp.Diagnostics.AddError("Service Initialization Error", fmt.Sprintf("Unable to create API: %s", err.Error()))
+			return
+		}
+	} else {
+		var err error
+		s.idsecAPI, err = api.NewIdsecAPI([]auth.IdsecAuth{ispAuth}, nil)
+		if err != nil {
+			resp.Diagnostics.AddError("Service Initialization Error", fmt.Sprintf("Unable to create API: %s", err.Error()))
+			return
+		}
 	}
-	var err error
-	s.idsecAPI, err = api.NewIdsecAPI([]auth.IdsecAuth{ispAuth}, nil)
+
+	// Configure the service instance using the helper
+	err := s.configureService(s.idsecAPI)
 	if err != nil {
-		resp.Diagnostics.AddError("Service Initialization Error", fmt.Sprintf("Unable to create SIA API: %s", err.Error()))
+		resp.Diagnostics.AddError("Service Configuration Error", fmt.Sprintf("Unable to configure service: %s", err.Error()))
 		return
 	}
 }
 
 // Create handles the creation of the resource.
 func (s *IdsecResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	s.setTerraformContext("Create")
+	defer s.clearTerraformContext()
+	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Create"))()
 	s.triggerOperation(ctx, actions.CreateOperation, &resp.Diagnostics, &req.Plan, nil, &resp.State)
 }
 
 // Read handles reading the resource state.
 func (s *IdsecResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	s.setTerraformContext("Read")
+	defer s.clearTerraformContext()
+	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Read"))()
 	s.triggerOperation(ctx, actions.ReadOperation, &resp.Diagnostics, nil, &req.State, &resp.State)
 }
 
 // Update handles updating the resource.
 func (s *IdsecResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	s.setTerraformContext("Update")
+	defer s.clearTerraformContext()
+	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Update"))()
 	s.triggerOperation(ctx, actions.UpdateOperation, &resp.Diagnostics, &req.Plan, &req.State, &resp.State)
 }
 
 // Delete handles deleting the resource.
 func (s *IdsecResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	s.setTerraformContext("Delete")
+	defer s.clearTerraformContext()
+	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Delete"))()
 	s.triggerOperation(ctx, actions.DeleteOperation, &resp.Diagnostics, nil, &req.State, nil)
+}
+
+// ImportState handles importing existing resources into Terraform state.
+// This method supports both the `terraform import` command and the `import` block.
+func (s *IdsecResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	s.setTerraformContext("Import")
+	defer s.clearTerraformContext()
+	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Import"))()
+
+	tflog.Info(ctx, fmt.Sprintf("Importing resource with ID: %s", req.ID))
+
+	// Validate that the import ID is not empty
+	if req.ID == "" {
+		resp.Diagnostics.AddError(
+			"Invalid Import ID",
+			"Import ID cannot be empty. Please provide a valid resource identifier.",
+		)
+		return
+	}
+
+	// Validate that the resource supports Read operation (required for import)
+	if !slices.Contains(s.actionDefinition.SupportedOperations, actions.ReadOperation) {
+		resp.Diagnostics.AddError(
+			"Import Not Supported",
+			fmt.Sprintf("This resource type (%s) does not support import because it does not support the Read operation.", s.actionDefinition.ActionName),
+		)
+		return
+	}
+
+	// Get the import ID attribute from action definition
+	// Import is only supported if ImportID is explicitly configured
+	// If ImportID contains ":", it defines multiple attributes (e.g. "safe_id:member_name").
+	// In that case req.ID must contain ":"-separated values in the same order (e.g. "safe-123:member-456").
+	importIDAttr := s.getImportID()
+	if importIDAttr == "" {
+		resp.Diagnostics.AddError(
+			"Import Not Supported",
+			fmt.Sprintf("This resource type (%s) does not support import. Import support must be explicitly configured in the action definition.", s.actionDefinition.ActionName),
+		)
+		return
+	}
+
+	if strings.Contains(importIDAttr, ":") {
+		// Multi-attribute import: split attribute names and values by ":"
+		attributes := strings.Split(importIDAttr, ":")
+		if !strings.Contains(req.ID, ":") {
+			resp.Diagnostics.AddError(
+				"Invalid Import ID",
+				fmt.Sprintf("This resource requires multiple attributes to import. Use colon-separated values in the same order as the import attributes (%s). Example: value1:value2", importIDAttr),
+			)
+			return
+		}
+		values := strings.Split(req.ID, ":")
+		if len(attributes) != len(values) {
+			resp.Diagnostics.AddError(
+				"Invalid Import ID",
+				fmt.Sprintf("Import ID has %d part(s) but %d attribute(s) are required (%s). Provide colon-separated values for each attribute.", len(values), len(attributes), importIDAttr),
+			)
+			return
+		}
+		for i, attr := range attributes {
+			attr = strings.TrimSpace(attr)
+			if attr == "" {
+				resp.Diagnostics.AddError("Invalid Import ID Attribute", "ImportID contains an empty attribute name.")
+				return
+			}
+			resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(attr), types.StringValue(values[i]))...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+	} else {
+		// Single-attribute import
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(importIDAttr), types.StringValue(req.ID))...)
+	}
 }

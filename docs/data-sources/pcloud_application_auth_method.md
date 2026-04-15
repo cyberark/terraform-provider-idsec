@@ -22,9 +22,12 @@ data "idsec_pcloud_application_auth_method" "myapp_auth_method" {
 
 ### Optional
 
-- `allow_internal_scripts` (Boolean) Whether to allow internal scripts
 - `app_id` (String) The application ID
 - `auth_id` (String) The authentication method ID
+
+### Read-Only
+
+- `allow_internal_scripts` (Boolean) Whether to allow internal scripts
 - `auth_type` (String) The authentication method type
 - `auth_value` (String) The authentication method value
 - `comment` (String) A comment for the authentication method
@@ -40,7 +43,7 @@ data "idsec_pcloud_application_auth_method" "myapp_auth_method" {
 <a id="nestedatt--issuer"></a>
 ### Nested Schema for `issuer`
 
-Optional:
+Read-Only:
 
 - `key` (String) The attribute key
 - `value` (String) The attribute value
@@ -49,7 +52,7 @@ Optional:
 <a id="nestedatt--subject"></a>
 ### Nested Schema for `subject`
 
-Optional:
+Read-Only:
 
 - `key` (String) The attribute key
 - `value` (String) The attribute value
@@ -58,7 +61,7 @@ Optional:
 <a id="nestedatt--subject_alternate_name"></a>
 ### Nested Schema for `subject_alternate_name`
 
-Optional:
+Read-Only:
 
 - `key` (String) The attribute key
 - `value` (String) The attribute value

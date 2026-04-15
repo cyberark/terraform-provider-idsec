@@ -42,3 +42,13 @@ resource "idsec_identity_role_member" "myrole_group_member" {
 
 - `member_id` (String) ID of the member
 - `role_id` (String) Role ID to add the member to
+
+
+
+## Import
+
+The `idsec_identity_role_member` resource can be imported using the following command:
+
+```shell
+terraform import idsec_identity_role_member.example role-id-123:member-id-123
+```

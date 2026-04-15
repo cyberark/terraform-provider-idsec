@@ -37,3 +37,13 @@ resource "idsec_identity_auth_profile" "myrole_auth_profile" {
 - `auth_profile_id` (String) ID of the auth profile to update
 - `duration_in_minutes` (Number) Duration in minutes for the auth profile
 - `second_challenges` (List of String) Second challenges for the auth profile
+
+
+
+## Import
+
+The `idsec_identity_auth_profile` resource can be imported using the following command:
+
+```shell
+terraform import idsec_identity_auth_profile.example auth-profile-id-123
+```

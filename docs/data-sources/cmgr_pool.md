@@ -23,7 +23,7 @@ data "idsec_cmgr_pool" "example_pool" {
 
 - `pool_id` (String) The ID of the pool to get.
 
-### Optional
+### Read-Only
 
 - `assigned_network_ids` (List of String) The networks assigned to the pool.
 - `components_count` (Map of Number) The number of components on the pool.

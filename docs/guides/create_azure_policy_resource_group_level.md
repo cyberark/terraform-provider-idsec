@@ -1,13 +1,10 @@
 ---
-page_title: "Create Azure Resource policy - Resource group level"
-subcategory: "Cloud Access Policy"
+page_title: "Create access control policy for Azure resource - resource group level"
 description: |-
   The following workflow describes how to create an Azure Resource policy on resource group level.
 ---
 
-# Create Azure Resource policy - Resource group level
-
-## Workflow
+# Workflow
 
 This workflow demonstrates how to:
 
@@ -29,7 +26,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }
@@ -80,7 +77,7 @@ resource "idsec_policy_cloud_access" "example_azure_resource_group_policy" {
     maxSessionDuration = var.max_session_duration
   }
   targets = {
-    targets = [
+    azure_targets = [
       {
       roleId        = "subscriptions/34b70f3f-r591-34bd-a166-7966beb1669u/providers/Microsoft.Authorization/roleDefinitions/r2f4ef05-c454-48eb-af81-4b1b4947fb11" #var.role_id
       workspaceId   = "/subscriptions/34b70f3f-r591-34bd-a166-7966beb1669u/resourceGroups/cloud-storage-rg" #var.workspace_id

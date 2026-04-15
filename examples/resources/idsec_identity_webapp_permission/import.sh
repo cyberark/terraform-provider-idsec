@@ -1,0 +1,1 @@
+terraform import idsec_identity_webapp_permission.example my_webapp_id:my_id:my_principal_type

@@ -25,6 +25,11 @@ data "idsec_identity_webapp_template" "my_webapp_template_by_name" {
 
 ### Optional
 
+- `webapp_template_id` (String) Unique identifier of the webapp template to fetch
+- `webapp_template_name` (String) Name of the webapp template to fetch
+
+### Read-Only
+
 - `app_type` (String) Type of the app
 - `app_type_display_name` (String) Display name of the app type
 - `category` (String) Category of the webapp template
@@ -38,6 +43,4 @@ data "idsec_identity_webapp_template" "my_webapp_template_by_name" {
 - `user_name_strategy` (String) User name strategy
 - `version` (String) Version of the webapp template
 - `webapp_login_type` (String) Web app login type
-- `webapp_template_id` (String) Unique identifier of the webapp template to fetch
-- `webapp_template_name` (String) Name of the webapp template to fetch
 - `webapp_type_display_name` (String) Display name of the web app type

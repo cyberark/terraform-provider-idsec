@@ -25,6 +25,11 @@ data "idsec_identity_webapp" "my_webapp_by_name" {
 
 ### Optional
 
+- `webapp_id` (String) Row key identifier of the webapp to fetch
+- `webapp_name` (String) Name of the webapp to fetch
+
+### Read-Only
+
 - `account_name` (String) Account name for the webapp
 - `ad_attribute` (String) Active Directory attribute used for user assignment
 - `additional_identifier_value` (String) Additional identifier value for the webapp
@@ -55,16 +60,14 @@ data "idsec_identity_webapp" "my_webapp_by_name" {
 - `user_name_strategy` (String) User name strategy
 - `user_pass_script` (String) User password script for the webapp
 - `username` (String) Username for the webapp
-- `webapp_id` (String) Row key identifier of the webapp to fetch
 - `webapp_login_type` (String) Web app login type
-- `webapp_name` (String) Name of the webapp to fetch
 - `webapp_type` (String) Type of the webapp
 - `webapp_type_display_name` (String) Display name of the webapp type
 
 <a id="nestedatt--auth_rules"></a>
 ### Nested Schema for `auth_rules`
 
-Optional:
+Read-Only:
 
 - `enabled` (Boolean) Whether the auth rule is enabled
 - `type` (String) Type of the auth rule
@@ -74,7 +77,7 @@ Optional:
 <a id="nestedatt--auth_rules--value"></a>
 ### Nested Schema for `auth_rules.value`
 
-Optional:
+Read-Only:
 
 - `conditions` (Attributes List) List of conditions for the auth rule (see [below for nested schema](#nestedatt--auth_rules--value--conditions))
 - `profile_id` (String) Authentication profile ID to apply the conditions to
@@ -82,7 +85,7 @@ Optional:
 <a id="nestedatt--auth_rules--value--conditions"></a>
 ### Nested Schema for `auth_rules.value.conditions`
 
-Optional:
+Read-Only:
 
 - `op` (String) Operator for the auth rule condition
 - `prop` (String) Property for the auth rule condition
@@ -94,7 +97,7 @@ Optional:
 <a id="nestedatt--oauth_profile"></a>
 ### Nested Schema for `oauth_profile`
 
-Optional:
+Read-Only:
 
 - `allow_refresh` (Boolean) Whether to allow refresh tokens
 - `allowed_auth` (List of String) Allowed authentication methods
@@ -109,7 +112,7 @@ Optional:
 <a id="nestedatt--oauth_profile--known_scopes"></a>
 ### Nested Schema for `oauth_profile.known_scopes`
 
-Optional:
+Read-Only:
 
 - `description` (String) Description of the scope
 - `scope` (String) OAuth scope

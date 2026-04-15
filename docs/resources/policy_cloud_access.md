@@ -67,29 +67,29 @@ resource "idsec_policy_cloud_access" "example_policy" {
 
 ### Optional
 
-- `conditions` (Attributes) The time and session conditions of the policy (see [below for nested schema](#nestedatt--conditions))
-- `delegation_classification` (String) Indicates the user rights for the current policy
-- `invalid_resources` (Attributes) Resources that are not valid for the policy (see [below for nested schema](#nestedatt--invalid_resources))
-- `metadata` (Attributes) Policy metadata id name and extra information (see [below for nested schema](#nestedatt--metadata))
-- `principals` (Attributes List) List of users, groups and roles that the policy applies to (see [below for nested schema](#nestedatt--principals))
-- `targets` (Attributes) The targeted cloud provider and workspace (see [below for nested schema](#nestedatt--targets))
+- `conditions` (Attributes) The allowed session length, and the access window (days and times) during which a session can be started. (see [below for nested schema](#nestedatt--conditions))
+- `delegation_classification` (String) Indicates the user rights for the policy. Default: Unrestricted
+- `invalid_resources` (Attributes) Indicates the invalid resources that lead to the Error status in the policy. (see [below for nested schema](#nestedatt--invalid_resources))
+- `metadata` (Attributes) The policy metadata: ID, name, and additional information (see [below for nested schema](#nestedatt--metadata))
+- `principals` (Attributes List) The identity: user, group, role (see [below for nested schema](#nestedatt--principals))
+- `targets` (Attributes) Cloud Console targets (AWS, Azure, GCP) (see [below for nested schema](#nestedatt--targets))
 
 <a id="nestedatt--conditions"></a>
 ### Nested Schema for `conditions`
 
 Optional:
 
-- `access_window` (Attributes) Indicate the time frame that the policy will be active (see [below for nested schema](#nestedatt--conditions--access_window))
-- `max_session_duration` (Number) Session length
+- `access_window` (Attributes) The days and times when the user can connect to their target using this policy (see [below for nested schema](#nestedatt--conditions--access_window))
+- `max_session_duration` (Number) The maximum length of time (in hours) a user can remain connected in a single session. Default: 1
 
 <a id="nestedatt--conditions--access_window"></a>
 ### Nested Schema for `conditions.access_window`
 
 Optional:
 
-- `days_of_the_week` (Set of Number) The days that the policy will be active
-- `from_hour` (String) The policy will be active from hour
-- `to_hour` (String) The policy will be active to time
+- `days_of_the_week` (Set of Number) The days of the week to include in the policy's access window, where Sunday=0, Monday=1,..., Saturday=6, comma-separated
+- `from_hour` (String) The start time of the policy's access window (in ISO 8601 format e.g. 2023-07-05T12:34:56)
+- `to_hour` (String) The end time of the policy's access window (in ISO 8601 format e.g. 2023-07-05T13:34:56)
 
 
 
@@ -98,24 +98,15 @@ Optional:
 
 Optional:
 
-- `roles` (Attributes List) List of invalid roles (see [below for nested schema](#nestedatt--invalid_resources--roles))
-- `webapps` (Attributes List) List of invalid webapps (see [below for nested schema](#nestedatt--invalid_resources--webapps))
-- `workspaces` (Attributes List) List of invalid workspaces (see [below for nested schema](#nestedatt--invalid_resources--workspaces))
+- `roles` (Attributes List) The invalid roles in the policy (see [below for nested schema](#nestedatt--invalid_resources--roles))
+- `workspaces` (Attributes List) The invalid targets (workspaces) in the policy (see [below for nested schema](#nestedatt--invalid_resources--workspaces))
 
 <a id="nestedatt--invalid_resources--roles"></a>
 ### Nested Schema for `invalid_resources.roles`
 
 Optional:
 
-- `id` (String) Invalid role ID
-
-
-<a id="nestedatt--invalid_resources--webapps"></a>
-### Nested Schema for `invalid_resources.webapps`
-
-Optional:
-
-- `id` (String) Invalid webapp ID
+- `id` (String) Invalid role ID. For example: arn:aws:iam::123456789:role/FullAccessToDevelopers
 
 
 <a id="nestedatt--invalid_resources--workspaces"></a>
@@ -124,7 +115,7 @@ Optional:
 Optional:
 
 - `id` (String) Resource ID
-- `status` (String) Workspace status
+- `status` (String) The status of the workspace. Valid values: DELETED, SUSPENDED
 
 
 
@@ -133,37 +124,40 @@ Optional:
 
 Required:
 
-- `name` (String) Name of the policy
+- `name` (String) A unique name for the access policy - minLength: 1, maxLength: 200
+- `policy_entitlement` (Attributes) The policy target category, location type, and policy type (see [below for nested schema](#nestedatt--metadata--policy_entitlement))
 
 Optional:
 
-- `created_by` (Attributes) The user who created the policy, and the creation time (see [below for nested schema](#nestedatt--metadata--created_by))
-- `description` (String) Description of the policy
-- `policy_entitlement` (Attributes) The policy target category, location type and policy type (see [below for nested schema](#nestedatt--metadata--policy_entitlement))
-- `policy_id` (String) Policy id
-- `policy_tags` (List of String) List of tags that related to the policy
-- `status` (Attributes) Status of the policy (see [below for nested schema](#nestedatt--metadata--status))
-- `time_frame` (Attributes) The time that the policy is active (see [below for nested schema](#nestedatt--metadata--time_frame))
-- `time_zone` (String) The time zone of the policy, default is GMT
-- `updated_on` (Attributes) The user who updated the policy, and the update time (see [below for nested schema](#nestedatt--metadata--updated_on))
+- `created_by` (Attributes) The user who created the policy and when (see [below for nested schema](#nestedatt--metadata--created_by))
+- `description` (String) A short description about the policy - maximum 200 characters
+- `policy_id` (String) The unique identifier of the access policy - minLength: 0, maxLength: 99
+- `policy_tags` (List of String) Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy
+- `status` (Attributes) The status of the policy (see [below for nested schema](#nestedatt--metadata--status))
+- `time_frame` (Attributes) The timeframe that the policy is active. For an unlimited timeframe, leave empty - maxLength: 50 (see [below for nested schema](#nestedatt--metadata--time_frame))
+- `time_zone` (String) The time zone identifier - maxLength: 50, Default: GMT
+- `updated_on` (Attributes) The user who updated the policy, and when (see [below for nested schema](#nestedatt--metadata--updated_on))
+
+<a id="nestedatt--metadata--policy_entitlement"></a>
+### Nested Schema for `metadata.policy_entitlement`
+
+Required:
+
+- `location_type` (String) The location of the target: Cloud access: AWS, Azure, GCP; Infrastructure access: FQDN/IP
+- `target_category` (String) The category of the target: Cloud access: Cloud console, Groups; Infrastructure access: VM, DB
+
+Optional:
+
+- `policy_type` (String) Type of policy - recurring or on-demand
+
 
 <a id="nestedatt--metadata--created_by"></a>
 ### Nested Schema for `metadata.created_by`
 
 Optional:
 
-- `time` (String) Time of the change
-- `user` (String) Username of the user who made the change
-
-
-<a id="nestedatt--metadata--policy_entitlement"></a>
-### Nested Schema for `metadata.policy_entitlement`
-
-Optional:
-
-- `location_type` (String) The location type of the policy
-- `policy_type` (String) Policy type
-- `target_category` (String) The target category of the policy
+- `time` (String) The date and time the policy was created or modified (read-only) readOnly: true
+- `user` (String) The name of the user that modified the policy (read-only) minLength: 1 maxLength: 512 readOnly: true
 
 
 <a id="nestedatt--metadata--status"></a>
@@ -171,10 +165,10 @@ Optional:
 
 Optional:
 
-- `link` (String) A documentation link for the policy status
-- `status` (String) The status type of the policy
-- `status_code` (String) The status code of the policy
-- `status_description` (String) The status description of the policy
+- `link` (String) Link to documentation when available. maxLength: 255
+- `status` (String) The status of the policy
+- `status_code` (String) The status code. maxLength: 99
+- `status_description` (String) A description of the status. maxLength: 1000
 
 
 <a id="nestedatt--metadata--time_frame"></a>
@@ -182,8 +176,8 @@ Optional:
 
 Optional:
 
-- `from_time` (String) Time from which the policy is effective
-- `to_time` (String) Time to which the policy is expired
+- `from_time` (String) The date and time the policy becomes active (format: yyyy-MM-ddTHH:mm:ss)
+- `to_time` (String) format: yyyy-MM-ddTHH:mm:ss The date the policy expires
 
 
 <a id="nestedatt--metadata--updated_on"></a>
@@ -191,8 +185,8 @@ Optional:
 
 Optional:
 
-- `time` (String) Time of the change
-- `user` (String) Username of the user who made the change
+- `time` (String) The date and time the policy was created or modified (read-only) readOnly: true
+- `user` (String) The name of the user that modified the policy (read-only) minLength: 1 maxLength: 512 readOnly: true
 
 
 
@@ -201,11 +195,11 @@ Optional:
 
 Optional:
 
-- `id` (String) The id of the principal
-- `name` (String) The name of the principal
-- `source_directory_id` (String) The id of the source directory
-- `source_directory_name` (String) The name of the source directory
-- `type` (String) The type of the principal user, group or role
+- `id` (String) The unique identifier of the identity in CyberArk. An identity is a user, group, or role. maxLength: 40
+- `name` (String) The name of the principal. minLength: 1
+- `source_directory_id` (String) The unique identifier of the directory service. If the type is ROLE, then this field is optional.
+- `source_directory_name` (String) The name of the directory service. If the type is ROLE, then this field is optional. maxLength: 256.
+- `type` (String) The type of principal
 
 
 <a id="nestedatt--targets"></a>
@@ -215,7 +209,7 @@ Optional:
 
 - `aws_account_targets` (Attributes List) AWS account details (see [below for nested schema](#nestedatt--targets--aws_account_targets))
 - `aws_organization_targets` (Attributes List) AWS organization workspace details (see [below for nested schema](#nestedatt--targets--aws_organization_targets))
-- `azure_targets` (Attributes List) List of Azure targets or Microsoft Entra ID workspace details (see [below for nested schema](#nestedatt--targets--azure_targets))
+- `azure_targets` (Attributes List) Microsoft Entra ID workspace details (see [below for nested schema](#nestedatt--targets--azure_targets))
 - `gcp_targets` (Attributes List) Google Cloud workspace details (see [below for nested schema](#nestedatt--targets--gcp_targets))
 
 <a id="nestedatt--targets--aws_account_targets"></a>
@@ -223,13 +217,13 @@ Optional:
 
 Required:
 
-- `role_id` (String) AWS: The unique identifier assigned to the IAM role in AWS (IAM role ARN); AWS organization: The unique identifier assigned to the IAM role in AWS (IAM role ARN); Azure: The identifier of Azure resource role or Entra ID role; GCP: The Google Cloud role and hierarchy structure
-- `workspace_id` (String) AWS: The workspace ID given to the standalone AWS account when it was onboarded to CyberArk; AWS organization: The workspace ID given to the AWS organization when it was onboarded to CyberArk; Azure: The workspace ID given to Microsoft Entra ID when it was onboarded to CyberArk; GCP: The workspace ID given to the Google Cloud organization when it was onboarded to CyberArk
+- `role_id` (String) The unique identifier assigned to the role
+- `workspace_id` (String) The unique identifier assigned to the workspace when it was onboarded to the platform
 
 Optional:
 
-- `role_name` (String) The name of role with which the identity can access the target workspace
-- `workspace_name` (String) The workspace name of the target. GCP: The Google Cloud Workspace
+- `role_name` (String) The name of role with which the identity can access the target workspace (read-only)
+- `workspace_name` (String) The workspace name of the target (read-only)
 
 
 <a id="nestedatt--targets--aws_organization_targets"></a>
@@ -237,14 +231,14 @@ Optional:
 
 Required:
 
-- `role_id` (String) AWS: The unique identifier assigned to the IAM role in AWS (IAM role ARN); AWS organization: The unique identifier assigned to the IAM role in AWS (IAM role ARN); Azure: The identifier of Azure resource role or Entra ID role; GCP: The Google Cloud role and hierarchy structure
-- `workspace_id` (String) AWS: The workspace ID given to the standalone AWS account when it was onboarded to CyberArk; AWS organization: The workspace ID given to the AWS organization when it was onboarded to CyberArk; Azure: The workspace ID given to Microsoft Entra ID when it was onboarded to CyberArk; GCP: The workspace ID given to the Google Cloud organization when it was onboarded to CyberArk
+- `org_id` (String) The AWS organization management account ID (required for AWS Organization targets)
+- `role_id` (String) The unique identifier assigned to the role
+- `workspace_id` (String) The unique identifier assigned to the workspace when it was onboarded to the platform
 
 Optional:
 
-- `org_id` (String) AWSOrg:Management account ID (required only for AWS IAM Identity Center), Azure: Azure directory ID (UUID), GCP: The Google Cloud organization ID
-- `role_name` (String) The name of role with which the identity can access the target workspace
-- `workspace_name` (String) The workspace name of the target. GCP: The Google Cloud Workspace
+- `role_name` (String) The name of role with which the identity can access the target workspace (read-only)
+- `workspace_name` (String) The workspace name of the target (read-only)
 
 
 <a id="nestedatt--targets--azure_targets"></a>
@@ -252,16 +246,16 @@ Optional:
 
 Required:
 
-- `role_id` (String) AWS: The unique identifier assigned to the IAM role in AWS (IAM role ARN); AWS organization: The unique identifier assigned to the IAM role in AWS (IAM role ARN); Azure: The identifier of Azure resource role or Entra ID role; GCP: The Google Cloud role and hierarchy structure
-- `workspace_id` (String) AWS: The workspace ID given to the standalone AWS account when it was onboarded to CyberArk; AWS organization: The workspace ID given to the AWS organization when it was onboarded to CyberArk; Azure: The workspace ID given to Microsoft Entra ID when it was onboarded to CyberArk; GCP: The workspace ID given to the Google Cloud organization when it was onboarded to CyberArk
-- `workspace_type` (String) The level at which the Microsoft Entra ID workspace was onboarded to CyberArk
+- `org_id` (String) The Azure directory ID (UUID) - required for Azure targets
+- `role_id` (String) The unique identifier assigned to the role
+- `workspace_id` (String) The unique identifier assigned to the workspace when it was onboarded to the platform
+- `workspace_type` (String) The level at which the Microsoft Entra ID workspace was onboarded to CyberArk (Directory, Subscription, Resource Group, Resource, Management Group)
 
 Optional:
 
-- `org_id` (String) AWSOrg:Management account ID (required only for AWS IAM Identity Center), Azure: Azure directory ID (UUID), GCP: The Google Cloud organization ID
-- `role_name` (String) The name of role with which the identity can access the target workspace
-- `role_type` (Number) The type of the role in Azure
-- `workspace_name` (String) The workspace name of the target. GCP: The Google Cloud Workspace
+- `role_name` (String) The name of role with which the identity can access the target workspace (read-only)
+- `role_type` (Number) The type of the role in Azure (read-only)
+- `workspace_name` (String) The workspace name of the target (read-only)
 
 
 <a id="nestedatt--targets--gcp_targets"></a>
@@ -269,16 +263,17 @@ Optional:
 
 Required:
 
-- `role_id` (String) AWS: The unique identifier assigned to the IAM role in AWS (IAM role ARN); AWS organization: The unique identifier assigned to the IAM role in AWS (IAM role ARN); Azure: The identifier of Azure resource role or Entra ID role; GCP: The Google Cloud role and hierarchy structure
-- `workspace_id` (String) AWS: The workspace ID given to the standalone AWS account when it was onboarded to CyberArk; AWS organization: The workspace ID given to the AWS organization when it was onboarded to CyberArk; Azure: The workspace ID given to Microsoft Entra ID when it was onboarded to CyberArk; GCP: The workspace ID given to the Google Cloud organization when it was onboarded to CyberArk
-- `workspace_type` (String) The level at which the Google Cloud organization was onboarded to CyberArk - Full organization, folder, project
+- `role_id` (String) The unique identifier assigned to the role
+- `workspace_id` (String) The unique identifier assigned to the workspace when it was onboarded to the platform
+- `workspace_type` (String) The level at which the Google Cloud organization was onboarded to CyberArk (Organization, Folder, or Project - case sensitive)
 
 Optional:
 
-- `org_id` (String) AWSOrg:Management account ID (required only for AWS IAM Identity Center), Azure: Azure directory ID (UUID), GCP: The Google Cloud organization ID
-- `role_name` (String) The name of role with which the identity can access the target workspace
-- `role_package` (String) The role package of the target
-- `role_type` (Number) The type of role in GCP
-- `workspace_name` (String) The workspace name of the target. GCP: The Google Cloud Workspace
+- `domain_name` (String) The Google Workspace domain name (read-only)
+- `org_id` (String) The Google Cloud organization ID
+- `role_name` (String) The name of role with which the identity can access the target workspace (read-only)
+- `role_package` (String) The role package of the target (read-only)
+- `role_type` (Number) The type of role in GCP: 0=PreDefined, 1=Custom, 2=Basic (read-only)
+- `workspace_name` (String) The workspace name of the target (read-only)
 
 

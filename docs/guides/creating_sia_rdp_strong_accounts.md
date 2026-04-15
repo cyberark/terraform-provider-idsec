@@ -4,35 +4,91 @@ description: |-
   Creates and configures VM secrets (strong accounts) for secure RDP connections to Windows servers.
 ---
 
-# Creating SIA-RDP Strong Accounts
-
-## Motivation
+# Motivation
 
 When an end user logs in to a Windows machine (a protected platform resource) using Remote Desktop Access, SIA creates an ephemeral user either on the local machine (in C:\ Users) or on the domain controller depending on how access has been configured. This ephemeral user gives the end user the necessary permissions to perform their work, and the user profile is deleted from the machine when the end user logs out. To provision this ephemeral user, SIA needs to access a strong account (VM secret), which can in turn create the ephemeral users. For more, see https://docs.cyberark.com/ispss-access/latest/en/content/introduction/dpa_strong-account.htm
 
 
 The following workflow describes how to create and configure VM secrets for SIA-RDP, including various account types and domain configurations.
 
-## Understanding Strong Accounts
+# Understanding Strong Accounts
 
-### Secret Types
+## Quick Reference: Choosing the Right Account Type
 
-#### ProvisionerUser
+Use this decision tree to select the correct strong account configuration:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 Select Storage Location                         │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+              ┌─────────────┴─────────────┐
+              │                           │
+    Vaulted (Recommended)       Secure Infrastructure Access
+     (PCloudAccount)               (ProvisionerUser)
+              │                           │
+              ▼                           ▼
+┌─────────────────────────┐   ┌───────────────────────────────────┐
+│  Select Account Type    │   │       Select Account Type         │
+└──────┬───────────┬──────┘   └───────┬──────────────┬────────────┘
+       │           │                  │              │
+    Domain       Local             Domain          Local
+       │           │                  │              │
+       │           ▼                  │              ▼
+       │     ┌───────────┐            │      ┌───────────────┐
+       │     │Inputs:    │            │      │Inputs:        │
+       │     │- Safe     │            │      │- Name         │
+       │     │- Account  │            │      │- User/Pass    │
+       │     └───────────┘            │      └───────────────┘
+       │                              │
+       ▼                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│           Enable creation of ephemeral domain users?            │
+│                  (Toggle Switch)                                │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+              ┌─────────────┴─────────────┐
+              │                           │
+             YES                          NO
+              │                           │
+              ▼                           ▼
+    ┌────────────────────┐      ┌───────────────────┐
+    │ Configure DC       │      │ Standard Domain   │
+    │ Settings           │      │ Account           │
+    │ (Ephemeral Domain ) │     │                   │
+    └────────────────────┘      └───────────────────┘
+```
+
+## Account Type Summary
+
+| Account Type | `secret_type` | `account_domain` | Ephemeral Settings | Use Case |
+|--------------|---------------|------------------|-------------------|----------|
+| **SIA Local Account** | `ProvisionerUser` | `"local"` | Not needed | Standalone/workgroup servers |
+| **SIA Domain Account** | `ProvisionerUser` | `"MYDOMAIN"` | Disabled | Domain-joined machines (simple) |
+| **SIA Domain Account (Ephemeral Domain Users)** | `ProvisionerUser` | `"MYDOMAIN"` | **Enabled** | Domain-joined with ephemeral users on DC |
+| **Vaulted Account** | `PCloudAccount` | Any | Optional | Production with Privilege Cloud |
+
+## Secret Types
+
+### ProvisionerUser (Secure Infrastructure Access)
 Credentials stored directly in CyberArk's secrets service.
-- **Best For**: Environments with no pCloud.
-- **Requires**: Username and password.
+- **Best For**: Environments without Privilege Cloud, or development/test environments
+- **Requires**: Username and password
+- **Options**: Can be configured for local, domain, or domain ephemeral user provisioning
 
-#### PCloudAccount
+### PCloudAccount (Vaulted)
 Reference to credentials stored in Privilege Cloud vault.
 - **Best For**: Production environments requiring compliance, password rotation, and centralized management
 - **Requires**: Account name and safe name in Privilege Cloud
+- **Benefits**: Leverages existing Privilege Cloud policies, automatic password rotation, centralized audit
 
-### Notes (How the provider models secrets)
+## Notes (How the provider models secrets)
 
-- **`secret_details` defaults**: `secret_details` is a JSON string. The provider merges your JSON with defaults that include `account_domain` (defaults to `"local"`) and other fields. It’s still a good idea to set `account_domain` explicitly so intent is obvious in code review.
+- **Account Domain**: `account_domain` defaults to `"local"`.
 - **`secret_name` for `PCloudAccount`**: the provider schema notes that for `PCloudAccount` the name is auto-generated from the Privilege Cloud account + safe. Keep `secret_name` descriptive in Terraform, but expect the API/provider to derive the actual display name.
+- **Ephemeral Domain Users**: When `account_domain` is NOT `"local"`, you can optionally configure ephemeral domain user settings to provision temporary users on a domain controller.
 
-### Account Domain Options
+## Account Domain Options
 
 | Domain Type | Example | Use Case |
 |-------------|---------|----------|
@@ -41,14 +97,14 @@ Reference to credentials stored in Privilege Cloud vault.
 
 ---
 
-## Workflow
+# Workflow
 
 The workflow demonstrates creating strong accounts for different scenarios:
 - Local administrator accounts
 - Domain administrator accounts
 - Accounts with different credential formats
 
-### Basic Strong Account (Local Admin)
+## SIA Local Account
 
 main.tf
 ```terraform
@@ -57,7 +113,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }
@@ -68,7 +124,7 @@ provider "idsec" {
   secret      = var.idsec_secret
 }
 
-# Local Administrator Strong Account
+# SIA Local Account
 resource "idsec_sia_secrets_vm" "local_admin" {
   secret_name          = var.secret_name
   secret_type          = "ProvisionerUser"
@@ -76,10 +132,7 @@ resource "idsec_sia_secrets_vm" "local_admin" {
   provisioner_password = var.provisioner_password
 
   # Optional: Account metadata
-  secret_details = jsonencode({
-    account_domain = "local"
-    description    = var.secret_description
-  })
+  account_domain = "local"
 }
 ```
 
@@ -114,16 +167,12 @@ variable "provisioner_password" {
   sensitive   = true
 }
 
-variable "secret_description" {
-  description = "Description/purpose of the strong account"
-  type        = string
-  default     = "Local administrator account for RDP access"
-}
 ```
+
 
 ---
 
-### Domain Administrator Strong Account
+## SIA Domain Account
 
 main.tf
 ```terraform
@@ -132,7 +181,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }
@@ -143,17 +192,14 @@ provider "idsec" {
   secret      = var.idsec_secret
 }
 
-# Domain Administrator Strong Account
+# SIA Domain Account
 resource "idsec_sia_secrets_vm" "domain_admin" {
   secret_name          = var.secret_name
   secret_type          = "ProvisionerUser"
   provisioner_username = var.provisioner_username
   provisioner_password = var.provisioner_password
 
-  secret_details = jsonencode({
-    account_domain = var.domain_name
-    description    = var.secret_description
-  })
+  account_domain = var.domain_name
 }
 ```
 
@@ -193,16 +239,12 @@ variable "provisioner_password" {
   sensitive   = true
 }
 
-variable "secret_description" {
-  description = "Description/purpose of the strong account"
-  type        = string
-  default     = "Domain administrator account for SIA-RDP provisioning"
-}
 ```
+
 
 ---
 
-### Privilege Cloud Account Reference
+## Vaulted Account
 
 For production environments, reference credentials stored in Privilege Cloud:
 
@@ -213,7 +255,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }
@@ -224,17 +266,14 @@ provider "idsec" {
   secret      = var.idsec_secret
 }
 
-# Privilege Cloud Account Reference
+# Vaulted Account
 resource "idsec_sia_secrets_vm" "pcloud_account" {
   secret_name         = var.secret_name
   secret_type         = "PCloudAccount"
   pcloud_account_name = var.pcloud_account_name
   pcloud_account_safe = var.pcloud_safe_name
 
-  secret_details = jsonencode({
-    account_domain = var.domain_name
-    description    = var.secret_description
-  })
+  account_domain = var.domain_name
 }
 ```
 
@@ -272,16 +311,155 @@ variable "domain_name" {
   type        = string
 }
 
-variable "secret_description" {
-  description = "Description/purpose of the strong account"
-  type        = string
-  default     = "Privilege Cloud account for production RDP access"
-}
 ```
+
 
 ---
 
-## Username Format Examples
+## SIA Domain Account (Ephemeral Users)
+
+For environments where ephemeral users are created on a domain controller (instead of on the target machine):
+
+main.tf
+```terraform
+terraform {
+  required_version = ">= 0.13"
+  required_providers {
+    idsec = {
+      source  = "cyberark/idsec"
+      version = ">= 0.2"
+    }
+  }
+}
+
+provider "idsec" {
+  auth_method = "identity"
+  username    = var.idsec_username
+  secret      = var.idsec_secret
+}
+
+# SIA Domain Account with Ephemeral Users
+resource "idsec_sia_secrets_vm" "ephemeral_provisioner" {
+  secret_name          = var.secret_name
+  secret_type          = "ProvisionerUser"
+  provisioner_username = var.provisioner_username
+  provisioner_password = var.provisioner_password
+
+  # Account settings - MUST be a domain name, NOT "local"
+  account_domain = var.domain_name
+
+  # Enable ephemeral domain user creation - REQUIRED for domain ephemeral users
+  enable_ephemeral_domain_user_creation = true
+
+  # Ephemeral domain user settings
+  domain_controller_name                = var.domain_controller_name
+  domain_controller_netbios             = var.domain_controller_netbios
+  domain_controller_use_ldaps           = var.domain_controller_use_ldaps
+  domain_controller_enable_certificate_validation = true
+  domain_controller_ldaps_certificate   = file("path/to/ldaps-certificate.pem")
+  ephemeral_domain_user_location        = var.ephemeral_user_location
+  use_winrm_for_https                   = var.use_winrm_https
+  winrm_enable_certificate_validation   = true
+  winrm_certificate                     = file("path/to/winrm-certificate.pem")
+}
+```
+
+variables.tf
+```terraform
+variable "idsec_username" {
+  description = "Username for the Idsec provider"
+  type        = string
+}
+
+variable "idsec_secret" {
+  description = "Secret/password for the Idsec provider"
+  type        = string
+  sensitive   = true
+}
+
+variable "secret_name" {
+  description = "Name of the strong account"
+  type        = string
+  default     = "DomainEphemeral-RDP"
+}
+
+variable "domain_name" {
+  description = "Active Directory domain name (e.g., MYDOMAIN). Cannot be 'local' for ephemeral."
+  type        = string
+}
+
+variable "provisioner_username" {
+  description = "Username for the provisioner account (must have permissions to create users in AD)"
+  type        = string
+}
+
+variable "provisioner_password" {
+  description = "Password for the provisioner account"
+  type        = string
+  sensitive   = true
+}
+
+# Ephemeral domain user configuration
+variable "domain_controller_name" {
+  description = "FQDN of the domain controller (e.g., dc01.mydomain.local)"
+  type        = string
+}
+
+variable "domain_controller_netbios" {
+  description = "NetBIOS name of the domain (e.g., MYDOMAIN)"
+  type        = string
+}
+
+variable "domain_controller_use_ldaps" {
+  description = "Use LDAPS for secure communication with DC"
+  type        = bool
+  default     = true
+}
+
+variable "ephemeral_user_location" {
+  description = "Distinguished name of the OU where ephemeral users are created (e.g., CN=Users,DC=mydomain,DC=local)"
+  type        = string
+}
+
+variable "use_winrm_https" {
+  description = "Use HTTPS for WinRM communication"
+  type        = bool
+  default     = true
+}
+```
+
+**Important**: When configuring ephemeral domain users:
+- `enable_ephemeral_domain_user_creation` **must** be set to `true`
+- `account_domain` **must** be set to a domain name (not `"local"`)
+- The provisioner account must have permissions to create/delete users in the specified `ephemeral_domain_user_location`
+- Ensure the domain controller is reachable from the SIA connector
+
+### Ephemeral Domain User Attributes Reference
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `enable_ephemeral_domain_user_creation` | bool | Enable automatic creation of temporary domain users. **Required** for ephemeral domain users. |
+| `domain_controller_name` | string | FQDN of the domain controller |
+| `domain_controller_netbios` | string | NetBIOS name of the domain |
+| `domain_controller_use_ldaps` | bool | Use LDAPS (port 636) instead of LDAP (port 389) |
+| `domain_controller_enable_certificate_validation` | bool | Validate the domain controller's SSL certificate |
+| `domain_controller_ldaps_certificate` | string | Custom certificate for LDAPS validation (optional) |
+| `ephemeral_domain_user_location` | string | Distinguished Name of the OU where users are created |
+| `use_winrm_for_https` | bool | Use HTTPS for WinRM communication |
+| `winrm_enable_certificate_validation` | bool | Validate the WinRM endpoint's SSL certificate |
+| `winrm_certificate` | string | Custom certificate for WinRM validation (optional) |
+
+### Prerequisites for Ephemeral Domain Users
+
+1. **Service Account Permissions**: The provisioner account needs permissions to:
+   - Create users in the specified OU
+   - Add users to domain group specified in the policy on target machines
+
+3. **OU Configuration**: Create a dedicated OU for ephemeral users with appropriate GPO settings
+
+---
+
+# Username Format Examples
 
 The `provisioner_username` field supports various formats:
 
@@ -294,9 +472,9 @@ The `provisioner_username` field supports various formats:
 
 ---
 
-## Managing Account Lifecycle
+# Managing Account Lifecycle
 
-### Rotating Credentials
+## Rotating Credentials
 
 Update the password by changing the `provisioner_password`:
 
@@ -307,33 +485,20 @@ resource "idsec_sia_secrets_vm" "admin_account" {
   provisioner_username = "admin@corp.local"
   provisioner_password = var.new_password  # Updated password
 
-  secret_details = jsonencode({
-    account_domain = "corp.local"
-    description    = "Credentials rotated on 2024-01-15"
-  })
+  account_domain = "corp.local"
+  description    = "Credentials rotated on 2024-01-15"
 }
 ```
 
 ---
 
-## Best Practices
-
-1. **Use descriptive names**: Include purpose or environment in `secret_name` (e.g., `Prod-WebServers-RDP`)
-2. **Use PCloudAccount for production**: Leverage Privilege Cloud's password rotation and audit features
-3. **Never hardcode passwords**: Always use variables with `sensitive = true`
-4. **Add meaningful descriptions**: Document the account's purpose in `secret_details`
-
----
-
-## Related Resources
+# Related Resources
 
 - [Creating RDP Target Sets](creating_sia_rdp_target_sets.md) - Associate strong accounts with Windows targets
-- [Managing RDP Target Sets and Secrets](managing_rdp_target_sets_and_secrets.md) - Comprehensive management guide
-- [Provisioning RDP Access](provisioning_rdp_access.md) - End-to-end RDP access setup
 
 ---
 
-## Additional Information
+# Additional Information
 
 For more details on the resources used in this workflow:
 

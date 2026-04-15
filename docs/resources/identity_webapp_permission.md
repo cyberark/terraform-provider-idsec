@@ -39,9 +39,22 @@ resource "idsec_identity_webapp_permission" "my_webapp_permission" {
 - `directory_service_uuid` (String) Directory service UUID of the grant, if applicable
 - `external_uuid` (String) External UUID of the grant, if applicable
 - `principal` (String) Principal Name of the grant
-- `principal_id` (String) Principal ID of the grant
 - `principal_type` (String) Principal type of the grant
 - `system_name` (String) System name of the grant, if applicable
 - `type` (String) Type of the grant
 - `webapp_id` (String) Row key identifier of the webapp to set the permission for
 - `webapp_name` (String) Name of the webapp to set the permission for
+
+### Read-Only
+
+- `principal_id` (String) Principal ID of the grant
+
+
+
+## Import
+
+The `idsec_identity_webapp_permission` resource can be imported using the following command:
+
+```shell
+terraform import idsec_identity_webapp_permission.example my_webapp_id:my_id:my_principal_type
+```

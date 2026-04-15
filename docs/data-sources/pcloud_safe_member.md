@@ -25,7 +25,7 @@ data "idsec_pcloud_safe_member" "example_member" {
 - `member_name` (String) The Vault user name, Domain user name or group name of the Safe member
 - `safe_id` (String) The URL encoding of the Safe name. For special characters, enter the encoding of the special character. For example, enter %20 to represent a space
 
-### Optional
+### Read-Only
 
 - `is_expired_membership_enabled` (Boolean) Whether or not the membership for the Safe is expired. For expired members, the value is True
 - `is_predefined_user` (Boolean) Whether the member is a predefined Vault user or group
@@ -41,7 +41,7 @@ data "idsec_pcloud_safe_member" "example_member" {
 <a id="nestedatt--permissions"></a>
 ### Nested Schema for `permissions`
 
-Optional:
+Read-Only:
 
 - `access_without_confirmation` (Boolean) Access the Safe without confirmation from authorized users. This overrides the Safe properties that specify that Safe members require confirmation to access the Safe
 - `add_accounts` (Boolean) Add accounts in the Safe. Users who have this permission automatically have UpdateAccountProperties permissions

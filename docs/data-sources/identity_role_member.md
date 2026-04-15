@@ -41,4 +41,7 @@ data "idsec_identity_role_member" "myrole_group_member" {
 
 - `member_id` (String) Member ID to get from the role
 - `member_name` (String) Member name to get from the role
+
+### Read-Only
+
 - `member_type` (String) Type of the member

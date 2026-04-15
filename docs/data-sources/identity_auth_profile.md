@@ -21,9 +21,12 @@ data "idsec_identity_auth_profile" "myrole_auth_profile" {
 
 ### Optional
 
-- `additional_data` (Dynamic) Additional data for the auth profile
 - `auth_profile_id` (String) Auth Profile ID to retrieve
 - `auth_profile_name` (String) Auth Profile Name to retrieve
+
+### Read-Only
+
+- `additional_data` (Dynamic) Additional data for the auth profile
 - `duration_in_minutes` (Number) Duration in minutes for the auth profile
 - `first_challenges` (List of String) First challenges for the auth profile
 - `second_challenges` (List of String) Second challenges for the auth profile

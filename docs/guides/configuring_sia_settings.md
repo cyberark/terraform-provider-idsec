@@ -4,16 +4,14 @@ description: |-
   Configure SIA settings globally or per setting using the Idsec Terraform Provider
 ---
 
-# Configuring SIA Settings
-
-## Motivation
+# Motivation
 This workflow describes how to manage SIA Settings with the Idsec Terraform Provider.  
 SIA settings define global secure-access behavior, including session timeouts, MFA caching, and connection policies.
 
 Using Terraform to configure these settings provides consistent, versioned, and auditable management of your SIA environment.
 
 ---
-## Two Ways to Manage SIA Settings
+# Two Ways to Manage SIA Settings
 The Idsec Terraform Provider supports configuring SIA settings using:
 
 ### 1. Global Settings Resource
@@ -29,10 +27,9 @@ Each setting has a dedicated resource:
 - `idsec_sia_settings_self_hosted_pam`
 - `idsec_sia_settings_logon_sequence`
 - …and more.
-
 ---
 
-## Workflow
+# Workflow
 The workflow will:
 - Authenticate to CyberArk with a user who is a member of the DpaAdmin role.
 - Demonstrate how to update SIA settings using both of the following methods:  
@@ -46,7 +43,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }

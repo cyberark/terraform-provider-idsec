@@ -25,7 +25,7 @@ data "idsec_cmgr_pool_identifier" "example_identifier" {
 - `identifier_id` (String) The ID of the identifier to get from the pool.
 - `pool_id` (String) The ID of the pool to get.
 
-### Optional
+### Read-Only
 
 - `created_at` (String) The creation time of the identifier.
 - `type` (String) The type of the identifier (GENERAL_FQDN,GENERAL_HOSTNAME,AWS_ACCOUNT_ID,AWS_VPC,AWS_SUBNET,AZURE_SUBSCRIPTION,AZURE_VNET,AZURE_SUBNET,GCP_PROJECT,GCP_NETWORK,GCP_SUBNET)

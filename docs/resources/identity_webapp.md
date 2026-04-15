@@ -121,16 +121,13 @@ resource "idsec_identity_webapp" "my_oauth_webapp" {
 - `ad_attribute` (String) Active Directory attribute used for user assignment
 - `additional_identifier_value` (String) Additional identifier value for the webapp
 - `allow_view_fixed_credentials` (Boolean) Whether to allow viewing fixed credentials
-- `app_type_display_name` (String) Display name of the app type
 - `auth_rules` (Attributes) Authentication rules for the webapp (see [below for nested schema](#nestedatt--auth_rules))
 - `bypass_login_mfa` (Boolean) Whether to bypass MFA at login for the webapp
-- `category` (String) Category of the webapp
 - `corp_identifier` (String) Corp identifier for the webapp
 - `default_auth_profile` (String) Default authentication profile for the webapp
 - `description` (String) Description of the webapp
 - `display_name` (String) Display name of the webapp
 - `ext_account_id` (String) External account ID for the webapp
-- `generic` (Boolean) Whether the webapp is generic
 - `is_privileged_app` (Boolean) Whether the webapp is privileged
 - `is_sca_enabled` (Boolean) Whether SCA is enabled
 - `is_sws_enabled` (Boolean) Whether SWS is enabled
@@ -140,7 +137,6 @@ resource "idsec_identity_webapp" "my_oauth_webapp" {
 - `password` (String) Password for the webapp
 - `safe` (String) Safe that the webapp belongs to
 - `service_name` (String) Name of the service to which the webapp belongs
-- `state` (String) State of the webapp
 - `url` (String) URL of the webapp
 - `user_map_script` (String) User map script for the webapp
 - `user_name_strategy` (String) User name strategy
@@ -149,8 +145,15 @@ resource "idsec_identity_webapp" "my_oauth_webapp" {
 - `webapp_id` (String) Row key identifier of the webapp
 - `webapp_login_type` (String) Web app login type
 - `webapp_name` (String) New name of the webapp to update
-- `webapp_type` (String) Type of the webapp
 - `webapp_type_display_name` (String) Display name of the webapp type
+
+### Read-Only
+
+- `app_type_display_name` (String) Display name of the app type
+- `category` (String) Category of the webapp
+- `generic` (Boolean) Whether the webapp is generic
+- `state` (String) State of the webapp
+- `webapp_type` (String) Type of the webapp
 
 <a id="nestedatt--auth_rules"></a>
 ### Nested Schema for `auth_rules`
@@ -210,3 +213,13 @@ Optional:
 - `type` (String) Type of the scope
 
 
+
+
+
+## Import
+
+The `idsec_identity_webapp` resource can be imported using the following command:
+
+```shell
+terraform import idsec_identity_webapp.example webapp-id-456
+```

@@ -1,13 +1,10 @@
 ---
-page_title: "Create Azure Resource policy"
-subcategory: "Cloud Access Policy"
+page_title: "Create access control policy for Azure resource"
 description: |-
   The following workflow describes how to create an Azure Resource policy.
 ---
 
-# Create Azure Resource policy
-
-## Workflow
+# Workflow
 
 This workflow demonstrates how to:
 
@@ -29,7 +26,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }
@@ -80,7 +77,7 @@ resource "idsec_policy_cloud_access" "example_azure_resource_policy" {
     maxSessionDuration = var.max_session_duration
   }
   targets = {
-    targets = [
+    azure_targets = [
       {
       roleId        = "/subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d/providers/Microsoft.Authorization/roleDefinitions/8d6517c1-e434-405c-9f3f-e0ae65085d76" #var.role_id
       workspaceId   = "subscriptions/19b70f3f-b121-46bd-a942-7966beb1669d" #var.workspace_id

@@ -21,9 +21,12 @@ data "idsec_identity_policy" "myrole_policy" {
 
 ### Optional
 
+- `policy_name` (String) Policy Name to retrieve
+
+### Read-Only
+
 - `auth_profile_name` (String) Name of the auth profile associated with the policy
 - `description` (String) Description of the policy
-- `policy_name` (String) Policy Name to retrieve
 - `policy_status` (String) Status of the policy
 - `rev_stamp` (String) Revision stamp of the policy
 - `role_names` (Set of String) List of role names associated with the policy

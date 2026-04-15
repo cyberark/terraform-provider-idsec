@@ -21,5 +21,8 @@ data "idsec_identity_user_attributes" "myuser_attributes" {
 
 ### Optional
 
-- `attributes` (Map of String) Key-value pairs of user attributes
 - `user_id` (String) ID of the user whose attributes are retrieved
+
+### Read-Only
+
+- `attributes` (Map of String) Key-value pairs of user attributes

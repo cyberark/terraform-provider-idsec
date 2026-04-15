@@ -4,26 +4,24 @@ description: |-
   Working with Service User
 ---
 
-# Working with Service User
-
-## Motivation
+# Motivation
 
 The following workflow describes how to work with Service User using the Idsec Terraform Provider. The Service User is a user in CyberArk's Identity Security Platform that is used for automated tasks and integrations.
 
-## Workflow
+# Workflow
 The workflow will:
 - Login to CyberArk with a service user
 - Create a SIA database secret
 - Onboard a SIA database
 
-### main.tf
+# main.tf
 ```terraform
 terraform {
   required_version = ">= 0.13"
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }

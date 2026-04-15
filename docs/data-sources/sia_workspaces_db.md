@@ -21,6 +21,11 @@ data "idsec_sia_workspaces_db" "example_db" {
 
 ### Optional
 
+- `id` (String) The database ID to get.
+- `name` (String) The database name to get.
+
+### Read-Only
+
 - `account` (String) Account to be used for provider based databases such as atlas
 - `auth_database` (String) Authentication database used, most commonly used with mongodb
 - `certificate` (String) The certificate ID used for this database that resides in the certificates service.
@@ -33,8 +38,6 @@ data "idsec_sia_workspaces_db" "example_db" {
 - `domain_controller_use_ldaps` (Boolean) Whether to work with LDAP secure or not
 - `enable_certificate_validation` (Boolean) Indicates whether to enable and enforce certificate validation.
 - `family` (String) The family of the database provider.
-- `id` (String) The database ID to get.
-- `name` (String) The database name to get.
 - `platform` (String) The platform where the database resides.
 - `port` (Number) The port of the database, if not given, the default one will be used.
 - `provider_engine` (String) The provider engine, will be later deduced to the identifier of the provider.

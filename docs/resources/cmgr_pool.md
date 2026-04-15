@@ -34,3 +34,13 @@ resource "idsec_cmgr_pool" "example_pool" {
 - `identifiers_count` (Number) The number of identifiers on the pool.
 - `pool_id` (String) The ID of the pool to update.
 - `updated_at` (String) The last update time of the pool.
+
+
+
+## Import
+
+The `idsec_cmgr_pool` resource can be imported using the following command:
+
+```shell
+terraform import idsec_cmgr_pool.example pool-id-123
+```

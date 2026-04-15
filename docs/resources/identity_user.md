@@ -52,9 +52,22 @@ resource "idsec_identity_user" "myserviceuser" {
 - `send_sms_invite` (Boolean) Whether to send an SMS invite to the user upon creation
 - `state` (String) State of the user to create, can be None, Locked, Disabled, or Expired
 - `suffix` (String) Suffix to use for the username, will use the default tenant one if not given
-- `user_attributes` (Map of String) Custom attributes of the user
 - `user_id` (String) Users id that we change the details for
+
+### Read-Only
+
+- `user_attributes` (Map of String) Custom attributes of the user
 
 <a id="nestedatt--last_login"></a>
 ### Nested Schema for `last_login`
 
+
+
+
+## Import
+
+The `idsec_identity_user` resource can be imported using the following command:
+
+```shell
+terraform import idsec_identity_user.example user-id-123
+```

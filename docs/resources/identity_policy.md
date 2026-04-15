@@ -44,3 +44,13 @@ resource "idsec_identity_policy" "myrole_policy" {
 - `rev_stamp` (String) Revision stamp of the policy
 - `role_names` (Set of String) List of role names associated with the policy
 - `settings` (Dynamic) Additional settings for the policy
+
+
+
+## Import
+
+The `idsec_identity_policy` resource can be imported using the following command:
+
+```shell
+terraform import idsec_identity_policy.example policy-id-123
+```

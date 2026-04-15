@@ -21,121 +21,124 @@ data "idsec_policy_db" "example_policy" {
 
 ### Optional
 
+- `policy_id` (String) Returns the details about a specific access policy
+
+### Read-Only
+
 - `conditions` (Attributes) The time, session, and idle time conditions of the policy (see [below for nested schema](#nestedatt--conditions))
-- `delegation_classification` (String) Indicates the user rights for the current policy
-- `metadata` (Attributes) Policy metadata id name and extra information (see [below for nested schema](#nestedatt--metadata))
-- `policy_id` (String) Policy id to be retrieved
-- `principals` (Attributes List) List of users, groups and roles that the policy applies to (see [below for nested schema](#nestedatt--principals))
+- `delegation_classification` (String) Indicates the user rights for the policy. Default: Unrestricted
+- `metadata` (Attributes) The policy metadata: ID, name, and additional information (see [below for nested schema](#nestedatt--metadata))
+- `principals` (Attributes List) The identity: user, group, role (see [below for nested schema](#nestedatt--principals))
 - `targets` (Attributes Map) The targets of the database access policy. (see [below for nested schema](#nestedatt--targets))
 
 <a id="nestedatt--conditions"></a>
 ### Nested Schema for `conditions`
 
-Optional:
+Read-Only:
 
-- `access_window` (Attributes) Indicate the time frame that the policy will be active (see [below for nested schema](#nestedatt--conditions--access_window))
+- `access_window` (Attributes) The days and times when the user can connect to their target using this policy (see [below for nested schema](#nestedatt--conditions--access_window))
 - `idle_time` (Number) The maximum idle time before the session ends, in minutes.
-- `max_session_duration` (Number) Session length
+- `max_session_duration` (Number) The maximum length of time (in hours) a user can remain connected in a single session. Default: 1
 
 <a id="nestedatt--conditions--access_window"></a>
 ### Nested Schema for `conditions.access_window`
 
-Optional:
+Read-Only:
 
-- `days_of_the_week` (List of Number) The days that the policy will be active
-- `from_hour` (String) The policy will be active from hour
-- `to_hour` (String) The policy will be active to time
+- `days_of_the_week` (List of Number) The days of the week to include in the policy's access window, where Sunday=0, Monday=1,..., Saturday=6, comma-separated
+- `from_hour` (String) The start time of the policy's access window (in ISO 8601 format e.g. 2023-07-05T12:34:56)
+- `to_hour` (String) The end time of the policy's access window (in ISO 8601 format e.g. 2023-07-05T13:34:56)
 
 
 
 <a id="nestedatt--metadata"></a>
 ### Nested Schema for `metadata`
 
-Optional:
+Read-Only:
 
-- `created_by` (Attributes) The user who created the policy, and the creation time (see [below for nested schema](#nestedatt--metadata--created_by))
-- `description` (String) Description of the policy
-- `name` (String) Name of the policy
-- `policy_entitlement` (Attributes) The policy target category, location type and policy type (see [below for nested schema](#nestedatt--metadata--policy_entitlement))
-- `policy_id` (String) Policy id
-- `policy_tags` (List of String) List of tags that related to the policy
-- `status` (Attributes) Status of the policy (see [below for nested schema](#nestedatt--metadata--status))
-- `time_frame` (Attributes) The time that the policy is active (see [below for nested schema](#nestedatt--metadata--time_frame))
-- `time_zone` (String) The time zone of the policy, default is GMT
-- `updated_on` (Attributes) The user who updated the policy, and the update time (see [below for nested schema](#nestedatt--metadata--updated_on))
+- `created_by` (Attributes) The user who created the policy and when (see [below for nested schema](#nestedatt--metadata--created_by))
+- `description` (String) A short description about the policy - maximum 200 characters
+- `name` (String) A unique name for the access policy - minLength: 1, maxLength: 200
+- `policy_entitlement` (Attributes) The policy target category, location type, and policy type (see [below for nested schema](#nestedatt--metadata--policy_entitlement))
+- `policy_id` (String) The unique identifier of the access policy - minLength: 0, maxLength: 99
+- `policy_tags` (List of String) Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy
+- `status` (Attributes) The status of the policy (see [below for nested schema](#nestedatt--metadata--status))
+- `time_frame` (Attributes) The timeframe that the policy is active. For an unlimited timeframe, leave empty - maxLength: 50 (see [below for nested schema](#nestedatt--metadata--time_frame))
+- `time_zone` (String) The time zone identifier - maxLength: 50, Default: GMT
+- `updated_on` (Attributes) The user who updated the policy, and when (see [below for nested schema](#nestedatt--metadata--updated_on))
 
 <a id="nestedatt--metadata--created_by"></a>
 ### Nested Schema for `metadata.created_by`
 
-Optional:
+Read-Only:
 
-- `time` (String) Time of the change
-- `user` (String) Username of the user who made the change
+- `time` (String) The date and time the policy was created or modified (read-only) readOnly: true
+- `user` (String) The name of the user that modified the policy (read-only) minLength: 1 maxLength: 512 readOnly: true
 
 
 <a id="nestedatt--metadata--policy_entitlement"></a>
 ### Nested Schema for `metadata.policy_entitlement`
 
-Optional:
+Read-Only:
 
-- `location_type` (String) The location type of the policy
-- `policy_type` (String) Policy type
-- `target_category` (String) The target category of the policy
+- `location_type` (String) The location of the target: Cloud access: AWS, Azure, GCP; Infrastructure access: FQDN/IP
+- `policy_type` (String) Type of policy - recurring or on-demand
+- `target_category` (String) The category of the target: Cloud access: Cloud console, Groups; Infrastructure access: VM, DB
 
 
 <a id="nestedatt--metadata--status"></a>
 ### Nested Schema for `metadata.status`
 
-Optional:
+Read-Only:
 
-- `link` (String) A documentation link for the policy status
-- `status` (String) The status type of the policy
-- `status_code` (String) The status code of the policy
-- `status_description` (String) The status description of the policy
+- `link` (String) Link to documentation when available. maxLength: 255
+- `status` (String) The status of the policy
+- `status_code` (String) The status code. maxLength: 99
+- `status_description` (String) A description of the status. maxLength: 1000
 
 
 <a id="nestedatt--metadata--time_frame"></a>
 ### Nested Schema for `metadata.time_frame`
 
-Optional:
+Read-Only:
 
-- `from_time` (String) Time from which the policy is effective
-- `to_time` (String) Time to which the policy is expired
+- `from_time` (String) The date and time the policy becomes active (format: yyyy-MM-ddTHH:mm:ss)
+- `to_time` (String) format: yyyy-MM-ddTHH:mm:ss The date the policy expires
 
 
 <a id="nestedatt--metadata--updated_on"></a>
 ### Nested Schema for `metadata.updated_on`
 
-Optional:
+Read-Only:
 
-- `time` (String) Time of the change
-- `user` (String) Username of the user who made the change
+- `time` (String) The date and time the policy was created or modified (read-only) readOnly: true
+- `user` (String) The name of the user that modified the policy (read-only) minLength: 1 maxLength: 512 readOnly: true
 
 
 
 <a id="nestedatt--principals"></a>
 ### Nested Schema for `principals`
 
-Optional:
+Read-Only:
 
-- `id` (String) The id of the principal
-- `name` (String) The name of the principal
-- `source_directory_id` (String) The id of the source directory
-- `source_directory_name` (String) The name of the source directory
-- `type` (String) The type of the principal user, group or role
+- `id` (String) The unique identifier of the identity in CyberArk. An identity is a user, group, or role. maxLength: 40
+- `name` (String) The name of the principal. minLength: 1
+- `source_directory_id` (String) The unique identifier of the directory service. If the type is ROLE, then this field is optional.
+- `source_directory_name` (String) The name of the directory service. If the type is ROLE, then this field is optional. maxLength: 256.
+- `type` (String) The type of principal
 
 
 <a id="nestedatt--targets"></a>
 ### Nested Schema for `targets`
 
-Optional:
+Read-Only:
 
 - `instances` (Attributes List) The list of database instance targets. (see [below for nested schema](#nestedatt--targets--instances))
 
 <a id="nestedatt--targets--instances"></a>
 ### Nested Schema for `targets.instances`
 
-Optional:
+Read-Only:
 
 - `authentication_method` (String) The authentication method corresponding to the profile.
 - `db_auth_profile` (Attributes) The local database authentication profile for the database instance. (see [below for nested schema](#nestedatt--targets--instances--db_auth_profile))
@@ -151,7 +154,7 @@ Optional:
 <a id="nestedatt--targets--instances--db_auth_profile"></a>
 ### Nested Schema for `targets.instances.db_auth_profile`
 
-Optional:
+Read-Only:
 
 - `roles` (List of String) The list of roles assigned to the user.
 
@@ -159,7 +162,7 @@ Optional:
 <a id="nestedatt--targets--instances--ldap_auth_profile"></a>
 ### Nested Schema for `targets.instances.ldap_auth_profile`
 
-Optional:
+Read-Only:
 
 - `assign_groups` (List of String) The list of groups to assign to the user.
 
@@ -167,7 +170,7 @@ Optional:
 <a id="nestedatt--targets--instances--mongo_auth_profile"></a>
 ### Nested Schema for `targets.instances.mongo_auth_profile`
 
-Optional:
+Read-Only:
 
 - `global_builtin_roles` (List of String) The list of global built-in roles.
 
@@ -175,7 +178,7 @@ Optional:
 <a id="nestedatt--targets--instances--oracle_auth_profile"></a>
 ### Nested Schema for `targets.instances.oracle_auth_profile`
 
-Optional:
+Read-Only:
 
 - `dba_role` (Boolean) Indicates if the user has a DBA role.
 - `roles` (List of String) The list of roles assigned to the user.
@@ -186,7 +189,7 @@ Optional:
 <a id="nestedatt--targets--instances--rds_iam_user_auth_profile"></a>
 ### Nested Schema for `targets.instances.rds_iam_user_auth_profile`
 
-Optional:
+Read-Only:
 
 - `db_user` (String) The database user for RDS IAM User authentication.
 
@@ -194,7 +197,7 @@ Optional:
 <a id="nestedatt--targets--instances--sqlserver_auth_profile"></a>
 ### Nested Schema for `targets.instances.sqlserver_auth_profile`
 
-Optional:
+Read-Only:
 
 - `global_builtin_roles` (List of String) The list of global built-in roles.
 - `global_custom_roles` (List of String) The list of global custom roles.

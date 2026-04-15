@@ -1,13 +1,10 @@
 ---
-page_title: "Create Microsoft Entra ID Policy"
-subcategory: "Cloud Access Policy"
+page_title: "Create access control policy for Microsoft Entra ID"
 description: |-
   The following workflow describes how to create a Microsoft Entra ID policy.
 ---
 
-# Create Microsoft Entra ID Policy
-
-## Workflow
+# Workflow
 
 This workflow demonstrates how to:
 
@@ -29,7 +26,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }
@@ -80,7 +77,7 @@ resource "idsec_policy_cloud_access" "example_entra_id_directory_policy" {
     maxSessionDuration = var.max_session_duration
   }
   targets = {
-    targets = [
+    azure_targets = [
       {
       roleId        = "9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3" #var.role_id
       workspaceId   = "2ca00f05-abc6-11f5-9f0b-6b3f65b8d1b6" #var.workspace_id

@@ -17,6 +17,8 @@ The SIA ListSettings resource.
 - `certificate_validation` (Attributes) The listSettings for certificate validation. (see [below for nested schema](#nestedatt--certificate_validation))
 - `k_8_s_mfa_caching` (Attributes) The listSettings for K8S MFA caching. (see [below for nested schema](#nestedatt--k_8_s_mfa_caching))
 - `logon_sequence` (Attributes) The listSettings for logon sequence. (see [below for nested schema](#nestedatt--logon_sequence))
+- `rdp_file_parameters` (Attributes) The settings for RDP file parameters. (see [below for nested schema](#nestedatt--rdp_file_parameters))
+- `rdp_file_signing` (Attributes) The settings for RDP file signing. (see [below for nested schema](#nestedatt--rdp_file_signing))
 - `rdp_file_transfer` (Attributes) The listSettings for RDP file transfer. (see [below for nested schema](#nestedatt--rdp_file_transfer))
 - `rdp_kerberos_auth_mode` (Attributes) The settings for RDP Kerberos auth mode. (see [below for nested schema](#nestedatt--rdp_kerberos_auth_mode))
 - `rdp_keyboard_layout` (Attributes) The listSettings for RDP keyboard layout. (see [below for nested schema](#nestedatt--rdp_keyboard_layout))
@@ -29,6 +31,8 @@ The SIA ListSettings resource.
 - `ssh_mfa_caching` (Attributes) The listSettings for SSH MFA caching. (see [below for nested schema](#nestedatt--ssh_mfa_caching))
 - `ssh_recording` (Attributes) The settings for SSH recording. (see [below for nested schema](#nestedatt--ssh_recording))
 - `standing_access` (Attributes) The listSettings for standing access. (see [below for nested schema](#nestedatt--standing_access))
+- `validate_fingerprint_for_ssh_zero_standing` (Attributes) SSH fingerprint validation for Zero Standing connections (see [below for nested schema](#nestedatt--validate_fingerprint_for_ssh_zero_standing))
+- `zsp_list` (Attributes) The settings for ZSP List. (see [below for nested schema](#nestedatt--zsp_list))
 
 <a id="nestedatt--adb_mfa_caching"></a>
 ### Nested Schema for `adb_mfa_caching`
@@ -66,12 +70,29 @@ Optional:
 - `logon_sequence` (String) The configuration for the tenant logon sequence.
 
 
+<a id="nestedatt--rdp_file_parameters"></a>
+### Nested Schema for `rdp_file_parameters`
+
+Optional:
+
+- `disable_credentials_delegation` (Boolean) Choose to ignore or disable credential delegation parameter.
+
+
+<a id="nestedatt--rdp_file_signing"></a>
+### Nested Schema for `rdp_file_signing`
+
+Optional:
+
+- `enabled` (Boolean) Choose to enable or disable RDP file signing feature.
+- `pfx_secret_id` (String) Secret ID of the uploaded PFX certificate stored in ADB secrets service.
+
+
 <a id="nestedatt--rdp_file_transfer"></a>
 ### Nested Schema for `rdp_file_transfer`
 
 Optional:
 
-- `enabled` (Boolean) Indicates whether RDP file transfer is enabled.
+- `enabled` (Boolean) Indicates whether RDP file transfer is enabled for HTML5GW connections via PSM.
 
 
 <a id="nestedatt--rdp_kerberos_auth_mode"></a>
@@ -177,4 +198,20 @@ Optional:
 - `session_max_duration` (Number) The maximum duration of a session.
 - `ssh_standing_access_available` (Boolean) Indicates whether SSH standing access is available.
 - `standing_access_available` (Boolean) Indicates whether standing access is available.
+
+
+<a id="nestedatt--validate_fingerprint_for_ssh_zero_standing"></a>
+### Nested Schema for `validate_fingerprint_for_ssh_zero_standing`
+
+Optional:
+
+- `enabled` (Boolean) Whether SSH fingerprint validation is enabled for Zero Standing connections
+
+
+<a id="nestedatt--zsp_list"></a>
+### Nested Schema for `zsp_list`
+
+Optional:
+
+- `enabled` (Boolean) Whether the ZSP List feature is enabled
 

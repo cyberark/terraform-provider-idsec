@@ -23,7 +23,7 @@ data "idsec_sia_workspaces_target_sets" "example_target_set" {
 
 - `id` (String) The ID of the target set to retrieve.
 
-### Optional
+### Read-Only
 
 - `description` (String) The description of the target set.
 - `enable_certificate_validation` (Boolean) Indicates whether to enable certificate validation for the target set.

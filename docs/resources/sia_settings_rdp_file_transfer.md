@@ -13,4 +13,4 @@ The SIA RDP file transfer resource.
 
 ### Optional
 
-- `enabled` (Boolean) Indicates whether RDP file transfer is enabled.
+- `enabled` (Boolean) Indicates whether RDP file transfer is enabled for HTML5GW connections via PSM.

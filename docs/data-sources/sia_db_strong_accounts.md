@@ -15,22 +15,29 @@ The SIA strong accounts data source, reads strong account information and metada
 
 - `strong_account_id` (String) The ID of the account to get.
 
-### Optional
+### Read-Only
 
 - `account_name` (String) The account name of the account.
 - `address` (String) The address of the account.
 - `auth_database` (String) The authentication database of the account.
 - `aws_access_key_id` (String) The AWS access key ID of the account.
+- `aws_account_alias_name` (String) The AWS account alias name.
 - `aws_account_id` (String) The AWS access key ID of the account.
 - `created_at` (String) The creation timestamp.
 - `created_by` (String) The user who created the account.
 - `database` (String) The database of the account.
 - `dsn` (String) The DSN of the account.
+- `log_on_to` (String) The log on to field for WinDomain platform.
 - `modified_at` (String) The last modification timestamp.
 - `modified_by` (String) The user who last modified the account.
 - `name` (String) The account name.
-- `platform` (String) The alatform of the account. The required propeties are dependent on the platform.
+- `platform` (String) The platform of the account. The required propeties are dependent on the platform.
 - `port` (Number) The port of the account.
+- `reconcile_is_win_account` (Boolean) Whether to reconcile as Windows account for MSSql.
+- `region` (String) The AWS region.
+- `replica_set` (String) The replica set name for MongoDB.
 - `safe` (String) The Safe of the account.
 - `store_type` (String) The type of store: pam or managed.
+- `use_ssl` (String) The SSL usage setting for MongoDB.
+- `user_dn` (String) The user DN field for WinDomain platform.
 - `username` (String) The username of the account.

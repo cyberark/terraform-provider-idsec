@@ -42,3 +42,13 @@ resource "idsec_sia_workspaces_target_sets" "example_target_set" {
 - `secret_id` (String) The Secret ID of the target set.
 - `secret_type` (String) The Secret type of the target set (ProvisionerUser, PCloudAccount).
 - `type` (String) The type of the target set (Domain, Suffix, Target).
+
+
+
+## Import
+
+The `idsec_sia_workspaces_target_set` resource can be imported using the following command:
+
+```shell
+terraform import idsec_sia_workspaces_target_set.example workspace-target-set-id-123
+```

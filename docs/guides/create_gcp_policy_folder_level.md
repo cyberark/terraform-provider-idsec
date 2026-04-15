@@ -1,13 +1,10 @@
 ---
-page_title: "Create GCP Policy - Folder level"
-subcategory: "Cloud Access Policy"
+page_title: "Create access control policy for Google Cloud - folder level"
 description: |-
-  The following workflow describes how to create a GCP policy on folder level.
+  The following workflow describes how to create a policy for Google Cloud on the folder level.
 ---
 
-# Create GCP Policy - Folder level
-
-## Workflow
+# Workflow
 
 This workflow demonstrates how to:
 
@@ -29,7 +26,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }
@@ -80,7 +77,7 @@ resource "idsec_policy_cloud_access" "example_gcp_folder_policy" {
     maxSessionDuration = var.max_session_duration
   }
   targets = {
-    targets = [
+    gcp_targets = [
       {
         roleId        = "roles/accessapproval.examplerole" #var.role_id
         workspaceId   = "123456789123" #var.workspace_id

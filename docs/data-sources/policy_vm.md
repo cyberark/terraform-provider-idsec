@@ -21,18 +21,21 @@ data "idsec_policy_vm" "example_policy" {
 
 ### Optional
 
+- `policy_id` (String) Returns the details about a specific access policy
+
+### Read-Only
+
 - `behavior` (Attributes) The behavior of the VM access policy, including SSH and RDP profiles. (see [below for nested schema](#nestedatt--behavior))
 - `conditions` (Attributes) The time, session, and idle time conditions of the policy (see [below for nested schema](#nestedatt--conditions))
-- `delegation_classification` (String) Indicates the user rights for the current policy
-- `metadata` (Attributes) Policy metadata id name and extra information (see [below for nested schema](#nestedatt--metadata))
-- `policy_id` (String) Policy id to be retrieved
-- `principals` (Attributes List) List of users, groups and roles that the policy applies to (see [below for nested schema](#nestedatt--principals))
+- `delegation_classification` (String) Indicates the user rights for the policy. Default: Unrestricted
+- `metadata` (Attributes) The policy metadata: ID, name, and additional information (see [below for nested schema](#nestedatt--metadata))
+- `principals` (Attributes List) The identity: user, group, role (see [below for nested schema](#nestedatt--principals))
 - `targets` (Attributes) The targets of the VM access policy. This is a list of platform targets to which the policy applies. (see [below for nested schema](#nestedatt--targets))
 
 <a id="nestedatt--behavior"></a>
 ### Nested Schema for `behavior`
 
-Optional:
+Read-Only:
 
 - `rdp_profile` (Attributes) The RDP profile for the virtual machine access policy. (see [below for nested schema](#nestedatt--behavior--rdp_profile))
 - `ssh_profile` (Attributes) The SSH profile for the virtual machine access policy. (see [below for nested schema](#nestedatt--behavior--ssh_profile))
@@ -40,7 +43,7 @@ Optional:
 <a id="nestedatt--behavior--rdp_profile"></a>
 ### Nested Schema for `behavior.rdp_profile`
 
-Optional:
+Read-Only:
 
 - `domain_ephemeral_user` (Attributes) The ephemeral domain user method-related data. (see [below for nested schema](#nestedatt--behavior--rdp_profile--domain_ephemeral_user))
 - `local_ephemeral_user` (Attributes) The ephemeral local user method-related data. (see [below for nested schema](#nestedatt--behavior--rdp_profile--local_ephemeral_user))
@@ -48,7 +51,7 @@ Optional:
 <a id="nestedatt--behavior--rdp_profile--domain_ephemeral_user"></a>
 ### Nested Schema for `behavior.rdp_profile.domain_ephemeral_user`
 
-Optional:
+Read-Only:
 
 - `assign_domain_groups` (List of String) The predefined assigned domain groups of the user.
 - `assign_groups` (List of String) The predefined assigned local groups of the user.
@@ -58,7 +61,7 @@ Optional:
 <a id="nestedatt--behavior--rdp_profile--local_ephemeral_user"></a>
 ### Nested Schema for `behavior.rdp_profile.local_ephemeral_user`
 
-Optional:
+Read-Only:
 
 - `assign_groups` (List of String) The predefined assigned local groups of the user.
 - `enable_ephemeral_user_reconnect` (Boolean) Indicates whether the ephemeral user can reconnect.
@@ -68,7 +71,7 @@ Optional:
 <a id="nestedatt--behavior--ssh_profile"></a>
 ### Nested Schema for `behavior.ssh_profile`
 
-Optional:
+Read-Only:
 
 - `username` (String) The username on the certificate used to connect.
 
@@ -77,104 +80,104 @@ Optional:
 <a id="nestedatt--conditions"></a>
 ### Nested Schema for `conditions`
 
-Optional:
+Read-Only:
 
-- `access_window` (Attributes) Indicate the time frame that the policy will be active (see [below for nested schema](#nestedatt--conditions--access_window))
+- `access_window` (Attributes) The days and times when the user can connect to their target using this policy (see [below for nested schema](#nestedatt--conditions--access_window))
 - `idle_time` (Number) The maximum idle time before the session ends, in minutes.
-- `max_session_duration` (Number) Session length
+- `max_session_duration` (Number) The maximum length of time (in hours) a user can remain connected in a single session. Default: 1
 
 <a id="nestedatt--conditions--access_window"></a>
 ### Nested Schema for `conditions.access_window`
 
-Optional:
+Read-Only:
 
-- `days_of_the_week` (List of Number) The days that the policy will be active
-- `from_hour` (String) The policy will be active from hour
-- `to_hour` (String) The policy will be active to time
+- `days_of_the_week` (List of Number) The days of the week to include in the policy's access window, where Sunday=0, Monday=1,..., Saturday=6, comma-separated
+- `from_hour` (String) The start time of the policy's access window (in ISO 8601 format e.g. 2023-07-05T12:34:56)
+- `to_hour` (String) The end time of the policy's access window (in ISO 8601 format e.g. 2023-07-05T13:34:56)
 
 
 
 <a id="nestedatt--metadata"></a>
 ### Nested Schema for `metadata`
 
-Optional:
+Read-Only:
 
-- `created_by` (Attributes) The user who created the policy, and the creation time (see [below for nested schema](#nestedatt--metadata--created_by))
-- `description` (String) Description of the policy
-- `name` (String) Name of the policy
-- `policy_entitlement` (Attributes) The policy target category, location type and policy type (see [below for nested schema](#nestedatt--metadata--policy_entitlement))
-- `policy_id` (String) Policy id
-- `policy_tags` (List of String) List of tags that related to the policy
-- `status` (Attributes) Status of the policy (see [below for nested schema](#nestedatt--metadata--status))
-- `time_frame` (Attributes) The time that the policy is active (see [below for nested schema](#nestedatt--metadata--time_frame))
-- `time_zone` (String) The time zone of the policy, default is GMT
-- `updated_on` (Attributes) The user who updated the policy, and the update time (see [below for nested schema](#nestedatt--metadata--updated_on))
+- `created_by` (Attributes) The user who created the policy and when (see [below for nested schema](#nestedatt--metadata--created_by))
+- `description` (String) A short description about the policy - maximum 200 characters
+- `name` (String) A unique name for the access policy - minLength: 1, maxLength: 200
+- `policy_entitlement` (Attributes) The policy target category, location type, and policy type (see [below for nested schema](#nestedatt--metadata--policy_entitlement))
+- `policy_id` (String) The unique identifier of the access policy - minLength: 0, maxLength: 99
+- `policy_tags` (List of String) Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy
+- `status` (Attributes) The status of the policy (see [below for nested schema](#nestedatt--metadata--status))
+- `time_frame` (Attributes) The timeframe that the policy is active. For an unlimited timeframe, leave empty - maxLength: 50 (see [below for nested schema](#nestedatt--metadata--time_frame))
+- `time_zone` (String) The time zone identifier - maxLength: 50, Default: GMT
+- `updated_on` (Attributes) The user who updated the policy, and when (see [below for nested schema](#nestedatt--metadata--updated_on))
 
 <a id="nestedatt--metadata--created_by"></a>
 ### Nested Schema for `metadata.created_by`
 
-Optional:
+Read-Only:
 
-- `time` (String) Time of the change
-- `user` (String) Username of the user who made the change
+- `time` (String) The date and time the policy was created or modified (read-only) readOnly: true
+- `user` (String) The name of the user that modified the policy (read-only) minLength: 1 maxLength: 512 readOnly: true
 
 
 <a id="nestedatt--metadata--policy_entitlement"></a>
 ### Nested Schema for `metadata.policy_entitlement`
 
-Optional:
+Read-Only:
 
-- `location_type` (String) The location type of the policy
-- `policy_type` (String) Policy type
-- `target_category` (String) The target category of the policy
+- `location_type` (String) The location of the target: Cloud access: AWS, Azure, GCP; Infrastructure access: FQDN/IP
+- `policy_type` (String) Type of policy - recurring or on-demand
+- `target_category` (String) The category of the target: Cloud access: Cloud console, Groups; Infrastructure access: VM, DB
 
 
 <a id="nestedatt--metadata--status"></a>
 ### Nested Schema for `metadata.status`
 
-Optional:
+Read-Only:
 
-- `link` (String) A documentation link for the policy status
-- `status` (String) The status type of the policy
-- `status_code` (String) The status code of the policy
-- `status_description` (String) The status description of the policy
+- `link` (String) Link to documentation when available. maxLength: 255
+- `status` (String) The status of the policy
+- `status_code` (String) The status code. maxLength: 99
+- `status_description` (String) A description of the status. maxLength: 1000
 
 
 <a id="nestedatt--metadata--time_frame"></a>
 ### Nested Schema for `metadata.time_frame`
 
-Optional:
+Read-Only:
 
-- `from_time` (String) Time from which the policy is effective
-- `to_time` (String) Time to which the policy is expired
+- `from_time` (String) The date and time the policy becomes active (format: yyyy-MM-ddTHH:mm:ss)
+- `to_time` (String) format: yyyy-MM-ddTHH:mm:ss The date the policy expires
 
 
 <a id="nestedatt--metadata--updated_on"></a>
 ### Nested Schema for `metadata.updated_on`
 
-Optional:
+Read-Only:
 
-- `time` (String) Time of the change
-- `user` (String) Username of the user who made the change
+- `time` (String) The date and time the policy was created or modified (read-only) readOnly: true
+- `user` (String) The name of the user that modified the policy (read-only) minLength: 1 maxLength: 512 readOnly: true
 
 
 
 <a id="nestedatt--principals"></a>
 ### Nested Schema for `principals`
 
-Optional:
+Read-Only:
 
-- `id` (String) The id of the principal
-- `name` (String) The name of the principal
-- `source_directory_id` (String) The id of the source directory
-- `source_directory_name` (String) The name of the source directory
-- `type` (String) The type of the principal user, group or role
+- `id` (String) The unique identifier of the identity in CyberArk. An identity is a user, group, or role. maxLength: 40
+- `name` (String) The name of the principal. minLength: 1
+- `source_directory_id` (String) The unique identifier of the directory service. If the type is ROLE, then this field is optional.
+- `source_directory_name` (String) The name of the directory service. If the type is ROLE, then this field is optional. maxLength: 256.
+- `type` (String) The type of principal
 
 
 <a id="nestedatt--targets"></a>
 ### Nested Schema for `targets`
 
-Optional:
+Read-Only:
 
 - `aws_resource` (Attributes) The AWS resources for the VM access policy. This includes regions, tags, VPC IDs, and account IDs. (see [below for nested schema](#nestedatt--targets--aws_resource))
 - `azure_resource` (Attributes) The Azure resources for the VM access policy. This includes regions, tags, resource groups, VNet IDs, and subscriptions. (see [below for nested schema](#nestedatt--targets--azure_resource))
@@ -184,7 +187,7 @@ Optional:
 <a id="nestedatt--targets--aws_resource"></a>
 ### Nested Schema for `targets.aws_resource`
 
-Optional:
+Read-Only:
 
 - `account_ids` (List of String) The AWS account IDs where the resources are located. This is a list of account identifiers.
 - `regions` (List of String) The AWS regions where the resources are located.
@@ -194,7 +197,7 @@ Optional:
 <a id="nestedatt--targets--aws_resource--tags"></a>
 ### Nested Schema for `targets.aws_resource.tags`
 
-Optional:
+Read-Only:
 
 - `key` (String)
 - `value` (List of String)
@@ -204,7 +207,7 @@ Optional:
 <a id="nestedatt--targets--azure_resource"></a>
 ### Nested Schema for `targets.azure_resource`
 
-Optional:
+Read-Only:
 
 - `regions` (List of String) The Azure regions where the resources are located.
 - `resource_groups` (List of String) The Azure resource groups where the resources are located. This is a list of resource group names.
@@ -215,7 +218,7 @@ Optional:
 <a id="nestedatt--targets--azure_resource--tags"></a>
 ### Nested Schema for `targets.azure_resource.tags`
 
-Optional:
+Read-Only:
 
 - `key` (String)
 - `value` (List of String)
@@ -225,7 +228,7 @@ Optional:
 <a id="nestedatt--targets--fqdnip_resource"></a>
 ### Nested Schema for `targets.fqdnip_resource`
 
-Optional:
+Read-Only:
 
 - `fqdn_rules` (Attributes List) The FQDN rules used to match DNS records. This is a list of FQDN rules. (see [below for nested schema](#nestedatt--targets--fqdnip_resource--fqdn_rules))
 - `ip_rules` (Attributes List) The IP rules used to match IP addresses and logical names. This is a list of IP rules. (see [below for nested schema](#nestedatt--targets--fqdnip_resource--ip_rules))
@@ -233,7 +236,7 @@ Optional:
 <a id="nestedatt--targets--fqdnip_resource--fqdn_rules"></a>
 ### Nested Schema for `targets.fqdnip_resource.fqdn_rules`
 
-Optional:
+Read-Only:
 
 - `computername_pattern` (String) The pattern to match against the computer name. This can be a full FQDN or a partial match.
 - `domain` (String) The domain to match against the FQDN. This is optional and can be used to further restrict the match.
@@ -243,7 +246,7 @@ Optional:
 <a id="nestedatt--targets--fqdnip_resource--ip_rules"></a>
 ### Nested Schema for `targets.fqdnip_resource.ip_rules`
 
-Optional:
+Read-Only:
 
 - `ip_addresses` (List of String) The list of IP addresses to match against. This can include both IPv4 and IPv6 addresses.
 - `logical_name` (String) The logical name of the network.
@@ -254,7 +257,7 @@ Optional:
 <a id="nestedatt--targets--gcp_resource"></a>
 ### Nested Schema for `targets.gcp_resource`
 
-Optional:
+Read-Only:
 
 - `labels` (Attributes List) The labels used to match GCP resources. This is a list of key-value pairs. (see [below for nested schema](#nestedatt--targets--gcp_resource--labels))
 - `projects` (List of String) The GCP project IDs where the resources are located. This is a list of project identifiers.
@@ -264,7 +267,7 @@ Optional:
 <a id="nestedatt--targets--gcp_resource--labels"></a>
 ### Nested Schema for `targets.gcp_resource.labels`
 
-Optional:
+Read-Only:
 
 - `key` (String)
 - `value` (List of String)

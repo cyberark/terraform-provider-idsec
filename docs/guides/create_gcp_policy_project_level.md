@@ -1,13 +1,10 @@
 ---
-page_title: "Create GCP Policy - Project level"
-subcategory: "Cloud Access Policy"
+page_title: "Create access control policy for Google Cloud - project level"
 description: |-
-  The following workflow describes how to create a GCP policy on project level.
+  The following workflow describes how to create a policy for Google Cloud on the project level.
 ---
 
-# Create GCP Policy - Project level
-
-## Workflow
+# Workflow
 
 This workflow demonstrates how to:
 
@@ -29,7 +26,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.1"
+      version = ">= 0.2"
     }
   }
 }
@@ -80,7 +77,7 @@ resource "idsec_policy_cloud_access" "example_gcp_project_policy" {
     maxSessionDuration = var.max_session_duration
   }
   targets = {
-    targets = [
+    gcp_targets = [
       {
       roleId        = "roles/actions.Examplerole" #var.role_id
       workspaceId   = "test-123456" #var.workspace_id

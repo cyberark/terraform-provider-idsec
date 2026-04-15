@@ -30,3 +30,13 @@ resource "idsec_identity_role_admin_rights" "myrole_admin_rights" {
 
 - `role_id` (String) Role id to add admin rights to
 - `role_name` (String) Role name to add admin rights to
+
+
+
+## Import
+
+The `idsec_identity_role_admin_rights` resource can be imported using the following command:
+
+```shell
+terraform import idsec_identity_role_admin_rights.example role-id-123
+```

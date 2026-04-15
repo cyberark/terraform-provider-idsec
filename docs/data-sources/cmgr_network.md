@@ -23,7 +23,7 @@ data "idsec_cmgr_network" "example_network" {
 
 - `network_id` (String) The ID of the network to get.
 
-### Optional
+### Read-Only
 
 - `assigned_pools` (Attributes List) The pools assigned to the network. (see [below for nested schema](#nestedatt--assigned_pools))
 - `created_at` (String) The creation time of the network.
@@ -33,7 +33,7 @@ data "idsec_cmgr_network" "example_network" {
 <a id="nestedatt--assigned_pools"></a>
 ### Nested Schema for `assigned_pools`
 
-Optional:
+Read-Only:
 
 - `name` (String) The name of the pool.
 - `pool_id` (String) The ID of the pool.

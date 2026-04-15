@@ -65,3 +65,13 @@ Optional:
 - `key` (String) The attribute key
 - `value` (String) The attribute value
 
+
+
+
+## Import
+
+The `idsec_pcloud_application_auth_method` resource can be imported using the following command:
+
+```shell
+terraform import idsec_pcloud_application_auth_method.example app-id-123:auth-id-123
+```
