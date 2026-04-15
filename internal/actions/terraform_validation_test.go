@@ -184,10 +184,41 @@ func validateAttributeList(t *testing.T, serviceName, actionName, actionType str
 			continue
 		}
 
-		field := common.FindFieldByName(schemaType, fieldName)
+		field := findFieldByTerraformAttributeName(schemaType, fieldName)
 		if field == nil {
 			t.Errorf("%s field '%s' does not exist in schema %s for %s '%s' in service '%s'",
 				attributeType, fieldName, schemaType.Name(), actionType, actionName, serviceName)
 		}
 	}
+}
+
+// findFieldByTerraformAttributeName looks up a struct field by its Terraform attribute name.
+//
+// Terraform attribute names are derived from struct tags (mapstructure, json) rather than
+// Go field names. This function first attempts the PascalCase Go-field-name lookup via
+// common.FindFieldByName, then falls back to scanning struct tags directly. This handles
+// cases where the Go field name does not match the PascalCase of the attribute name
+// (e.g., a field named "ID" with a mapstructure tag of "https_relay_id").
+func findFieldByTerraformAttributeName(schemaType reflect.Type, attrName string) *reflect.StructField {
+	if field := common.FindFieldByName(schemaType, attrName); field != nil {
+		return field
+	}
+
+	if schemaType.Kind() == reflect.Ptr {
+		schemaType = schemaType.Elem()
+	}
+	if schemaType.Kind() != reflect.Struct {
+		return nil
+	}
+
+	for i := 0; i < schemaType.NumField(); i++ {
+		field := schemaType.Field(i)
+		if mapTag := strings.Split(field.Tag.Get("mapstructure"), ",")[0]; mapTag == attrName {
+			return &field
+		}
+		if jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]; jsonTag == attrName {
+			return &field
+		}
+	}
+	return nil
 }
