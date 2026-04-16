@@ -1,4 +1,4 @@
-Copyright (c) 2025 CyberArk Software Ltd. All rights reserved
+Copyright (c) 2026 CyberArk Software Ltd. All rights reserved
 
 terraform-provider-idsec is using the following open source components:
 

@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_cce_azure_entra"
-subcategory: "Connect cloud environments"
+subcategory: "Connect Cloud Environments"
 description: CCE Microsoft Entra tenant data source, reads Microsoft Entra tenant details based on the CCE Microsoft Entra tenant onboarding ID.
 ---
 

@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_cce_azure_workspaces"
-subcategory: "Connect cloud environments"
+subcategory: "Connect Cloud Environments"
 description: CCE Azure workspaces data source, retrieves Azure workspaces with optional filtering.
 ---
 

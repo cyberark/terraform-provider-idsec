@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_cce_azure_management_group"
-subcategory: "Connect cloud environments"
+subcategory: "Connect Cloud Environments"
 description: CCE Azure management group data source, reads management group details based on the CCE management group onboarding ID.
 ---
 

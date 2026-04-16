@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_cce_aws_account"
-subcategory: "Connect cloud environments"
+subcategory: "Connect Cloud Environments"
 description: CCE AWS account data source, reads account details based on the CCE account onboarding ID.
 ---
 

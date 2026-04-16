@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_cce_aws_organization"
-subcategory: "Connect cloud environments"
+subcategory: "Connect Cloud Environments"
 description: CCE AWS organization resource, manages AWS organization programmatic onboarding.
 ---
 

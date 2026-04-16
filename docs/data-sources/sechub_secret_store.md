@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_sechub_secret_store"
-subcategory: "SECHUB"
+subcategory: "Secrets Hub"
 description: Secrets Hub secret store data source, reads secret store information and metadata, based on the Secret Store ID.
 ---
 

@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_cce_aws_organization_account"
-subcategory: "Connect cloud environments"
+subcategory: "Connect Cloud Environments"
 description: CCE AWS organization account resource, adds AWS accounts to an organization.
 ---
 

@@ -1,13 +1,12 @@
 ---
-page_title: "Configuring Cloud Compute Environment (CCE) Modules"
-subcategory: "Guides"
+page_title: "Configuring Connect Cloud Environment (CCE) Modules"
 description: |-
   Guide for using the CCE Terraform modules to onboard and manage cloud accounts across AWS and Azure.
 ---
 
-# Configuring Cloud Compute Environment (CCE) Modules
+# Configuring Connect Cloud Environment (CCE) Modules
 
-The Identity Security Terraform Provider includes modules for automating Cloud Compute Environment (CCE) onboarding across AWS and Azure. These modules streamline the process of connecting your cloud infrastructure to CyberArk's identity security platform.
+The Identity Security Terraform Provider includes modules for automating Connect Cloud Environment (CCE) onboarding across AWS and Azure. These modules streamline the process of connecting your cloud infrastructure to CyberArk's identity security platform.
 
 ## Overview
 

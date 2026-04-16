@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_cce_aws_tenant_service_details"
-subcategory: "Connect cloud environments"
+subcategory: "Connect Cloud Environments"
 description: CCE AWS tenant service details data source, retrieves tenant service details.
 ---
 

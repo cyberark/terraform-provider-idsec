@@ -1,6 +1,6 @@
 ---
 page_title: "terraform-provider-idsec - idsec_cce_azure_subscription"
-subcategory: "Connect cloud environments"
+subcategory: "Connect Cloud Environments"
 description: CCE Azure Subscription data source, reads subscription details based on the CCE subscription onboarding ID.
 ---
 
