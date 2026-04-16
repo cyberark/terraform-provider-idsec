@@ -31,7 +31,6 @@ The *idsec* Terraform provider centralizes the automation of identity security a
 | *Secure Infrastructure Access* | Extend least-privilege control to internal, developer-facing infrastructure |
 | *Access Control Policies* | Manage access policies for cloud services, databases, and virutal machines |
 | *Connect Cloud Environments* | Automate the onboarding and management of cloud accounts, subscriptions, and organizational units across AWS and Azure environments |
-| *Secres Hub* | Manage Secrets Hub secret store resource that represent secret management systems, including their configuration and metadata |
 
 ## Additional information
 
