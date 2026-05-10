@@ -1,4 +1,4 @@
-// Copyright (c) CyberArk
+// Copyright CyberArk 2026
 // SPDX-License-Identifier: Apache-2.0
 
 package pcloud
@@ -17,6 +17,17 @@ func init() {
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
 						ActionName: "pcloud-safe", ActionDescription: "Privilege Cloud Safe resource, manages Privilege Cloud Safes information and metadata.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
+					},
+					ComputedAttributes: []string{
+						"safe_number",
+						"creator",
+						"creation_time",
+						"last_modification_time",
+						"safe_id",
+						"is_expired_member",
+					},
+					ImmutableAttributes: []string{
+						"auto_purge_enabled",
 					},
 					StateSchema: &safesmodels.IdsecPCloudSafe{},
 				},

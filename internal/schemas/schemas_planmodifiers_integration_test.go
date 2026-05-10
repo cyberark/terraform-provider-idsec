@@ -1,4 +1,4 @@
-// Copyright (c) CyberArk.
+// Copyright CyberArk. 2026
 // SPDX-License-Identifier: Apache-2.0
 
 // Package schemas provides integration tests for plan modifiers.

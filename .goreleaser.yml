@@ -8,6 +8,7 @@ builds:
   ldflags:
     - '-s -w -X main.Version={{.Version}} -X main.GitCommit={{.Commit}} -X main.BuildDate={{.Date}}'
     - '-X github.com/cyberark/terraform-provider-idsec/internal/actions.releasedFeaturesOnly={{.Env.RELEASED_FEATURES_ONLY}}'
+
   goos:
     - freebsd
     - windows
@@ -45,6 +46,7 @@ signs:
       - "${artifact}"
 
 changelog:
+  disable: true
   sort: asc
   filters:
     exclude:

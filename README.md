@@ -1,9 +1,6 @@
 ![Terraform Provider Idsec](https://github.com/cyberark/terraform-provider-idsec/blob/main/assets/sdk.png)
 
 <p align="center">
-    <a href="https://actions-badge.atrox.dev/cyberark/terraform-provider-idsec/goto?ref=master" alt="Build">
-        <img src="https://img.shields.io/endpoint.svg?url=https%3A%2F%2Factions-badge.atrox.dev%2Fcyberark%terraform-provider-idsec%2Fbadge%3Fref%3Dmaster&style=flat" />
-    </a>
     <a alt="Go Version">
         <img src="https://img.shields.io/github/go-mod/go-version/cyberark/terraform-provider-idsec" />
     </a>
@@ -16,9 +13,13 @@
 
 CyberArk's Official Terraform Provider for CyberArk. This provider allows you to manage CyberArk resources using Terraform.
 
+**Terraform Registry:** [cyberark/idsec](https://registry.terraform.io/providers/cyberark/idsec/latest) (documentation, versions, and installation).
+
 ## Installation
 
 ### Install from Terraform Registry
+
+Use the [published provider](https://registry.terraform.io/providers/cyberark/idsec/latest) from the Terraform Registry.
 
 ```hcl
 terraform {

@@ -37,16 +37,19 @@ resource "idsec_pcloud_safe_member" "example_safe_members" {
 ### Optional
 
 - `auto_purge_enabled` (Boolean) Whether to automatically purge files after the end of the Object History Retention Period defined in the Safe properties. Note: Report Safes and PSM Recording Safes are automatically set to Yes and cannot be automatically rotated
-- `creation_time` (Number) The Unix creation time of the Safe
-- `creator` (Attributes) Name/ID of the user that created the Safe (see [below for nested schema](#nestedatt--creator))
 - `description` (String) Description of the Safe
-- `is_expired_member` (Boolean) Whether the membership for the Safe is expired. For expired members, the value is True
-- `last_modification_time` (Number) The Unix time when the Safe was last updated
 - `location` (String) Location of the Safe in the Vault
 - `managing_cpm` (String) The name of the CPM user who will manage the new Safe
 - `number_of_days_retention` (Number) The number of days that secrets versions are saved in the Safe
 - `number_of_versions_retention` (Number) The number of retained versions of every secret that is stored in the Safe
 - `olac_enabled` (Boolean) Whether to enable Object Level Access Control for the new Safe
+
+### Read-Only
+
+- `creation_time` (Number) The Unix creation time of the Safe
+- `creator` (Attributes) Name/ID of the user that created the Safe (see [below for nested schema](#nestedatt--creator))
+- `is_expired_member` (Boolean) Whether the membership for the Safe is expired. For expired members, the value is True
+- `last_modification_time` (Number) The Unix time when the Safe was last updated
 - `safe_id` (String) The URL encoding of the Safe name you want to update. For special characters, enter the encoding of the special character. For example, enter %20 to represent a space
 - `safe_number` (Number) The unique numerical ID of the Safe
 

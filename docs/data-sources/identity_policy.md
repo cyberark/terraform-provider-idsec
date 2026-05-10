@@ -21,6 +21,7 @@ data "idsec_identity_policy" "myrole_policy" {
 
 ### Optional
 
+- `filter_system_settings` (Boolean) Indicates whether to filter system settings when returning the policy
 - `policy_name` (String) Policy Name to retrieve
 
 ### Read-Only

@@ -24,7 +24,7 @@ resource "idsec_cmgr_pool_identifier" "example_identifier" {
 ### Required
 
 - `pool_id` (String) The ID of the pool to which the identifier will be added.
-- `type` (String) The type of the identifier to add (GENERAL_FQDN,GENERAL_HOSTNAME,AWS_ACCOUNT_ID,AWS_VPC,AWS_SUBNET,AZURE_SUBSCRIPTION,AZURE_VNET,AZURE_SUBNET,GCP_PROJECT,GCP_NETWORK,GCP_SUBNET)
+- `type` (String) The type of the identifier to add (GENERAL_CIDR_BLOCK,GENERAL_FQDN,GENERAL_HOSTNAME,AWS_ACCOUNT_ID,AWS_VPC,AWS_SUBNET,AZURE_SUBSCRIPTION,AZURE_VNET,AZURE_SUBNET,GCP_PROJECT,GCP_NETWORK,GCP_SUBNET)
 - `value` (String) The value of the identifier.
 
 ### Optional

@@ -31,4 +31,5 @@ data "idsec_identity_role" "myrole" {
 
 - `admin_rights` (Set of String) Admin rights assigned to the role
 - `description` (String) Description of the role
+- `role_attributes` (Map of String) Custom attributes of the role
 - `role_type` (String) Type of the role, can be PrincipalList, Script, or Everybody
