@@ -9,6 +9,7 @@ package schemas
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 )
@@ -137,6 +138,58 @@ func (m ImmutableStringModifier) PlanModifyString(ctx context.Context, req planm
 			req.PlanValue.ValueString(),
 		),
 	)
+}
+
+// CaseInsensitiveStringModifier compares planned and prior string values with strings.EqualFold.
+// When they match under case-folding but differ in exact spelling, the planned value is replaced
+// with the state value so Terraform does not show a cosmetic update. Semantic changes are left
+// unchanged and never produce diagnostics from this modifier.
+type CaseInsensitiveStringModifier struct{}
+
+// CaseInsensitiveString returns a plan modifier that normalizes case-only string differences
+// against the value in state. It does not block or validate updates.
+func CaseInsensitiveString() planmodifier.String {
+	return CaseInsensitiveStringModifier{}
+}
+
+// Description returns a human-readable description of the plan modifier.
+func (m CaseInsensitiveStringModifier) Description(_ context.Context) string {
+	return "When the planned value equals the state value ignoring letter case, the plan uses the state's spelling."
+}
+
+// MarkdownDescription returns a markdown-formatted description of the plan modifier.
+func (m CaseInsensitiveStringModifier) MarkdownDescription(_ context.Context) string {
+	return "If the planned value matches state under **case-insensitive** comparison (`EqualFold`), the plan is updated to match state's exact casing. Other changes are not altered."
+}
+
+// PlanModifyString normalizes the plan when state and plan are equal under strings.EqualFold.
+func (m CaseInsensitiveStringModifier) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	if req.State.Raw.IsNull() {
+		return
+	}
+	if req.PlanValue.IsUnknown() {
+		return
+	}
+	if req.ConfigValue.IsUnknown() {
+		return
+	}
+	if req.Plan.Raw.IsNull() {
+		return
+	}
+
+	if req.StateValue.IsNull() || req.PlanValue.IsNull() {
+		return
+	}
+
+	if req.PlanValue.Equal(req.StateValue) {
+		return
+	}
+
+	stateStr := req.StateValue.ValueString()
+	planStr := req.PlanValue.ValueString()
+	if strings.EqualFold(stateStr, planStr) {
+		resp.PlanValue = req.StateValue
+	}
 }
 
 // ImmutableInt64Modifier prevents changes to int64 attributes after resource creation.

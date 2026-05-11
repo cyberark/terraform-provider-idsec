@@ -40,12 +40,13 @@ func (a *IdsecServiceBaseActionDefinition) IsEnabled() bool {
 // IdsecServiceBaseTerraformActionDefinition is a struct that defines the structure of an action in the Idsec Terraform provider.
 type IdsecServiceBaseTerraformActionDefinition struct {
 	IdsecServiceBaseActionDefinition
-	StateSchema             interface{}
-	SensitiveAttributes     []string
-	ExtraRequiredAttributes []string
-	ComputedAsSetAttributes []string
-	ImmutableAttributes     []string
-	ComputedAttributes      []string
+	StateSchema               interface{}
+	SensitiveAttributes       []string
+	ExtraRequiredAttributes   []string
+	ComputedAsSetAttributes   []string
+	ImmutableAttributes       []string
+	ComputedAttributes        []string
+	CaseInsensitiveAttributes []string
 }
 
 // IdsecServiceTerraformResourceActionDefinition is a struct that defines the structure of a resource action in the Idsec Terraform provider.

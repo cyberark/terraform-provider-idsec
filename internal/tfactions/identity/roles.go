@@ -30,7 +30,8 @@ func init() {
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
 						ActionName: "identity-role-member", ActionDescription: "The Identity service role member resource that is used to manage role members.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
-					StateSchema: &rolesmodels.IdsecIdentityRoleMember{},
+					StateSchema:               &rolesmodels.IdsecIdentityRoleMember{},
+					CaseInsensitiveAttributes: []string{"member_name"},
 				},
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "add-member", tfactions.ReadOperation: "get-member", tfactions.DeleteOperation: "remove-member"},
@@ -46,6 +47,28 @@ func init() {
 				},
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "add-admin-rights", tfactions.ReadOperation: "get-admin-rights", tfactions.DeleteOperation: "remove-admin-rights"},
+				ImportID:            "role_id",
+			},
+			{
+				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
+					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
+						ActionName: "identity-role-attributes-schema", ActionDescription: "The Identity service role attributes schema resource that is used to manage role attributes schema.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
+					},
+					StateSchema: &rolesmodels.IdsecIdentityRoleAttributesSchema{},
+				},
+				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
+				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "create-attributes-schema", tfactions.ReadOperation: "attributes-schema", tfactions.UpdateOperation: "update-attributes-schema", tfactions.DeleteOperation: "delete-attributes-schema"},
+				ImportID:            tfactions.SingletonResourceImportDummyID,
+			},
+			{
+				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
+					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
+						ActionName: "identity-role-attributes", ActionDescription: "The Identity service role attributes resource that is used to manage role attributes.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
+					},
+					StateSchema: &rolesmodels.IdsecIdentityRoleAttributes{},
+				},
+				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
+				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "upsert-attributes", tfactions.ReadOperation: "get-attributes", tfactions.UpdateOperation: "upsert-attributes", tfactions.DeleteOperation: "delete-attributes"},
 				ImportID:            "role_id",
 			},
 		},
@@ -78,6 +101,24 @@ func init() {
 					ComputedAsSetAttributes: []string{"admin_rights"},
 				},
 				DataSourceAction: "get-admin-rights",
+			},
+			{
+				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
+					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
+						ActionName: "identity-role-attributes-schema", ActionDescription: "The Identity service role attributes schema data source. It reads the role attributes schema information and metadata and is based on the ID of the role attributes schema.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
+					},
+					StateSchema: &rolesmodels.IdsecIdentityRoleAttributesSchema{},
+				},
+				DataSourceAction: "attributes-schema",
+			},
+			{
+				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
+					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
+						ActionName: "identity-role-attributes", ActionDescription: "The Identity service role attributes data source. It reads the role attributes information and metadata and is based on the ID of the role attributes.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
+					},
+					StateSchema: &rolesmodels.IdsecIdentityRoleAttributes{},
+				},
+				DataSourceAction: "get-attributes",
 			},
 		},
 	})

@@ -172,18 +172,19 @@ func TestGenerateResourceSchemaFromStruct(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name               string
-		createModel        interface{}
-		updateModel        interface{}
-		stateModel         interface{}
-		sensitiveAttrs     []string
-		extraRequiredAttrs []string
-		computedAsSetAttrs []string
-		immutableAttrs     []string
-		forceNewAttrs      []string
-		computedAttrs      []string
-		validateFunc       func(t *testing.T, result schema.Schema)
-		expectedError      bool
+		name                 string
+		createModel          interface{}
+		updateModel          interface{}
+		stateModel           interface{}
+		sensitiveAttrs       []string
+		extraRequiredAttrs   []string
+		computedAsSetAttrs   []string
+		immutableAttrs       []string
+		forceNewAttrs        []string
+		computedAttrs        []string
+		caseInsensitiveAttrs []string
+		validateFunc         func(t *testing.T, result schema.Schema)
+		expectedError        bool
 	}{
 		{
 			name:        "success_basic_models_without_nested_conflicts",
@@ -322,6 +323,22 @@ func TestGenerateResourceSchemaFromStruct(t *testing.T) {
 			},
 		},
 		{
+			name:                 "success_case_insensitive_attribute_gets_plan_modifier",
+			createModel:          &testCreateModel{},
+			updateModel:          &testUpdateModel{},
+			stateModel:           &testStateModel{},
+			caseInsensitiveAttrs: []string{"root_level_field"},
+			validateFunc: func(t *testing.T, result schema.Schema) {
+				attr, ok := result.Attributes["root_level_field"].(schema.StringAttribute)
+				if !ok {
+					t.Fatal("expected root_level_field to be StringAttribute")
+				}
+				if len(attr.PlanModifiers) == 0 {
+					t.Fatal("expected root_level_field to have at least one plan modifier (CaseInsensitiveString)")
+				}
+			},
+		},
+		{
 			name:          "success_with_computed_attributes",
 			createModel:   &testCreateModel{},
 			updateModel:   &testUpdateModel{},
@@ -403,6 +420,7 @@ func TestGenerateResourceSchemaFromStruct(t *testing.T) {
 				tt.immutableAttrs,
 				tt.forceNewAttrs,
 				tt.computedAttrs,
+				tt.caseInsensitiveAttrs,
 			)
 
 			// Validate result
@@ -476,6 +494,7 @@ func TestGenerateResourceSchemaFromStructNestedStructRemoval(t *testing.T) {
 		nil, // immutableAttrs
 		nil, // forceNewAttrs
 		nil, // computedAttrs
+		nil,
 	)
 
 	// Verify nested structs exist
@@ -545,6 +564,7 @@ func TestGenerateResourceSchemaFromStructWithSquashedStateModel(t *testing.T) {
 		nil,
 		nil, // forceNewAttrs
 		nil, // computedAttrs
+		nil,
 	)
 
 	// When state model has squashed fields, they should appear at root level
@@ -620,6 +640,7 @@ func TestGenerateResourceSchemaFromStructWithAttributeConflict(t *testing.T) {
 		nil, // immutableAttrs
 		nil, // forceNewAttrs
 		nil, // computedAttrs
+		nil,
 	)
 
 	// Verify that nested_struct exists

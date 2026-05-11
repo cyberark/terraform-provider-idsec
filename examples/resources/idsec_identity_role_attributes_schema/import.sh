@@ -1,0 +1,1 @@
+terraform import idsec_identity_role_attributes_schema.example

@@ -112,6 +112,10 @@ func (s *IdsecResource) getComputedAttributes() []string {
 	return s.getStringSliceFromActionDefinition("ComputedAttributes")
 }
 
+func (s *IdsecResource) getCaseInsensitiveAttributes() []string {
+	return s.getStringSliceFromActionDefinition("CaseInsensitiveAttributes")
+}
+
 func (s *IdsecResource) getImportID() string {
 	// Use reflection to safely check if ImportID field exists
 	// This provides backward compatibility with SDK versions that don't have this field yet
@@ -310,6 +314,7 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 			s.getImmutableAttributes(),
 			s.getForceNewAttributes(),
 			s.getComputedAttributes(),
+			s.getCaseInsensitiveAttributes(),
 		)
 
 		schemaAttrs := schemas.ResourceSchemaToSchemaAttrTypes(outputSchemaDef)
@@ -365,6 +370,7 @@ func (s *IdsecResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 		s.getImmutableAttributes(),
 		s.getForceNewAttributes(),
 		s.getComputedAttributes(),
+		s.getCaseInsensitiveAttributes(),
 	)
 	resp.Schema.Description = s.actionDefinition.ActionDescription
 	if s.actionDefinition.ActionVersion != 0 {

@@ -226,6 +226,164 @@ func TestImmutableStringModifier(t *testing.T) {
 	}
 }
 
+// TestCaseInsensitiveStringModifier tests CaseInsensitiveStringModifier.
+func TestCaseInsensitiveStringModifier(t *testing.T) {
+	t.Parallel()
+
+	createNonNullState := func() tfsdk.State {
+		return tfsdk.State{
+			Raw: tftypes.NewValue(tftypes.Object{}, map[string]tftypes.Value{}),
+		}
+	}
+	createNullState := func() tfsdk.State {
+		return tfsdk.State{
+			Raw: tftypes.NewValue(tftypes.Object{}, nil),
+		}
+	}
+	createNullPlan := func() tfsdk.Plan {
+		return tfsdk.Plan{
+			Raw: tftypes.NewValue(tftypes.Object{}, nil),
+		}
+	}
+	createNonNullPlan := func() tfsdk.Plan {
+		return tfsdk.Plan{
+			Raw: tftypes.NewValue(tftypes.Object{}, map[string]tftypes.Value{}),
+		}
+	}
+
+	tests := []struct {
+		name         string
+		stateValue   types.String
+		planValue    types.String
+		configValue  types.String
+		state        tfsdk.State
+		plan         tfsdk.Plan
+		validateFunc func(t *testing.T, req planmodifier.StringRequest, resp *planmodifier.StringResponse)
+	}{
+		{
+			name:        "create_operation_state_null_noop",
+			stateValue:  types.StringNull(),
+			planValue:   types.StringValue("NEW"),
+			configValue: types.StringValue("NEW"),
+			state:       createNullState(),
+			plan:        createNonNullPlan(),
+		},
+		{
+			name:        "update_exact_match_noop",
+			stateValue:  types.StringValue("stable"),
+			planValue:   types.StringValue("stable"),
+			configValue: types.StringValue("stable"),
+			state:       createNonNullState(),
+			plan:        createNonNullPlan(),
+		},
+		{
+			name:        "update_case_only_normalizes_plan_to_state",
+			stateValue:  types.StringValue("MyValue"),
+			planValue:   types.StringValue("myvalue"),
+			configValue: types.StringValue("myvalue"),
+			state:       createNonNullState(),
+			plan:        createNonNullPlan(),
+			validateFunc: func(t *testing.T, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+				if !resp.PlanValue.Equal(req.StateValue) {
+					t.Errorf("expected plan normalized to state, state=%v plan=%v", req.StateValue, resp.PlanValue)
+				}
+			},
+		},
+		{
+			name:        "update_semantic_change_leaves_plan_unchanged",
+			stateValue:  types.StringValue("alpha"),
+			planValue:   types.StringValue("beta"),
+			configValue: types.StringValue("beta"),
+			state:       createNonNullState(),
+			plan:        createNonNullPlan(),
+			validateFunc: func(t *testing.T, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+				if !resp.PlanValue.Equal(types.StringValue("beta")) {
+					t.Errorf("expected plan unchanged, got %v", resp.PlanValue)
+				}
+			},
+		},
+		{
+			name:        "delete_operation_plan_null_noop",
+			stateValue:  types.StringValue("x"),
+			planValue:   types.StringNull(),
+			configValue: types.StringNull(),
+			state:       createNonNullState(),
+			plan:        createNullPlan(),
+		},
+		{
+			name:        "plan_unknown_noop",
+			stateValue:  types.StringValue("a"),
+			planValue:   types.StringUnknown(),
+			configValue: types.StringValue("a"),
+			state:       createNonNullState(),
+			plan:        createNonNullPlan(),
+		},
+		{
+			name:        "config_unknown_noop",
+			stateValue:  types.StringValue("a"),
+			planValue:   types.StringValue("b"),
+			configValue: types.StringUnknown(),
+			state:       createNonNullState(),
+			plan:        createNonNullPlan(),
+		},
+		{
+			name:        "null_state_known_plan_noop",
+			stateValue:  types.StringNull(),
+			planValue:   types.StringValue("v"),
+			configValue: types.StringValue("v"),
+			state:       createNonNullState(),
+			plan:        createNonNullPlan(),
+			validateFunc: func(t *testing.T, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+				if !resp.PlanValue.Equal(types.StringValue("v")) {
+					t.Errorf("expected plan unchanged, got %v", resp.PlanValue)
+				}
+			},
+		},
+		{
+			name:        "known_state_null_plan_noop",
+			stateValue:  types.StringValue("v"),
+			planValue:   types.StringNull(),
+			configValue: types.StringNull(),
+			state:       createNonNullState(),
+			plan:        createNonNullPlan(),
+			validateFunc: func(t *testing.T, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+				if !resp.PlanValue.IsNull() {
+					t.Errorf("expected plan still null, got %v", resp.PlanValue)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			modifier := CaseInsensitiveString()
+			req := planmodifier.StringRequest{
+				StateValue:  tt.stateValue,
+				PlanValue:   tt.planValue,
+				ConfigValue: tt.configValue,
+				State:       tt.state,
+				Plan:        tt.plan,
+				Path:        path.Root("test_attr"),
+			}
+			resp := &planmodifier.StringResponse{
+				PlanValue: tt.planValue,
+			}
+
+			modifier.PlanModifyString(context.Background(), req, resp)
+
+			if resp.Diagnostics.HasError() {
+				t.Fatalf("expected no diagnostics, got %v", resp.Diagnostics.Errors())
+			}
+
+			if tt.validateFunc != nil {
+				tt.validateFunc(t, req, resp)
+			}
+		})
+	}
+}
+
 // TestImmutableInt64Modifier tests the ImmutableInt64Modifier plan modifier.
 //
 // This test verifies that the modifier correctly handles int64 attributes with
