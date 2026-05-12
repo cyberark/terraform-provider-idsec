@@ -52,37 +52,37 @@ resource "idsec_policy_cloud_access" "example_azure_resource_group_policy" {
     description = var.description
     status = {
       status            = var.status
-      statusCode        = ""
-      statusDescription = ""
+      status_code        = ""
+      status_description = ""
       link              = ""
     }
-    timeFrame = {
-      fromTime = "2023-07-05T12:34:56" #var.from_time
-      toTime   = "2023-07-06T12:34:56" #var.to_time
+    time_frame = {
+      from_time = "2023-07-05T12:34:56" #var.from_time
+      to_time   = "2023-07-06T12:34:56" #var.to_time
     }
-    policyEntitlement = {
-      targetCategory = "Cloud console" #var.target_category
-      locationType   = "Azure" #var.location_type
-      policyType     = "Recurring" #var.policy_type
+    policy_entitlement = {
+      target_category = "Cloud console" #var.target_category
+      location_type   = "Azure" #var.location_type
+      policy_type     = "Recurring" #var.policy_type
     }
-    policyTags = var.policy_tags
-    timeZone = var.time_zone
+    policy_tags = var.policy_tags
+    time_zone = var.time_zone
   }
   conditions = {
-    accessWindow = {
-      daysOfTheWeek = var.days_of_the_week
-      fromHour      = var.from_hour
-      toHour        = var.to_hour
+    access_window = {
+      days_of_the_week = var.days_of_the_week
+      from_hour      = var.from_hour
+      to_hour        = var.to_hour
     }
-    maxSessionDuration = var.max_session_duration
+    max_session_duration = var.max_session_duration
   }
   targets = {
     azure_targets = [
       {
-      roleId        = "subscriptions/34b70f3f-r591-34bd-a166-7966beb1669u/providers/Microsoft.Authorization/roleDefinitions/r2f4ef05-c454-48eb-af81-4b1b4947fb11" #var.role_id
-      workspaceId   = "/subscriptions/34b70f3f-r591-34bd-a166-7966beb1669u/resourceGroups/cloud-storage-rg" #var.workspace_id
-      orgId         = "5ca77f05-sgd6-79f5-9f0b-6h3f65b8d1a5" #var.org_id
-      workspaceType = "resource_group" #var.workspace_type
+      role_id        = "subscriptions/34b70f3f-r591-34bd-a166-7966beb1669u/providers/Microsoft.Authorization/roleDefinitions/r2f4ef05-c454-48eb-af81-4b1b4947fb11" #var.role_id
+      workspace_id   = "/subscriptions/34b70f3f-r591-34bd-a166-7966beb1669u/resourceGroups/cloud-storage-rg" #var.workspace_id
+      org_id         = "5ca77f05-sgd6-79f5-9f0b-6h3f65b8d1a5" #var.org_id
+      workspace_type = "resource_group" #var.workspace_type
       }
     ]
   }
@@ -90,8 +90,8 @@ resource "idsec_policy_cloud_access" "example_azure_resource_group_policy" {
     {
       id                  = "c2c7bcc6-1234-44e0-8dff-5be222cd37ee" #var.principal_id
       name                = "John@cyberark.cloud.1234" #var.principal_name
-      sourceDirectoryName = "CyberArk Cloud Directory" #var.principal_source_directory_name
-      sourceDirectoryId   = "08B9A9B0-8CE8-123F-CD03-12345D33B05H" #var.principal_source_directory_id
+      source_directory_name = "CyberArk Cloud Directory" #var.principal_source_directory_name
+      source_directory_id   = "08B9A9B0-8CE8-123F-CD03-12345D33B05H" #var.principal_source_directory_id
       type                = "USER" #var.principal_type
     }
   ]
@@ -161,7 +161,7 @@ variable "from_time" {
   default     = null
   validation {
     condition     = var.from_time == null || can(regex("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$", var.from_time))
-    error_message = "fromTime must be null or match the pattern yyyy-MM-ddTHH:mm:ss (e.g., 2025-07-05T12:34:56)."
+    error_message = "from_time must be null or match the pattern yyyy-MM-ddTHH:mm:ss (e.g., 2025-07-05T12:34:56)."
   }
 }
 variable "to_time" {
