@@ -22,6 +22,8 @@ terraform-provider-idsec is using the following open source components:
 
 10) godotenv (https://github.com/joho/godotenv) : MIT License Copyright (c) 2013 John Barton
 
+11) validator (https://github.com/go-playground/validator) : MIT License Copyright (c) 2015 Dean Karn
+
 =====================================================================
 1) MPL-2.0 License
 

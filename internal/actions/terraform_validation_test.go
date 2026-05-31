@@ -9,7 +9,9 @@ import (
 	"testing"
 
 	"github.com/cyberark/idsec-sdk-golang/pkg/common"
+	modelsactions "github.com/cyberark/idsec-sdk-golang/pkg/models/actions"
 	"github.com/cyberark/terraform-provider-idsec/internal/actions"
+	"github.com/cyberark/terraform-provider-idsec/internal/schemas"
 
 	_ "github.com/cyberark/terraform-provider-idsec/internal/tfactions"
 )
@@ -33,37 +35,22 @@ func TestAllImportIDAttributesExist(t *testing.T) {
 					return
 				}
 
-				readActionName, hasRead := resourceDef.ActionsMappings[actions.ReadOperation]
-				if !hasRead {
+				if !operationSupported(resourceDef.SupportedOperations, actions.ReadOperation) {
 					t.Errorf("ImportID '%s' is configured but Read operation is not supported for resource '%s' in service '%s'",
 						resourceDef.ImportID, resourceDef.ActionName, config.ServiceName)
 					return
 				}
 
-				readSchema, hasReadSchema := resourceDef.Schemas[readActionName]
-				if !hasReadSchema || readSchema == nil {
-					t.Errorf("ImportID '%s' is configured but Read schema '%s' is not defined for resource '%s' in service '%s'",
-						resourceDef.ImportID, readActionName, resourceDef.ActionName, config.ServiceName)
+				if resourceDef.StateSchema == nil {
+					t.Errorf("ImportID '%s' is configured but StateSchema is not defined for resource '%s' in service '%s'",
+						resourceDef.ImportID, resourceDef.ActionName, config.ServiceName)
 					return
 				}
 
-				importFields := strings.Split(resourceDef.ImportID, ":")
-
-				schemaType := reflect.TypeOf(readSchema)
-				if schemaType.Kind() == reflect.Ptr {
-					schemaType = schemaType.Elem()
-				}
-
-				for _, fieldName := range importFields {
-					fieldName = strings.TrimSpace(fieldName)
-					if fieldName == "" {
-						continue
-					}
-
-					field := common.FindFieldByName(schemaType, fieldName)
-					if field == nil {
-						t.Errorf("ImportID field '%s' does not exist in Read schema %s for resource '%s' in service '%s'",
-							fieldName, schemaType.Name(), resourceDef.ActionName, config.ServiceName)
+				for _, fieldName := range schemas.SplitImportIDAttributes(resourceDef.ImportID) {
+					if err := schemas.ValidateStateSchemaImportAttribute(resourceDef.StateSchema, fieldName); err != nil {
+						t.Errorf("ImportID field '%s' is invalid for resource '%s' in service '%s': %v",
+							fieldName, resourceDef.ActionName, config.ServiceName, err)
 					}
 				}
 			})
@@ -100,6 +87,7 @@ func TestAllExtraRequiredAttributesExist(t *testing.T) {
 						createActionName, resourceDef.ActionName, config.ServiceName)
 					return
 				}
+				createSchema, _ = modelsactions.UnwrapSchema(createSchema)
 
 				validateAttributeList(t, config.ServiceName, resourceDef.ActionName, "resource",
 					resourceDef.ExtraRequiredAttributes, createSchema, "ExtraRequiredAttributes")
@@ -119,6 +107,7 @@ func TestAllExtraRequiredAttributesExist(t *testing.T) {
 						dataSourceDef.DataSourceAction, dataSourceDef.ActionName, config.ServiceName)
 					return
 				}
+				inputSchema, _ = modelsactions.UnwrapSchema(inputSchema)
 
 				validateAttributeList(t, config.ServiceName, dataSourceDef.ActionName, "data_source",
 					dataSourceDef.ExtraRequiredAttributes, inputSchema, "ExtraRequiredAttributes")
@@ -221,4 +210,13 @@ func findFieldByTerraformAttributeName(schemaType reflect.Type, attrName string)
 		}
 	}
 	return nil
+}
+
+func operationSupported(operations []actions.IdsecServiceActionOperation, operation actions.IdsecServiceActionOperation) bool {
+	for _, op := range operations {
+		if op == operation {
+			return true
+		}
+	}
+	return false
 }

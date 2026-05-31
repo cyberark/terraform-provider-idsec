@@ -8,14 +8,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/cyberark/idsec-sdk-golang/pkg/services"
 	"github.com/cyberark/terraform-provider-idsec/internal/actions"
+	"github.com/cyberark/terraform-provider-idsec/internal/schemas"
 )
 
 // CreateTestIdsecResource creates a new IdsecResource instance for testing.
@@ -376,6 +374,17 @@ func TestIdsecResource_ImportState(t *testing.T) {
 			skipIfNoField:       true,
 			description:         "Successfully sets id attribute during import",
 		},
+		{
+			name:                "success_with_nested_attribute",
+			importID:            "policy-id-123",
+			supportedOperations: []actions.IdsecServiceActionOperation{actions.ReadOperation},
+			importIDAttribute:   "metadata.policy_id",
+			expectedError:       "",
+			expectedAttribute:   "metadata.policy_id",
+			expectedValue:       "policy-id-123",
+			skipIfNoField:       true,
+			description:         "Successfully sets nested metadata.policy_id attribute during import",
+		},
 		// Multi-attribute import success
 		{
 			name:                "success_multi_attribute_import",
@@ -472,42 +481,10 @@ func TestIdsecResource_ImportState(t *testing.T) {
 			}
 			resp := &resource.ImportStateResponse{}
 
-			// Create a minimal schema with the import attribute(s) for testing
-			// This is needed because SetAttribute requires a schema
-			testSchema := schema.Schema{
-				Attributes: map[string]schema.Attribute{},
-			}
-			if tt.expectedAttribute != "" {
-				testSchema.Attributes[tt.expectedAttribute] = schema.StringAttribute{}
-			}
-			if tt.expectedAttribute2 != "" {
-				testSchema.Attributes[tt.expectedAttribute2] = schema.StringAttribute{}
-			}
-
-			// Initialize Raw value with proper structure matching the schema
-			// Create object type with the expected attribute(s)
-			rawValue := map[string]tftypes.Value{}
-			if tt.expectedAttribute != "" {
-				// Initialize with the attribute as unknown/null, SetAttribute will set it
-				rawValue[tt.expectedAttribute] = tftypes.NewValue(tftypes.String, nil)
-			}
-			if tt.expectedAttribute2 != "" {
-				rawValue[tt.expectedAttribute2] = tftypes.NewValue(tftypes.String, nil)
-			}
-			objectType := tftypes.Object{
-				AttributeTypes: map[string]tftypes.Type{},
-			}
-			if tt.expectedAttribute != "" {
-				objectType.AttributeTypes[tt.expectedAttribute] = tftypes.String
-			}
-			if tt.expectedAttribute2 != "" {
-				objectType.AttributeTypes[tt.expectedAttribute2] = tftypes.String
-			}
-
-			// Initialize State with schema and proper object structure
-			// This prevents nil pointer dereference when ImportState calls SetAttribute
+			// Minimal schema and raw state for SetAttribute during import.
+			testSchema, rawValue := buildImportTestState(tt.expectedAttribute, tt.expectedAttribute2)
 			resp.State = tfsdk.State{
-				Raw:    tftypes.NewValue(objectType, rawValue),
+				Raw:    rawValue,
 				Schema: testSchema,
 			}
 
@@ -539,28 +516,30 @@ func TestIdsecResource_ImportState(t *testing.T) {
 
 				// Verify the state attribute(s) were set
 				if tt.expectedAttribute != "" {
-					var attrValue types.String
-					diags := resp.State.GetAttribute(ctx, path.Root(tt.expectedAttribute), &attrValue)
-					if diags.HasError() {
-						t.Errorf("Failed to get attribute '%s' from state: %v", tt.expectedAttribute, diags.Errors())
-						return
-					}
-					if attrValue.ValueString() != tt.expectedValue {
-						t.Errorf("Expected attribute '%s' to be '%s', got '%s'", tt.expectedAttribute, tt.expectedValue, attrValue.ValueString())
-					}
+					assertImportStateString(t, ctx, resp.State, tt.expectedAttribute, tt.expectedValue)
 				}
 				if tt.expectedAttribute2 != "" {
-					var attrValue2 types.String
-					diags := resp.State.GetAttribute(ctx, path.Root(tt.expectedAttribute2), &attrValue2)
-					if diags.HasError() {
-						t.Errorf("Failed to get attribute '%s' from state: %v", tt.expectedAttribute2, diags.Errors())
-						return
-					}
-					if attrValue2.ValueString() != tt.expectedValue2 {
-						t.Errorf("Expected attribute '%s' to be '%s', got '%s'", tt.expectedAttribute2, tt.expectedValue2, attrValue2.ValueString())
-					}
+					assertImportStateString(t, ctx, resp.State, tt.expectedAttribute2, tt.expectedValue2)
 				}
 			}
 		})
+	}
+}
+
+func assertImportStateString(t *testing.T, ctx context.Context, state tfsdk.State, attributePath, expectedValue string) {
+	t.Helper()
+
+	attrPath, err := schemas.ParseImportAttributePath(attributePath)
+	if err != nil {
+		t.Fatalf("failed to parse attribute path %q: %v", attributePath, err)
+	}
+
+	var attrValue types.String
+	diags := state.GetAttribute(ctx, attrPath, &attrValue)
+	if diags.HasError() {
+		t.Fatalf("failed to get attribute %q from state: %v", attributePath, diags.Errors())
+	}
+	if attrValue.ValueString() != expectedValue {
+		t.Fatalf("expected attribute %q to be %q, got %q", attributePath, expectedValue, attrValue.ValueString())
 	}
 }

@@ -90,8 +90,8 @@ Optional:
 Optional:
 
 - `days_of_the_week` (Set of Number) The days of the week to include in the policy's access window, where Sunday=0, Monday=1,..., Saturday=6, comma-separated
-- `from_hour` (String) The start time of the policy's access window (in ISO 8601 format e.g. 2023-07-05T12:34:56)
-- `to_hour` (String) The end time of the policy's access window (in ISO 8601 format e.g. 2023-07-05T13:34:56)
+- `from_hour` (String) The start time of the policy's access window
+- `to_hour` (String) The end time of the policy's access window
 
 
 
@@ -169,13 +169,16 @@ Optional:
 <a id="nestedatt--principals"></a>
 ### Nested Schema for `principals`
 
-Optional:
+Required:
 
 - `id` (String) The unique identifier of the identity in CyberArk. An identity is a user, group, or role. maxLength: 40
 - `name` (String) The name of the principal. minLength: 1
-- `source_directory_id` (String) The unique identifier of the directory service. If the type is ROLE, then this field is optional.
-- `source_directory_name` (String) The name of the directory service. If the type is ROLE, then this field is optional. maxLength: 256.
 - `type` (String) The type of principal
+
+Optional:
+
+- `source_directory_id` (String) The unique identifier of the directory service. Required unless type is ROLE.
+- `source_directory_name` (String) The name of the directory service. Required unless type is ROLE. maxLength: 256.
 
 
 <a id="nestedatt--targets"></a>

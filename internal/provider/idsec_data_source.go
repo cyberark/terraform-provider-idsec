@@ -15,7 +15,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	api "github.com/cyberark/idsec-sdk-golang/pkg"
 	"github.com/cyberark/idsec-sdk-golang/pkg/auth"
+	modelsactions "github.com/cyberark/idsec-sdk-golang/pkg/models/actions"
 	"github.com/cyberark/idsec-sdk-golang/pkg/services"
+	"github.com/cyberark/idsec-sdk-golang/pkg/validation"
 	"github.com/cyberark/terraform-provider-idsec/internal/actions"
 	"github.com/cyberark/terraform-provider-idsec/internal/featureadoption"
 	"github.com/cyberark/terraform-provider-idsec/internal/schemas"
@@ -71,6 +73,32 @@ func (s *IdsecDataSource) Metadata(ctx context.Context, req datasource.MetadataR
 	resp.TypeName = fmt.Sprintf("%s_%s", req.ProviderTypeName, strings.ReplaceAll(s.actionDefinition.ActionName, "-", "_"))
 }
 
+// ValidateConfig runs SDK struct-tag validation rules against the user's HCL config.
+func (s *IdsecDataSource) ValidateConfig(ctx context.Context, req datasource.ValidateConfigRequest, resp *datasource.ValidateConfigResponse) {
+	if req.Config.Raw.IsNull() || !req.Config.Raw.IsFullyKnown() {
+		return
+	}
+	if s.actionDefinition.DataSourceAction == "" {
+		return
+	}
+	inputSchema, ok := s.actionDefinition.Schemas[s.actionDefinition.DataSourceAction]
+	if !ok {
+		return
+	}
+	inputSchema, _ = modelsactions.UnwrapSchema(inputSchema)
+	if inputSchema == nil {
+		return
+	}
+	input, err := schemas.StructFromConfigObject(ctx, &req.Config, schemas.DeepCopy(inputSchema))
+	if err != nil {
+		tflog.Debug(ctx, fmt.Sprintf("ValidateConfig: skipping (config decode failed): %s", err.Error()))
+		return
+	}
+	if err := validation.ValidateStruct(input); err != nil {
+		appendValidationDiagnostics(&resp.Diagnostics, err)
+	}
+}
+
 // Schema dynamically generates the resource schema using `generateSchemaFromStruct`.
 func (s *IdsecDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	if s.actionDefinition.StateSchema == nil || s.actionDefinition.DataSourceAction == "" {
@@ -82,6 +110,12 @@ func (s *IdsecDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 		resp.Diagnostics.AddError("Schema Error", fmt.Sprintf("Data source schema for action %s is not provided.", s.actionDefinition.DataSourceAction))
 		return
 	}
+	// Unwrap any modelsactions.Deprecated wrapper so schema generation sees
+	// the original struct. SDK action-level deprecation is a maintainer signal
+	// to migrate the resource's ActionsMappings/DataSourceAction; it is not
+	// surfaced to Terraform users because the resource type itself remains
+	// stable across SDK action renames.
+	inputScheme, _ = modelsactions.UnwrapSchema(inputScheme)
 	resp.Schema = schemas.GenerateDataSourceSchemaFromStruct(
 		inputScheme,
 		s.actionDefinition.StateSchema,
@@ -135,6 +169,7 @@ func (s *IdsecDataSource) parseConfig(ctx context.Context, diagnostics *diag.Dia
 		diagnostics.AddError("Schema Error", fmt.Sprintf("Data source schema for action %s is not provided.", s.actionDefinition.DataSourceAction))
 		return nil, fmt.Errorf("data source schema for action %s is not provided", s.actionDefinition.DataSourceAction)
 	}
+	inputScheme, _ = modelsactions.UnwrapSchema(inputScheme)
 	inputConfigSchema, err := schemas.StructFromConfigObject(ctx, &config, inputScheme)
 	if err != nil {
 		diagnostics.AddError("Config Copy Error", fmt.Sprintf("Failed to copy actionDefinition: %s", err.Error()))
@@ -175,6 +210,11 @@ func (s *IdsecDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		return
 	}
 	actionArgs := []reflect.Value{reflect.ValueOf(operationSchemaInput)}
+	if err := validation.ValidateStruct(operationSchemaInput); err != nil {
+		tflog.Error(ctx, fmt.Sprintf("Invalid Configuration - %s", err.Error()))
+		appendValidationDiagnostics(&resp.Diagnostics, err)
+		return
+	}
 	tflog.Info(ctx, "Calling action method")
 	result := actionMethod.Call(actionArgs)
 	for _, res := range result {
@@ -202,6 +242,7 @@ func (s *IdsecDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		resp.Diagnostics.AddError("Schema Error", fmt.Sprintf("Data source schema for action %s is not provided.", s.actionDefinition.DataSourceAction))
 		return
 	}
+	inputScheme, _ = modelsactions.UnwrapSchema(inputScheme)
 	outputSchemaDef := schemas.GenerateDataSourceSchemaFromStruct(
 		inputScheme,
 		s.actionDefinition.StateSchema,

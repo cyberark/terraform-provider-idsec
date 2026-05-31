@@ -41,6 +41,7 @@ resource "idsec_pcloud_account" "example_account" {
 - `platform_id` (String) The platform assigned to this account
 - `remote_machines` (List of String) List of remote machines that the account can access, separated by semicolons
 - `secret` (String, Sensitive) The secret value.
+- `secret_file` (String) The path to the secret file.
 - `secret_type` (String) The type of secret for the acccount (password,key)
 - `username` (String) Account user's name
 

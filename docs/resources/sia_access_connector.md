@@ -44,9 +44,10 @@ resource "idsec_sia_access_connector" "example_connector" {
 
 ### Optional
 
-- `connector_id` (String) The connector ID of the connector.
+- `connector_id` (String) The connector ID to be uninstalled.
 - `connector_os` (String) The type of the operating system on which to install the connector (Linux, windows).
 - `connector_type` (String) The type of the platform on which to install the connector (ON-PREMISE, AWS, AZURE, GCP).
+- `force_delete` (Boolean) When true, forces deletion of the connector even if it is active.
 - `password` (String, Sensitive) The password used to connect to the target machine.
 - `private_key_contents` (String, Sensitive) The private key contents used to connect to the target machine via SSH.
 - `private_key_path` (String) The private key file path used to connect to the target machine via SSH.

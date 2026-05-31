@@ -42,5 +42,8 @@ data "idsec_sca_discovery" "discovery_example" {
 Required:
 
 - `id` (String) The ID of the workspace to discover (AWS - AWS account ID | Azure - Management group, subscription, or resource group ID | GCP - Google Cloud project ID )
-- `new_account` (Boolean) Indicates whether the account is new to an already onboarded organization and needs to be discovered (e.g., a new AWS account in an already onboarded AWS organization; a new GCP project in an already onboarded Google Cloud organization; a new management group/subscription in an already onboarded Microsoft Entra ID tenant)
+
+Optional:
+
+- `new_account` (Boolean) Indicates whether the account is new to an already onboarded organization and needs to be discovered (e.g., a new AWS account in an already onboarded AWS organization; a new GCP project in an already onboarded Google Cloud organization; a new management group/subscription in an already onboarded Microsoft Entra ID tenant). Defaults to false.
 

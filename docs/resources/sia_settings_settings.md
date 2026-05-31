@@ -15,6 +15,7 @@ The SIA ListSettings resource.
 
 - `adb_mfa_caching` (Attributes) The listSettings for ADB MFA caching. (see [below for nested schema](#nestedatt--adb_mfa_caching))
 - `certificate_validation` (Attributes) The listSettings for certificate validation. (see [below for nested schema](#nestedatt--certificate_validation))
+- `https_relay` (Attributes) The listSettings for HTTPS Relay. (see [below for nested schema](#nestedatt--https_relay))
 - `k_8_s_mfa_caching` (Attributes) The listSettings for K8S MFA caching. (see [below for nested schema](#nestedatt--k_8_s_mfa_caching))
 - `logon_sequence` (Attributes) The listSettings for logon sequence. (see [below for nested schema](#nestedatt--logon_sequence))
 - `rdp_file_parameters` (Attributes) The settings for RDP file parameters. (see [below for nested schema](#nestedatt--rdp_file_parameters))
@@ -50,6 +51,16 @@ Optional:
 Optional:
 
 - `enabled` (Boolean) Indicates whether certificate validation is enabled.
+
+
+<a id="nestedatt--https_relay"></a>
+### Nested Schema for `https_relay`
+
+Optional:
+
+- `is_https_relay_enabled` (Boolean) Indicates whether the HTTPS relay feature is enabled.
+- `relay_host` (String) The HTTPS relay host address (FQDN or IP).
+- `ssh_relay_port` (Number) The SSH port used by the HTTPS relay.
 
 
 <a id="nestedatt--k_8_s_mfa_caching"></a>

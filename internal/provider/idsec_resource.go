@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -20,7 +19,9 @@ import (
 	"github.com/mitchellh/mapstructure"
 	api "github.com/cyberark/idsec-sdk-golang/pkg"
 	"github.com/cyberark/idsec-sdk-golang/pkg/auth"
+	modelsactions "github.com/cyberark/idsec-sdk-golang/pkg/models/actions"
 	"github.com/cyberark/idsec-sdk-golang/pkg/services"
+	"github.com/cyberark/idsec-sdk-golang/pkg/validation"
 	"github.com/cyberark/terraform-provider-idsec/internal/actions"
 	"github.com/cyberark/terraform-provider-idsec/internal/featureadoption"
 	"github.com/cyberark/terraform-provider-idsec/internal/schemas"
@@ -83,7 +84,10 @@ func (s *IdsecResource) schemaForOperation(operation actions.IdsecServiceActionO
 	if !ok {
 		return nil, fmt.Errorf("no schema mapping found for operation: %s - %s", operationName, operation)
 	}
-	return schemas.DeepCopy(operationSchema), nil
+	// Entries may be wrapped with deprecation metadata via modelsactions.Deprecated;
+	// unwrap so downstream schema generation works on the original struct value.
+	unwrappedSchema, _ := modelsactions.UnwrapSchema(operationSchema)
+	return schemas.DeepCopy(unwrappedSchema), nil
 }
 
 // getStringSliceFromActionDefinition uses reflection to safely read a []string field from
@@ -271,6 +275,12 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 	var actionArgs []reflect.Value
 	if operationSchemaInput != nil {
 		actionArgs = append(actionArgs, reflect.ValueOf(operationSchemaInput))
+		if err := validation.ValidateStruct(operationSchemaInput); err != nil {
+			tflog.Error(ctx, fmt.Sprintf("Invalid Configuration - %s", err.Error()))
+			appendValidationDiagnostics(diagnostics, err)
+			s.finalizeState(ctx, operation, originalState, respState, diagnostics)
+			return
+		}
 	}
 	tflog.Info(ctx, "Calling action method")
 	result := actionMethod.Call(actionArgs)
@@ -342,6 +352,25 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 // Metadata defines the resource type name.
 func (s *IdsecResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = fmt.Sprintf("%s_%s", req.ProviderTypeName, strings.ReplaceAll(s.actionDefinition.ActionName, "-", "_"))
+}
+
+// ValidateConfig runs SDK struct-tag validation rules against the user's HCL config.
+func (s *IdsecResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	if req.Config.Raw.IsNull() || !req.Config.Raw.IsFullyKnown() {
+		return
+	}
+	operationSchema, err := s.schemaForOperation(actions.CreateOperation)
+	if err != nil || operationSchema == nil {
+		return
+	}
+	input, err := schemas.StructFromConfigObject(ctx, &req.Config, operationSchema)
+	if err != nil {
+		tflog.Debug(ctx, fmt.Sprintf("ValidateConfig: skipping (config decode failed): %s", err.Error()))
+		return
+	}
+	if err := validation.ValidateStruct(input); err != nil {
+		appendValidationDiagnostics(&resp.Diagnostics, err)
+	}
 }
 
 // Schema dynamically generates the resource schema using `generateSchemaFromStruct`.
@@ -475,8 +504,9 @@ func (s *IdsecResource) ImportState(ctx context.Context, req resource.ImportStat
 
 	// Get the import ID attribute from action definition
 	// Import is only supported if ImportID is explicitly configured
-	// If ImportID contains ":", it defines multiple attributes (e.g. "safe_id:member_name").
-	// In that case req.ID must contain ":"-separated values in the same order (e.g. "safe-123:member-456").
+	// If ImportID contains ":", it defines multiple attributes (e.g. "safe_id:member_name" or
+	// "metadata.policy_id:other_id"). In that case req.ID must contain ":"-separated values in
+	// the same order (e.g. "safe-123:member-456"). Dot notation addresses nested state attributes.
 	importIDAttr := s.getImportID()
 	if importIDAttr == "" {
 		resp.Diagnostics.AddError(
@@ -486,9 +516,13 @@ func (s *IdsecResource) ImportState(ctx context.Context, req resource.ImportStat
 		return
 	}
 
-	if strings.Contains(importIDAttr, ":") {
-		// Multi-attribute import: split attribute names and values by ":"
-		attributes := strings.Split(importIDAttr, ":")
+	attributes := schemas.SplitImportIDAttributes(importIDAttr)
+	if len(attributes) == 0 {
+		resp.Diagnostics.AddError("Invalid Import ID Attribute", "ImportID contains no attribute paths.")
+		return
+	}
+
+	if len(attributes) > 1 {
 		if !strings.Contains(req.ID, ":") {
 			resp.Diagnostics.AddError(
 				"Invalid Import ID",
@@ -505,18 +539,23 @@ func (s *IdsecResource) ImportState(ctx context.Context, req resource.ImportStat
 			return
 		}
 		for i, attr := range attributes {
-			attr = strings.TrimSpace(attr)
-			if attr == "" {
-				resp.Diagnostics.AddError("Invalid Import ID Attribute", "ImportID contains an empty attribute name.")
+			attrPath, err := schemas.ParseImportAttributePath(attr)
+			if err != nil {
+				resp.Diagnostics.AddError("Invalid Import ID Attribute", err.Error())
 				return
 			}
-			resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(attr), types.StringValue(values[i]))...)
+			resp.Diagnostics.Append(resp.State.SetAttribute(ctx, attrPath, types.StringValue(values[i]))...)
 			if resp.Diagnostics.HasError() {
 				return
 			}
 		}
-	} else {
-		// Single-attribute import
-		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(importIDAttr), types.StringValue(req.ID))...)
+		return
 	}
+
+	attrPath, err := schemas.ParseImportAttributePath(attributes[0])
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid Import ID Attribute", err.Error())
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, attrPath, types.StringValue(req.ID))...)
 }

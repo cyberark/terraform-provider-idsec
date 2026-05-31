@@ -232,6 +232,17 @@ func init() {
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "set-rdp-file-signing", tfactions.ReadOperation: "rdp-file-signing", tfactions.UpdateOperation: "set-rdp-file-signing"},
 				ImportID:            tfactions.SingletonResourceImportDummyID,
 			},
+			{
+				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
+					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
+						ActionName: "sia-settings-https-relay", ActionDescription: "The SIA HTTPS Relay settings resource.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
+					},
+					StateSchema: &settingsmodels.IdsecSIASettingsHTTPSRelay{},
+				},
+				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.StateOperation},
+				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "set-https-relay", tfactions.ReadOperation: "https-relay", tfactions.UpdateOperation: "set-https-relay"},
+				ImportID:            tfactions.SingletonResourceImportDummyID,
+			},
 		},
 		DataSources: []*tfactions.IdsecServiceTerraformDataSourceActionDefinition{
 			{
@@ -413,6 +424,15 @@ func init() {
 					StateSchema: &settingsmodels.IdsecSIASettingsRdpFileSigning{},
 				},
 				DataSourceAction: "rdp-file-signing",
+			},
+			{
+				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
+					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
+						ActionName: "sia-settings-https-relay", ActionDescription: "The SIA HTTPS Relay settings data source.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
+					},
+					StateSchema: &settingsmodels.IdsecSIASettingsHTTPSRelay{},
+				},
+				DataSourceAction: "https-relay",
 			},
 		},
 	})

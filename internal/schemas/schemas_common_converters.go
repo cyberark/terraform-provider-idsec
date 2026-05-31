@@ -1295,15 +1295,17 @@ func SchemaByPath(schema interface{}, path string) (interface{}, error) {
 			if val.Kind() == reflect.Struct {
 				actualValueFields := resolveFieldsValueSquashed(val)
 				actualFields := resolveFieldsSquashed(val.Type())
-				for i := 0; i < len(actualValueFields); i++ {
+				found := false
+				for i := range actualValueFields {
 					field := actualValueFields[i]
 					fieldName := resolveFieldName(actualFields[i])
 					if fieldName == key {
 						current = field.Interface()
+						found = true
 						break
 					}
 				}
-				if reflect.ValueOf(current).IsZero() {
+				if !found {
 					return nil, fmt.Errorf("field %q not found in struct", key)
 				}
 			} else {

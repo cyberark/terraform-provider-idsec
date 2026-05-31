@@ -97,6 +97,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 		field := actualFields[i]
 		fieldType := field.Type
 		desc := field.Tag.Get("desc")
+		depInfo := newDeprecationInfo(field)
 		required := field.Tag.Get("required")
 		validate := field.Tag.Get("validate")
 		choices := field.Tag.Get("choices")
@@ -120,7 +121,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Sensitive:   isSensitive,
 				}
 				strAttr.PlanModifiers = appendCaseInsensitiveStringModifier(strAttr.PlanModifiers, fieldName, caseInsensitiveAttrs)
-				attributes[fieldName] = strAttr
+				attributes[fieldName] = applyDeprecation(strAttr, depInfo)
 				continue
 			}
 			strAttr := schema.StringAttribute{
@@ -154,7 +155,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 				}
 			}
 			strAttr.PlanModifiers = appendCaseInsensitiveStringModifier(strAttr.PlanModifiers, fieldName, caseInsensitiveAttrs)
-			attributes[fieldName] = strAttr
+			attributes[fieldName] = applyDeprecation(strAttr, depInfo)
 		case reflect.Bool:
 			if setAsComputed || isComputedOnly {
 				boolAttr := schema.BoolAttribute{
@@ -163,7 +164,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Computed:    true,
 					Sensitive:   isSensitive,
 				}
-				attributes[fieldName] = boolAttr
+				attributes[fieldName] = applyDeprecation(boolAttr, depInfo)
 				continue
 			}
 			boolAttr := schema.BoolAttribute{
@@ -194,7 +195,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					boolplanmodifier.RequiresReplace(),
 				}
 			}
-			attributes[fieldName] = boolAttr
+			attributes[fieldName] = applyDeprecation(boolAttr, depInfo)
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 			if setAsComputed || isComputedOnly {
@@ -204,7 +205,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Computed:    true,
 					Sensitive:   isSensitive,
 				}
-				attributes[fieldName] = intAttr
+				attributes[fieldName] = applyDeprecation(intAttr, depInfo)
 				continue
 			}
 			int64Attr := schema.Int64Attribute{
@@ -235,26 +236,26 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					int64planmodifier.RequiresReplace(),
 				}
 			}
-			attributes[fieldName] = int64Attr
+			attributes[fieldName] = applyDeprecation(int64Attr, depInfo)
 		case reflect.Slice, reflect.Array:
 			// Inner dynamic types are not supported in terraform
 			if hasInterfaceInnerType(fieldType) {
 				if setAsComputed {
-					attributes[fieldName] = schema.DynamicAttribute{
+					attributes[fieldName] = applyDeprecation(schema.DynamicAttribute{
 						Description: desc,
 						Optional:    true,
 						Computed:    true,
 						Sensitive:   isSensitive,
-					}
+					}, depInfo)
 					continue
 				}
-				attributes[fieldName] = schema.DynamicAttribute{
+				attributes[fieldName] = applyDeprecation(schema.DynamicAttribute{
 					Description: desc,
 					Optional:    !isRequired,
 					Required:    isRequired,
 					Computed:    !isRequired,
 					Sensitive:   isSensitive,
-				}
+				}, depInfo)
 				continue
 			}
 			if slices.Contains(simpleTypes, fieldType.Elem().Kind()) {
@@ -271,7 +272,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 							Computed:    true,
 							Sensitive:   isSensitive,
 						}
-						attributes[fieldName] = sliceAttr
+						attributes[fieldName] = applyDeprecation(sliceAttr, depInfo)
 						continue
 					}
 					sliceAttr := schema.SetAttribute{
@@ -331,7 +332,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 							setplanmodifier.RequiresReplace(),
 						}
 					}
-					attributes[fieldName] = sliceAttr
+					attributes[fieldName] = applyDeprecation(sliceAttr, depInfo)
 				} else {
 					if setAsComputed || isComputedOnly {
 						sliceAttr := schema.ListAttribute{
@@ -341,7 +342,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 							Computed:    true,
 							Sensitive:   isSensitive,
 						}
-						attributes[fieldName] = sliceAttr
+						attributes[fieldName] = applyDeprecation(sliceAttr, depInfo)
 						continue
 					}
 					sliceAttr := schema.ListAttribute{
@@ -401,7 +402,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 							listplanmodifier.RequiresReplace(),
 						}
 					}
-					attributes[fieldName] = sliceAttr
+					attributes[fieldName] = applyDeprecation(sliceAttr, depInfo)
 				}
 			}
 			if fieldType.Elem().Kind() == reflect.Map {
@@ -415,7 +416,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 							Computed:    true,
 							Sensitive:   isSensitive,
 						}
-						attributes[fieldName] = sliceAttr
+						attributes[fieldName] = applyDeprecation(sliceAttr, depInfo)
 						continue
 					}
 					sliceAttr := schema.ListAttribute{
@@ -435,14 +436,14 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 							listplanmodifier.RequiresReplace(),
 						}
 					}
-					attributes[fieldName] = sliceAttr
+					attributes[fieldName] = applyDeprecation(sliceAttr, depInfo)
 				}
 			}
 			if fieldType.Elem().Kind() == reflect.Struct {
 				// Handle nested structs by recursively generating their schema
 				nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs)
 				if setAsComputed {
-					attributes[fieldName] = schema.ListNestedAttribute{
+					attributes[fieldName] = applyDeprecation(schema.ListNestedAttribute{
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: nestedSchemaAttrs,
 						},
@@ -450,10 +451,10 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 						Optional:    true,
 						Computed:    true,
 						Sensitive:   isSensitive,
-					}
+					}, depInfo)
 					continue
 				}
-				attributes[fieldName] = schema.ListNestedAttribute{
+				attributes[fieldName] = applyDeprecation(schema.ListNestedAttribute{
 					NestedObject: schema.NestedAttributeObject{
 						Attributes: nestedSchemaAttrs,
 					},
@@ -462,27 +463,27 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Required:    isRequired,
 					Computed:    !isRequired,
 					Sensitive:   isSensitive,
-				}
+				}, depInfo)
 			}
 		case reflect.Map:
 			// Inner dynamic types are not supported in terraform
 			if hasInterfaceInnerType(fieldType) {
 				if setAsComputed {
-					attributes[fieldName] = schema.DynamicAttribute{
+					attributes[fieldName] = applyDeprecation(schema.DynamicAttribute{
 						Description: desc,
 						Optional:    true,
 						Computed:    true,
 						Sensitive:   isSensitive,
-					}
+					}, depInfo)
 					continue
 				}
-				attributes[fieldName] = schema.DynamicAttribute{
+				attributes[fieldName] = applyDeprecation(schema.DynamicAttribute{
 					Description: desc,
 					Optional:    !isRequired,
 					Required:    isRequired,
 					Computed:    !isRequired,
 					Sensitive:   isSensitive,
-				}
+				}, depInfo)
 				continue
 			}
 			if slices.Contains(simpleTypes, fieldType.Elem().Kind()) {
@@ -498,7 +499,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 						Computed:    true,
 						Sensitive:   isSensitive,
 					}
-					attributes[fieldName] = strAttr
+					attributes[fieldName] = applyDeprecation(strAttr, depInfo)
 					continue
 				}
 				mapAttr := schema.MapAttribute{
@@ -518,24 +519,24 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 						mapplanmodifier.RequiresReplace(),
 					}
 				}
-				attributes[fieldName] = mapAttr
+				attributes[fieldName] = applyDeprecation(mapAttr, depInfo)
 			} else if fieldType.Elem().Kind() == reflect.Interface {
 				if setAsComputed {
-					attributes[fieldName] = schema.DynamicAttribute{
+					attributes[fieldName] = applyDeprecation(schema.DynamicAttribute{
 						Description: desc,
 						Optional:    true,
 						Computed:    true,
 						Sensitive:   isSensitive,
-					}
+					}, depInfo)
 					continue
 				}
-				attributes[fieldName] = schema.DynamicAttribute{
+				attributes[fieldName] = applyDeprecation(schema.DynamicAttribute{
 					Description: desc,
 					Optional:    !isRequired,
 					Required:    isRequired,
 					Computed:    !isRequired,
 					Sensitive:   isSensitive,
-				}
+				}, depInfo)
 			} else if fieldType.Elem().Kind() == reflect.Struct {
 				nestedAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs)
 				if setAsComputed {
@@ -548,7 +549,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 						Computed:    true,
 						Sensitive:   isSensitive,
 					}
-					attributes[fieldName] = complexMapAttr
+					attributes[fieldName] = applyDeprecation(complexMapAttr, depInfo)
 					continue
 				}
 				complexMapAttr := schema.MapNestedAttribute{
@@ -561,29 +562,29 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Computed:    !isRequired,
 					Sensitive:   isSensitive,
 				}
-				attributes[fieldName] = complexMapAttr
+				attributes[fieldName] = applyDeprecation(complexMapAttr, depInfo)
 			}
 		case reflect.Struct:
 			// Handle nested structs by recursively generating their schema
 			nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs)
 			if setAsComputed || isComputedOnly {
-				attributes[fieldName] = schema.SingleNestedAttribute{
+				attributes[fieldName] = applyDeprecation(schema.SingleNestedAttribute{
 					Attributes:  nestedSchemaAttrs,
 					Description: desc,
 					Optional:    !isComputedOnly,
 					Computed:    true,
 					Sensitive:   isSensitive,
-				}
+				}, depInfo)
 				continue
 			}
-			attributes[fieldName] = schema.SingleNestedAttribute{
+			attributes[fieldName] = applyDeprecation(schema.SingleNestedAttribute{
 				Attributes:  nestedSchemaAttrs,
 				Description: desc,
 				Optional:    !isRequired,
 				Required:    isRequired,
 				Computed:    !isRequired || isComputedOnly,
 				Sensitive:   isSensitive,
-			}
+			}, depInfo)
 			if isComputedOnly {
 				if attr, ok := attributes[fieldName].(schema.SingleNestedAttribute); ok {
 					attr.Optional = false
@@ -594,21 +595,21 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			}
 		case reflect.Interface:
 			if setAsComputed {
-				attributes[fieldName] = schema.DynamicAttribute{
+				attributes[fieldName] = applyDeprecation(schema.DynamicAttribute{
 					Description: desc,
 					Optional:    true,
 					Computed:    true,
 					Sensitive:   isSensitive,
-				}
+				}, depInfo)
 				continue
 			}
-			attributes[fieldName] = schema.DynamicAttribute{
+			attributes[fieldName] = applyDeprecation(schema.DynamicAttribute{
 				Description: desc,
 				Optional:    !isRequired,
 				Required:    isRequired,
 				Computed:    !isRequired,
 				Sensitive:   isSensitive,
-			}
+			}, depInfo)
 		default:
 			continue
 		}

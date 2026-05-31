@@ -26,7 +26,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.3"
+      version = ">= 0.4"
     }
   }
 }
@@ -134,7 +134,7 @@ variable "name" {
   
   validation {
     condition     = length(var.name) >= 0 && length(var.name) <= 200
-    error_message = "The name must be between 0 and 99 characters."
+    error_message = "The name must be between 1 and 200 characters."
   }
 }
 variable "description" {
@@ -208,7 +208,7 @@ variable "days_of_the_week" {
   type        = list(number)
   default     = [0, 1, 2, 3, 4, 5, 6]
   validation {
-    condition     = length(var.days_of_the_week) == 0 || all([for d in var.days_of_the_week : (d >= 0 && d <= 6)])
+    condition     = length(var.days_of_the_week) == 0 || alltrue([for d in var.days_of_the_week : (d >= 0 && d <= 6)])
     error_message = "Each day must be a number between 0 (Sunday) and 6 (Saturday)."
   }
 }
@@ -244,7 +244,7 @@ variable "role_id" {
   type        = string
 }
 variable "workspace_id" {
-  description = "The workspace ID given to the standalone AWS account when it was onboarded to CyberArk. Required."
+  description = "The ID given to the standalone AWS account workspace when it was onboarded to CyberArk. Required."
   type        = string
 }
 variable "principal_id" {

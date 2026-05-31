@@ -28,7 +28,6 @@ data "idsec_sia_access_relay" "example" {
 - `active_sessions_count` (Number) The number of currently active sessions.
 - `host_ip` (String) The IP address of the host machine.
 - `host_name` (String) The host name of the relay.
-- `id` (String) The ID of the HTTPS relay.
 - `is_latest_version` (Boolean) Whether the HTTPS relay is on the latest version.
 - `is_upgradable` (Boolean) Whether the HTTPS relay can be upgraded.
 - `last_job_error_code` (String) The error code of the last executed job.

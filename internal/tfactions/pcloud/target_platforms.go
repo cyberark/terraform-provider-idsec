@@ -22,7 +22,7 @@ func init() {
 				},
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "import", tfactions.ReadOperation: "get", tfactions.DeleteOperation: "delete"},
-				ImportID:            "target_platform_id",
+				ImportID:            "id",
 			},
 		},
 		DataSources: []*tfactions.IdsecServiceTerraformDataSourceActionDefinition{

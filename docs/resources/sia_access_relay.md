@@ -43,6 +43,7 @@ resource "idsec_sia_access_relay" "example_relay" {
 ### Optional
 
 - `expiration_minutes` (Number) The number of minutes the setup script will be valid for (15-240). Defaults to 15.
+- `force_delete` (Boolean) When true, forces deletion of the HTTPS relay even if it has active sessions.
 - `password` (String, Sensitive) The password used to connect to the target machine.
 - `private_key_contents` (String, Sensitive) The private key contents used to connect to the target machine via SSH.
 - `private_key_path` (String) The private key file path used to connect to the target machine via SSH.
@@ -58,7 +59,7 @@ resource "idsec_sia_access_relay" "example_relay" {
 - `active_sessions_count` (Number) The number of currently active sessions.
 - `host_ip` (String) The IP address of the host machine.
 - `host_name` (String) The host name of the relay.
-- `id` (String) The ID of the HTTPS relay.
+- `https_relay_id` (String) The HTTPS relay ID to be uninstalled.
 - `is_latest_version` (Boolean) Whether the HTTPS relay is on the latest version.
 - `is_upgradable` (Boolean) Whether the HTTPS relay can be upgraded.
 - `last_job_error_code` (String) The error code of the last executed job.
