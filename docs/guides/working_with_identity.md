@@ -10,7 +10,7 @@ This workflow describes how to create users, roles and associate role members us
 
 # Workflow
 The workflow will:
-- Authenticate to CyberArk with a user who has admin permissions to create users / roles.
+- Authenticate to Idira with a user who has admin permissions to create users / roles.
 - Create an identity user
 - Create an identity role
 - Asssociate the user to the role
@@ -22,7 +22,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }

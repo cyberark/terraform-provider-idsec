@@ -17,7 +17,7 @@ func init() {
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
 						ActionName:        "sca-discovery",
-						ActionDescription: "Discover structural updates to an organization/directory that has already been onboarded to CyberArk, and scan for roles and resources",
+						ActionDescription: "Discover structural updates to an organization/directory that has already been onboarded to Idira, and scan for roles and resources",
 						ActionVersion:     1,
 						Schemas:           actions.ActionToSchemaMap,
 					},

@@ -34,13 +34,16 @@ resource "idsec_cce_azure_subscription" "example" {
 
 ### Optional
 
+- `entra_name` (String) Microsoft Entra tenant name.
+- `parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.
+- `region` (String) The region where CCE resources are deployed.
+
+### Read-Only
+
 - `consent_data` (Dynamic) Consent data for service applications.
 - `display_name` (String) Display name shown in the CCE UI.
-- `entra_name` (String) Microsoft Entra tenant name.
 - `id` (String) CCE subscription onboarding ID.
 - `management_group_id` (String) Azure management group ID.
 - `management_group_name` (String) Azure management group name.
 - `onboarding_type` (String) Onboarding type: standard (UI), programmatic (API), or terraform_provider.
-- `parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.
-- `region` (String) The region where CCE resources are deployed.
 - `status` (String) Onboarding status (for example, Completely added, Partially added, Failed to add).

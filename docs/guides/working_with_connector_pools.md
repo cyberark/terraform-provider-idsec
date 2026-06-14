@@ -23,7 +23,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }

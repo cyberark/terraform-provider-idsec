@@ -41,11 +41,14 @@ resource "idsec_cce_aws_account" "simple_example" {
 - `account_display_name` (String) Optional name for the account shown in the CCE UI.
 - `deployment_region` (String) AWS region where the account is deployed, for example, us-east-1. If not specified, the tenant region is used.
 - `display_name` (String) Display name shown in the CCE UI.
+- `organization_id` (String) CCE onboarding ID of the parent AWS organization.
+- `parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.
+- `region` (String) AWS region where CCE resources were created.
+
+### Read-Only
+
 - `duplicated_services` (List of String) Service resources deployed to this account and to the parent organization.
 - `id` (String) GUID of the added account without hyphens. For example, ef858a2d8f8f4f1781578089bb4ea010.
 - `onboarding_type` (String) The method used to deploy resources in AWS: standard (UI), programmatic (API), or Terraform Provider.
-- `organization_id` (String) CCE onboarding ID of the parent AWS organization.
 - `organization_name` (String) Display name of the parent AWS organization shown in the CCE UI.
-- `parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.
-- `region` (String) AWS region where CCE resources were created.
 - `status` (String) Onboarding status: Completely added, Partially added, Failed to add.

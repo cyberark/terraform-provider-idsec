@@ -19,15 +19,18 @@ CCE AWS organization account resource, adds AWS accounts to an organization.
 
 ### Optional
 
+- `parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.
+- `scan_probe_interval_seconds` (Number) Wait time between scan probes in seconds (default: 3).
+- `scan_probe_max_retries` (Number) Maximum scan probe attempts when the account isn't discovered (default: 20).
+- `service_parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.
+
+### Read-Only
+
 - `display_name` (String) Display name shown in the CCE UI.
 - `duplicated_services` (List of String) Service resources deployed to this account and to the parent organization.
 - `id` (String) CCE account onboarding ID.
 - `onboarding_type` (String) The method used to deploy resources in AWS: standard (UI), programmatic (API), or Terraform Provider.
 - `organization_id` (String) CCE onboarding ID of the parent AWS organization.
 - `organization_name` (String) Display name of the parent AWS organization shown in the CCE UI.
-- `parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.
 - `region` (String) AWS region where CCE resources were created.
-- `scan_probe_interval_seconds` (Number) Wait time between scan probes in seconds (default: 3).
-- `scan_probe_max_retries` (Number) Maximum scan probe attempts when the account isn't discovered (default: 20).
-- `service_parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.
 - `status` (String) Onboarding status: Completely added, Partially added, Failed to add.

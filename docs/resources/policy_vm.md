@@ -236,7 +236,7 @@ Optional:
 
 Required:
 
-- `id` (String) The unique identifier of the identity in CyberArk. An identity is a user, group, or role. maxLength: 40
+- `id` (String) The unique identifier of the identity in Idira. An identity is a user, group, or role. maxLength: 40
 - `name` (String) The name of the principal. minLength: 1
 - `type` (String) The type of principal
 

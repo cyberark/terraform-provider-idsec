@@ -167,7 +167,7 @@ Read-Only:
 
 Read-Only:
 
-- `id` (String) The unique identifier of the identity in CyberArk. An identity is a user, group, or role. maxLength: 40
+- `id` (String) The unique identifier of the identity in Idira. An identity is a user, group, or role. maxLength: 40
 - `name` (String) The name of the principal. minLength: 1
 - `source_directory_id` (String) The unique identifier of the directory service. Required unless type is ROLE.
 - `source_directory_name` (String) The name of the directory service. Required unless type is ROLE. maxLength: 256.

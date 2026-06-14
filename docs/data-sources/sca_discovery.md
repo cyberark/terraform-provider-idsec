@@ -1,12 +1,12 @@
 ---
 page_title: "terraform-provider-idsec - idsec_sca_discovery"
 subcategory: "Secure Cloud Access"
-description: Discover structural updates to an organization/directory that has already been onboarded to CyberArk, and scan for roles and resources
+description: Discover structural updates to an organization/directory that has already been onboarded to Idira, and scan for roles and resources
 ---
 
 # idsec_sca_discovery (Data Source)
 
-Discover structural updates to an organization/directory that has already been onboarded to CyberArk, and scan for roles and resources
+Discover structural updates to an organization/directory that has already been onboarded to Idira, and scan for roles and resources
 
 ## Example Usage
 

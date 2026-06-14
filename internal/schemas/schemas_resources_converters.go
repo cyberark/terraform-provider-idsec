@@ -12,9 +12,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/dynamicplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -86,7 +88,7 @@ func appendCaseInsensitiveStringModifier(existing []planmodifier.String, fieldNa
 	return append(slices.Clone(existing), CaseInsensitiveString())
 }
 
-func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string, forceNewAttrs []string, computedAttrs []string, caseInsensitiveAttrs []string) map[string]schema.Attribute {
+func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string, forceNewAttrs []string, computedAttrs []string, caseInsensitiveAttrs []string, pathPrefix string) map[string]schema.Attribute {
 	modelType := reflect.TypeOf(inputModel)
 	if modelType.Kind() == reflect.Pointer {
 		modelType = modelType.Elem()
@@ -103,11 +105,15 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 		choices := field.Tag.Get("choices")
 		defaultValue := field.Tag.Get("default")
 		fieldName := resolveFieldName(field)
+		fieldPath := fieldName
+		if pathPrefix != "" {
+			fieldPath = pathPrefix + "." + fieldName
+		}
 		isRequired := strings.Contains(required, "true") || strings.Contains(validate, "required") || slices.Contains(extraRequiredAttrs, fieldName)
 		isSensitive := slices.Contains(sensitiveAttrs, fieldName)
 		isImmutable := slices.Contains(immutableAttrs, fieldName)
 		isForceNew := slices.Contains(forceNewAttrs, fieldName)
-		isComputedOnly := slices.Contains(computedAttrs, fieldName)
+		isComputedOnly := slices.Contains(computedAttrs, fieldPath)
 		if fieldType.Kind() == reflect.Pointer {
 			fieldType = fieldType.Elem()
 		}
@@ -441,7 +447,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			}
 			if fieldType.Elem().Kind() == reflect.Struct {
 				// Handle nested structs by recursively generating their schema
-				nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs)
+				nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs, fieldPath)
 				if setAsComputed {
 					attributes[fieldName] = applyDeprecation(schema.ListNestedAttribute{
 						NestedObject: schema.NestedAttributeObject{
@@ -538,7 +544,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Sensitive:   isSensitive,
 				}, depInfo)
 			} else if fieldType.Elem().Kind() == reflect.Struct {
-				nestedAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs)
+				nestedAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs, fieldPath)
 				if setAsComputed {
 					complexMapAttr := schema.MapNestedAttribute{
 						NestedObject: schema.NestedAttributeObject{
@@ -566,7 +572,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			}
 		case reflect.Struct:
 			// Handle nested structs by recursively generating their schema
-			nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs)
+			nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs, fieldPath)
 			if setAsComputed || isComputedOnly {
 				attributes[fieldName] = applyDeprecation(schema.SingleNestedAttribute{
 					Attributes:  nestedSchemaAttrs,
@@ -617,9 +623,8 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 	return attributes
 }
 
-// forceComputedAttributesReadOnly recursively marks computed-only attributes as read-only
-// (Optional=false, Required=false, Computed=true) in both top-level and nested attributes.
-// Supports dot-notation paths like "secret_management.last_modified_time" for nested attributes.
+// forceComputedAttributesReadOnly marks computed-only attributes as read-only
+// (Optional=false, Required=false, Computed=true).
 func forceComputedAttributesReadOnly(attributes map[string]schema.Attribute, computedAttrs []string) {
 	for _, computedAttrPath := range computedAttrs {
 		// Check if this is a path (contains a dot)
@@ -663,36 +668,43 @@ func forceComputedAttributesReadOnly(attributes map[string]schema.Attribute, com
 				a.Optional = false
 				a.Required = false
 				a.Computed = true
+				a.PlanModifiers = append(a.PlanModifiers, stringplanmodifier.UseStateForUnknown())
 				attributes[computedAttrPath] = a
 			case schema.BoolAttribute:
 				a.Optional = false
 				a.Required = false
 				a.Computed = true
+				a.PlanModifiers = append(a.PlanModifiers, boolplanmodifier.UseStateForUnknown())
 				attributes[computedAttrPath] = a
 			case schema.Int64Attribute:
 				a.Optional = false
 				a.Required = false
 				a.Computed = true
+				a.PlanModifiers = append(a.PlanModifiers, int64planmodifier.UseStateForUnknown())
 				attributes[computedAttrPath] = a
 			case schema.ListAttribute:
 				a.Optional = false
 				a.Required = false
 				a.Computed = true
+				a.PlanModifiers = append(a.PlanModifiers, listplanmodifier.UseStateForUnknown())
 				attributes[computedAttrPath] = a
 			case schema.SetAttribute:
 				a.Optional = false
 				a.Required = false
 				a.Computed = true
+				a.PlanModifiers = append(a.PlanModifiers, setplanmodifier.UseStateForUnknown())
 				attributes[computedAttrPath] = a
 			case schema.MapAttribute:
 				a.Optional = false
 				a.Required = false
 				a.Computed = true
+				a.PlanModifiers = append(a.PlanModifiers, mapplanmodifier.UseStateForUnknown())
 				attributes[computedAttrPath] = a
 			case schema.DynamicAttribute:
 				a.Optional = false
 				a.Required = false
 				a.Computed = true
+				a.PlanModifiers = append(a.PlanModifiers, dynamicplanmodifier.UseStateForUnknown())
 				attributes[computedAttrPath] = a
 			case schema.SingleNestedAttribute:
 				// Recursively process nested attributes
@@ -702,6 +714,7 @@ func forceComputedAttributesReadOnly(attributes map[string]schema.Attribute, com
 				a.Optional = false
 				a.Required = false
 				a.Computed = true
+				a.PlanModifiers = append(a.PlanModifiers, objectplanmodifier.UseStateForUnknown())
 				attributes[computedAttrPath] = a
 			case schema.ListNestedAttribute:
 				// Recursively process nested attributes
@@ -711,6 +724,7 @@ func forceComputedAttributesReadOnly(attributes map[string]schema.Attribute, com
 				a.Optional = false
 				a.Required = false
 				a.Computed = true
+				a.PlanModifiers = append(a.PlanModifiers, listplanmodifier.UseStateForUnknown())
 				attributes[computedAttrPath] = a
 			case schema.MapNestedAttribute:
 				// Recursively process nested attributes
@@ -720,31 +734,8 @@ func forceComputedAttributesReadOnly(attributes map[string]schema.Attribute, com
 				a.Optional = false
 				a.Required = false
 				a.Computed = true
+				a.PlanModifiers = append(a.PlanModifiers, mapplanmodifier.UseStateForUnknown())
 				attributes[computedAttrPath] = a
-			}
-		}
-	}
-
-	// Also recursively process all nested attributes to find computed-only fields
-	for key, attr := range attributes {
-		switch a := attr.(type) {
-		case schema.SingleNestedAttribute:
-			if a.Attributes != nil {
-				forceComputedAttributesReadOnly(a.Attributes, computedAttrs)
-				// The map is modified in place, reassign to ensure the attribute is updated
-				attributes[key] = a
-			}
-		case schema.ListNestedAttribute:
-			if a.NestedObject.Attributes != nil {
-				forceComputedAttributesReadOnly(a.NestedObject.Attributes, computedAttrs)
-				// The map is modified in place, but we need to reassign to update the attribute
-				attributes[key] = a
-			}
-		case schema.MapNestedAttribute:
-			if a.NestedObject.Attributes != nil {
-				forceComputedAttributesReadOnly(a.NestedObject.Attributes, computedAttrs)
-				// The map is modified in place, but we need to reassign to update the attribute
-				attributes[key] = a
 			}
 		}
 	}
@@ -800,14 +791,14 @@ func getNestedStructFieldNames(stateModel interface{}) map[string]bool {
 // GenerateResourceSchemaFromStruct generates a Terraform schema from a Go struct.
 // caseInsensitiveAttrs lists top-level string attribute names that get CaseInsensitiveString plan modifiers.
 func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel interface{}, stateModel interface{}, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string, forceNewAttrs []string, computedAttrs []string, caseInsensitiveAttrs []string) schema.Schema {
-	schemaAttrs := resourceSchemaAttrsFromStruct(createModel, false, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs)
+	schemaAttrs := resourceSchemaAttrsFromStruct(createModel, false, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs, "")
 
 	// Get field names that belong to nested structs in the state model
 	// These should not appear as flattened fields in the final schema
 	nestedStructFieldNames := getNestedStructFieldNames(stateModel)
 
 	if updateModel != nil {
-		updateModelAttrs := resourceSchemaAttrsFromStruct(updateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs)
+		updateModelAttrs := resourceSchemaAttrsFromStruct(updateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs, "")
 		for key, updateAttr := range updateModelAttrs {
 			// Skip flattened fields that belong to nested structs in the state model
 			if nestedStructFieldNames[key] {
@@ -827,7 +818,7 @@ func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel inter
 	}
 
 	if stateModel != nil {
-		outputModelAttrs := resourceSchemaAttrsFromStruct(stateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs)
+		outputModelAttrs := resourceSchemaAttrsFromStruct(stateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs, "")
 		for key, outputAttr := range outputModelAttrs {
 			if _, exists := schemaAttrs[key]; !exists {
 				schemaAttrs[key] = outputAttr

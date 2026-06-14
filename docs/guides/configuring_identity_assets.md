@@ -12,7 +12,7 @@ The following workflow describes how to configure identity assets using the Idse
 
 ## Workflow
 The workflow will:
-- Login to CyberArk with a normal user
+- Login to Idira with a normal user
 - Create identity roles
 - Assign admin rights to them
 - Create an auth profile and policy with the above roles
@@ -24,7 +24,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }
@@ -92,11 +92,11 @@ resource "idsec_identity_policy" "myrole_policy" {
 variables.tf
 ```terraform
 variable "idsec_service_user" {
-  description = "Service user for the CyberArk User"
+  description = "Service user for the Idira User"
   type        = string
 }
 variable "idsec_service_token" {
-  description = "Service token for the CyberArk User"
+  description = "Service token for the Idira User"
   type        = string
   sensitive   = true
 }

@@ -288,8 +288,8 @@ func (p *IdsecProvider) Metadata(ctx context.Context, req terraformprovider.Meta
 // Schema returns the provider's schema.
 func (p *IdsecProvider) Schema(ctx context.Context, req terraformprovider.SchemaRequest, resp *terraformprovider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description:         "Idsec provider for managing CyberArk resources.",
-		MarkdownDescription: "Idsec provider for managing CyberArk resources.",
+		Description:         "Idsec provider for managing Idira resources.",
+		MarkdownDescription: "Idsec provider for managing Idira resources.",
 		Attributes: map[string]schema.Attribute{
 			"auth_method": schema.StringAttribute{
 				Optional:            true,

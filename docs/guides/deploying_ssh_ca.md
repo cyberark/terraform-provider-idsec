@@ -13,7 +13,7 @@ The deployment is done over SSH, and the provider fetches and installs the CA sc
 
 # Workflow
 The workflow will:
-- Authenticate to CyberArk using a user who is a member of the DpaAdmin role.
+- Authenticate to Idira using a user who is a member of the DpaAdmin role.
 - Deploy the SSH CA public key to one or more existing target machines over SSH using Terraform.
   
 main.tf
@@ -23,7 +23,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }

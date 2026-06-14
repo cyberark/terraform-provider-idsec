@@ -29,4 +29,4 @@ data "idsec_cce_aws_tenant_service_details" "tenant_services_info_example" {
 ### Read-Only
 
 - `services_details` (Dynamic) A key-value map of service-specific details, keyed by service name.
-- `tenant_id` (String) CyberArk tenant ID (UUID format).
+- `tenant_id` (String) Idira tenant ID (UUID format).

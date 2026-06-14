@@ -25,17 +25,14 @@ data "idsec_identity_webapp_permissions" "my_webapp_permissions_by_name" {
 
 ### Optional
 
+- `grants` (Attributes Set) List of grants (see [below for nested schema](#nestedatt--grants))
 - `webapp_id` (String) Row key identifier of the webapp to fetch its permissions
 - `webapp_name` (String) Name of the webapp to fetch its permissions
-
-### Read-Only
-
-- `grants` (Attributes List) List of grants (see [below for nested schema](#nestedatt--grants))
 
 <a id="nestedatt--grants"></a>
 ### Nested Schema for `grants`
 
-Read-Only:
+Optional:
 
 - `directory_service_uuid` (String) Directory service UUID of the grant, if applicable
 - `external_uuid` (String) External UUID of the grant, if applicable

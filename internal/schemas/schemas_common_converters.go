@@ -889,6 +889,179 @@ func StructFromPlanAndStateObject(ctx context.Context, plan *tfsdk.Plan, state *
 	return planFinalizedStruct.Addr().Interface(), nil
 }
 
+// ClearRemovedAttributes zeroes request-struct fields for attributes the user explicitly removed
+// from configuration, so they are not resurrected from prior state on update.
+func ClearRemovedAttributes(ctx context.Context, target interface{}, config *tfsdk.Config, state *tfsdk.State, computedAttrs []string, userSetPaths map[string]bool) error {
+	if target == nil || config == nil || state == nil {
+		return nil
+	}
+	var configObj types.Object
+	if diags := config.Get(ctx, &configObj); diags.HasError() {
+		return fmt.Errorf("failed to get configuration object: %v", diags)
+	}
+	if configObj.IsNull() || configObj.IsUnknown() {
+		return nil
+	}
+	var stateObj types.Object
+	if diags := state.Get(ctx, &stateObj); diags.HasError() {
+		return fmt.Errorf("failed to get state object: %v", diags)
+	}
+	if stateObj.IsNull() || stateObj.IsUnknown() {
+		return nil
+	}
+	clearRemovedAttributes(reflect.ValueOf(target), configObj.Attributes(), stateObj.Attributes(), computedAttrs, userSetPaths, "")
+	return nil
+}
+
+// clearRemovedAttributes recursively walks the configuration and state attribute maps in parallel
+// with the request struct, zeroing fields the user removed (isUserRemoval: config null over a
+// meaningful prior-state value).
+func clearRemovedAttributes(structVal reflect.Value, configAttrs map[string]attr.Value, stateAttrs map[string]attr.Value, computedAttrs []string, userSetPaths map[string]bool, pathPrefix string) {
+	for structVal.Kind() == reflect.Pointer {
+		if structVal.IsNil() {
+			return
+		}
+		structVal = structVal.Elem()
+	}
+	if structVal.Kind() != reflect.Struct {
+		return
+	}
+	for key, configVal := range configAttrs {
+		path := key
+		if pathPrefix != "" {
+			path = pathPrefix + "." + key
+		}
+		if slices.Contains(computedAttrs, key) || slices.Contains(computedAttrs, path) {
+			continue
+		}
+		fieldVal, ok := findStructFieldByName(structVal, key)
+		if !ok || !fieldVal.CanSet() {
+			continue
+		}
+		stateVal := stateAttrs[key]
+		if configVal.IsNull() {
+			if isUserRemoval(configVal, stateVal) && (userSetPaths == nil || userSetPaths[path]) {
+				fieldVal.Set(reflect.Zero(fieldVal.Type()))
+			}
+			continue
+		}
+		if configVal.IsUnknown() {
+			continue
+		}
+		if nestedConfigObj, isObj := configVal.(types.Object); isObj {
+			var nestedStateAttrs map[string]attr.Value
+			if nestedStateObj, ok := stateVal.(types.Object); ok && !nestedStateObj.IsNull() && !nestedStateObj.IsUnknown() {
+				nestedStateAttrs = nestedStateObj.Attributes()
+			}
+			clearRemovedAttributes(fieldVal, nestedConfigObj.Attributes(), nestedStateAttrs, computedAttrs, userSetPaths, path)
+		}
+	}
+}
+
+// ClearComputedAttributes zeroes request-struct fields for computed (server-managed) attributes so
+// they are omitted from write payloads via the struct's omitempty tags.
+// Server-managed fields such as timestamps and status are read-only; some backends reject them when
+// present in a create/update body (for example, pCloud rejects "secretmanagement/lastmodifiedtime").
+func ClearComputedAttributes(target interface{}, computedAttrs []string, skipAttrs []string) error {
+	if target == nil || len(computedAttrs) == 0 {
+		return nil
+	}
+	skip := make(map[string]bool, len(skipAttrs))
+	for _, a := range skipAttrs {
+		skip[a] = true
+	}
+	clearComputedAttributes(reflect.ValueOf(target), computedAttrs, skip, "")
+	return nil
+}
+
+// clearComputedAttributes recursively walks the request struct and zeroes fields whose dotted
+// attribute path is listed in computedAttrs (and not in skip).
+func clearComputedAttributes(structVal reflect.Value, computedAttrs []string, skip map[string]bool, pathPrefix string) {
+	for structVal.Kind() == reflect.Pointer {
+		if structVal.IsNil() {
+			return
+		}
+		structVal = structVal.Elem()
+	}
+	if structVal.Kind() != reflect.Struct {
+		return
+	}
+	fields := resolveFieldsSquashed(structVal.Type())
+	values := resolveFieldsValueSquashed(structVal)
+	for i := range fields {
+		if i >= len(values) {
+			break
+		}
+		name := resolveFieldName(fields[i])
+		path := name
+		if pathPrefix != "" {
+			path = pathPrefix + "." + name
+		}
+		if slices.Contains(computedAttrs, path) && !skip[path] {
+			if values[i].CanSet() {
+				values[i].Set(reflect.Zero(values[i].Type()))
+			}
+			continue
+		}
+		nested := values[i]
+		for nested.Kind() == reflect.Pointer {
+			if nested.IsNil() {
+				break
+			}
+			nested = nested.Elem()
+		}
+		if nested.Kind() == reflect.Struct {
+			clearComputedAttributes(nested, computedAttrs, skip, path)
+		}
+	}
+}
+
+// findStructFieldByName returns the settable field of structVal whose resolved snake_case name
+// matches name, transparently descending into squashed (embedded) structs. The second return value
+// reports whether a matching field was found.
+func findStructFieldByName(structVal reflect.Value, name string) (reflect.Value, bool) {
+	for structVal.Kind() == reflect.Pointer {
+		if structVal.IsNil() {
+			return reflect.Value{}, false
+		}
+		structVal = structVal.Elem()
+	}
+	if structVal.Kind() != reflect.Struct {
+		return reflect.Value{}, false
+	}
+	structType := structVal.Type()
+	// First pass: direct (non-squashed) fields. A field declared directly on the struct
+	// shadows an identically named field promoted from a squashed embed, matching Go's
+	// encoding/json resolution where the shallower field wins and is the one serialized.
+	// Clearing must target that same field, so it must be found first.
+	for i := 0; i < structType.NumField(); i++ {
+		field := structType.Field(i)
+		if field.Tag.Get("mapstructure") == ",squash" {
+			continue
+		}
+		if field.Tag.Get("mapstructure") == "-" {
+			continue
+		}
+		if field.PkgPath != "" { // unexported
+			continue
+		}
+		if resolveFieldName(field) == name {
+			return structVal.Field(i), true
+		}
+	}
+	// Second pass: descend into squashed (embedded) structs only when no direct field matched.
+	for i := 0; i < structType.NumField(); i++ {
+		field := structType.Field(i)
+		if field.Tag.Get("mapstructure") != ",squash" {
+			continue
+		}
+		if nested, found := findStructFieldByName(structVal.Field(i), name); found {
+			return nested, true
+		}
+	}
+	return reflect.Value{}, false
+}
+
 // StructToStateObject converts a Go struct to a Terraform state object.
 func StructToStateObject(ctx context.Context, input interface{}, state *tfsdk.State, plan *tfsdk.Plan, schemaAttrs map[string]attr.Type) (types.Object, error) {
 	var stateObj types.Object
@@ -973,7 +1146,15 @@ func StructToStateObject(ctx context.Context, input interface{}, state *tfsdk.St
 //   - attrsToMerge: Map of plan attributes to merge into the existing attributes
 func mergePlanAndStateMap(ctx context.Context, existingAttrs map[string]attr.Value, attrsToMerge map[string]attr.Value) {
 	for key, planVal := range attrsToMerge {
-		if planVal.IsNull() || planVal.IsUnknown() {
+		if planVal.IsUnknown() {
+			continue
+		}
+		if planVal.IsNull() {
+			if existing, ok := existingAttrs[key]; ok && valueIsAbsent(existing) {
+				if nullVal, err := getNullValue(existing.Type(ctx)); err == nil {
+					existingAttrs[key] = nullVal
+				}
+			}
 			continue
 		}
 
@@ -1197,8 +1378,15 @@ func mergeListAttribute(ctx context.Context, existingAttrs map[string]attr.Value
 
 // mergeSetAttribute merges a set attribute from plan into existing state.
 //
-// This function filters out null and unknown values from set elements. If set elements
-// are objects, it preserves the plan values after filtering.
+// Sets have no positional index, so (unlike lists) plan and prior/result elements cannot be
+// merged by position. For object-element sets this function therefore merges by identity: it
+// starts from the existing (API-derived, fully known) elements and overlays the known values of
+// the semantically matching plan element, preserving server-computed fields (e.g. role_type)
+// that are unknown at plan time. Plan elements with no existing counterpart are appended only
+// when they contain no unknown values, so the merged set never reintroduces unknowns that would
+// trigger Terraform's "invalid result object after apply" error.
+//
+// For non-object element sets (e.g. sets of strings/numbers) the plan value is used directly.
 //
 // Parameters:
 //   - ctx: Context for type operations
@@ -1224,17 +1412,132 @@ func mergeSetAttribute(ctx context.Context, existingAttrs map[string]attr.Value,
 	}
 
 	planElems := planSet.Elements()
-	cleanedElems := make([]attr.Value, 0, len(planElems))
 
-	for _, elem := range planElems {
-		if elem.IsNull() || elem.IsUnknown() {
-			continue
+	existingVal, exists := existingAttrs[key]
+	existingSet, existingOk := existingVal.(types.Set)
+	if !exists || !existingOk || existingSet.IsNull() || existingSet.IsUnknown() {
+		// No prior/result elements to merge against: keep the plan elements that are
+		// fully known so we never persist an unknown value into state.
+		cleanedElems := make([]attr.Value, 0, len(planElems))
+		for _, elem := range planElems {
+			if elem.IsNull() || elem.IsUnknown() || containsUnknownValue(ctx, elem) {
+				continue
+			}
+			cleanedElems = append(cleanedElems, elem)
 		}
-		cleanedElems = append(cleanedElems, elem)
+		newSet, _ := types.SetValue(setType.ElemType, cleanedElems)
+		existingAttrs[key] = newSet
+		return
 	}
 
-	newSet, _ := types.SetValue(setType.ElemType, cleanedElems)
+	existingElems := existingSet.Elements()
+	mergedElems := make([]attr.Value, 0, len(existingElems)+len(planElems))
+	usedPlan := make([]bool, len(planElems))
+
+	// First pass: pair each existing (result) element with the plan element that matches it on
+	// all known fields, overlaying the plan's known values onto the result element.
+	var leftoverExisting []types.Object
+	for _, existingElem := range existingElems {
+		existingObj, ok := existingElem.(types.Object)
+		if !ok {
+			mergedElems = append(mergedElems, existingElem)
+			continue
+		}
+		matched := -1
+		for j, planElem := range planElems {
+			if usedPlan[j] {
+				continue
+			}
+			// A wholly-unknown/null plan element has no identity yet and must not claim an
+			// existing element.
+			if planElem.IsNull() || planElem.IsUnknown() {
+				continue
+			}
+			if attrValueSemanticMatch(planElem, existingElem) {
+				matched = j
+				break
+			}
+		}
+		if matched == -1 {
+			leftoverExisting = append(leftoverExisting, existingObj)
+			continue
+		}
+		usedPlan[matched] = true
+		if planObj, ok := planElems[matched].(types.Object); ok {
+			mergedElems = append(mergedElems, overlayObject(ctx, existingObj, planObj))
+		} else {
+			mergedElems = append(mergedElems, existingObj)
+		}
+	}
+
+	// Collect plan elements that had no semantic match (e.g. a known field such as role_id was
+	// canonicalized by the backend, so it no longer equals the configured value).
+	var leftoverPlan []types.Object
+	for j, planElem := range planElems {
+		if usedPlan[j] {
+			continue
+		}
+		if planElem.IsNull() || planElem.IsUnknown() {
+			continue
+		}
+		if planObj, ok := planElem.(types.Object); ok {
+			leftoverPlan = append(leftoverPlan, planObj)
+		}
+	}
+
+	// Second pass: pair remaining result and plan elements positionally and overlay the plan's
+	// known values onto the result element. This mirrors list-by-index merging so the stored
+	// value matches the plan (keeping Terraform's plan/result correlation intact) while still
+	// preserving server-computed fields (e.g. role_type) that are unknown at plan time.
+	idx := 0
+	for ; idx < len(leftoverExisting) && idx < len(leftoverPlan); idx++ {
+		mergedElems = append(mergedElems, overlayObject(ctx, leftoverExisting[idx], leftoverPlan[idx]))
+	}
+	// More result elements than plan elements: keep the remaining result elements as-is.
+	for ; idx < len(leftoverExisting); idx++ {
+		mergedElems = append(mergedElems, leftoverExisting[idx])
+	}
+	// More plan elements than result elements: append only fully known ones so the merged set
+	// never contains unknown values after apply.
+	for k := idx; k < len(leftoverPlan); k++ {
+		if containsUnknownValue(ctx, leftoverPlan[k]) {
+			continue
+		}
+		mergedElems = append(mergedElems, leftoverPlan[k])
+	}
+
+	newSet, _ := types.SetValue(setType.ElemType, mergedElems)
 	existingAttrs[key] = newSet
+}
+
+// overlayObject returns a copy of the existing (result) object with the known values of the plan
+// object applied on top. Unknown/null plan values are ignored, so server-computed fields present
+// in the result are preserved.
+func overlayObject(ctx context.Context, existingObj types.Object, planObj types.Object) attr.Value {
+	mergedNested := make(map[string]attr.Value, len(existingObj.Attributes()))
+	for nestedKey, nestedVal := range existingObj.Attributes() {
+		mergedNested[nestedKey] = nestedVal
+	}
+	mergePlanAndStateMap(ctx, mergedNested, planObj.Attributes())
+	mergedObj, _ := types.ObjectValue(existingObj.AttributeTypes(ctx), mergedNested)
+	return mergedObj
+}
+
+// containsUnknownValue reports whether an attribute value is unknown or contains any unknown
+// value nested within an object's attributes. Used to avoid persisting unknown values into
+// state when merging set elements that have no prior/result counterpart.
+func containsUnknownValue(_ context.Context, val attr.Value) bool {
+	if val.IsUnknown() {
+		return true
+	}
+	if obj, ok := val.(types.Object); ok {
+		for _, nested := range obj.Attributes() {
+			if nested.IsUnknown() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // MergePlanToStateObject merges a Terraform plan object with a state object.

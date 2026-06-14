@@ -152,7 +152,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
     
     # For AWS modules - include this block
@@ -529,7 +529,7 @@ Type `yes` when prompted to confirm the changes.
 After successful application, verify your resources:
 - Check the Terraform output for any exported values
 - Verify resources in your Identity portal
-- Confirm onboarding in your CyberArk Identity portal
+- Confirm onboarding in your Identity portal
 
 ---
 
@@ -554,7 +554,7 @@ sca = {
 ```
 
 ### Secrets Hub (AWS Only)
-Enable centralized secrets management between CyberArk and AWS Secrets Manager:
+Enable centralized secrets management between Idira Identity and AWS Secrets Manager:
 ```hcl
 secrets_hub = {
   enable                  = true
@@ -575,7 +575,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
     aws = {
       source  = "hashicorp/aws"

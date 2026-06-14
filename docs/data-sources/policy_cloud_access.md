@@ -40,7 +40,7 @@ data "idsec_policy_cloud_access" "example_policy" {
 Read-Only:
 
 - `access_approval` (Attributes) Determines whether additional approval is required before access to a target for an eligible identity can be elevated (see [below for nested schema](#nestedatt--conditions--access_approval))
-- `access_window` (Attributes) The days and times when the user can connect to their target using this policy (see [below for nested schema](#nestedatt--conditions--access_window))
+- `access_window` (Attributes) The days and times when the user can connect to their target using this policy. Important: When the accessApproval.required property is set to true, omit this field entirely from the payload. (see [below for nested schema](#nestedatt--conditions--access_window))
 - `max_session_duration` (Number) The maximum length of time (in hours) a user can remain connected in a single session. Default: 1
 
 <a id="nestedatt--conditions--access_approval"></a>
@@ -56,7 +56,7 @@ Read-Only:
 
 Read-Only:
 
-- `id` (String) The unique identifier of the identity in CyberArk. An identity is a user, group, or role. maxLength: 40
+- `id` (String) The unique identifier of the identity in Idira. An identity is a user, group, or role. maxLength: 40
 - `name` (String) The name of the principal. minLength: 1
 - `source_directory_id` (String) The unique identifier of the directory service. Required unless type is ROLE.
 - `source_directory_name` (String) The name of the directory service. Required unless type is ROLE. maxLength: 256.
@@ -69,7 +69,7 @@ Read-Only:
 
 Read-Only:
 
-- `days_of_the_week` (List of Number) The days of the week to include in the policy's access window, where Sunday=0, Monday=1,..., Saturday=6, comma-separated
+- `days_of_the_week` (Set of Number) The days of the week to include in the policy's access window, where Sunday=0, Monday=1,..., Saturday=6, comma-separated
 - `from_hour` (String) The start time of the policy's access window
 - `to_hour` (String) The end time of the policy's access window
 
@@ -171,7 +171,7 @@ Read-Only:
 
 Read-Only:
 
-- `id` (String) The unique identifier of the identity in CyberArk. An identity is a user, group, or role. maxLength: 40
+- `id` (String) The unique identifier of the identity in Idira. An identity is a user, group, or role. maxLength: 40
 - `name` (String) The name of the principal. minLength: 1
 - `source_directory_id` (String) The unique identifier of the directory service. Required unless type is ROLE.
 - `source_directory_name` (String) The name of the directory service. Required unless type is ROLE. maxLength: 256.
@@ -181,17 +181,17 @@ Read-Only:
 <a id="nestedatt--targets"></a>
 ### Nested Schema for `targets`
 
-Read-Only:
+Optional:
 
-- `aws_account_targets` (Attributes List) AWS account details (see [below for nested schema](#nestedatt--targets--aws_account_targets))
-- `aws_organization_targets` (Attributes List) AWS organization workspace details (see [below for nested schema](#nestedatt--targets--aws_organization_targets))
-- `azure_targets` (Attributes List) Microsoft Entra ID workspace details (see [below for nested schema](#nestedatt--targets--azure_targets))
-- `gcp_targets` (Attributes List) Google Cloud workspace details (see [below for nested schema](#nestedatt--targets--gcp_targets))
+- `aws_account_targets` (Attributes Set) AWS account details (see [below for nested schema](#nestedatt--targets--aws_account_targets))
+- `aws_organization_targets` (Attributes Set) AWS organization workspace details (see [below for nested schema](#nestedatt--targets--aws_organization_targets))
+- `azure_targets` (Attributes Set) Microsoft Entra ID workspace details (see [below for nested schema](#nestedatt--targets--azure_targets))
+- `gcp_targets` (Attributes Set) Google Cloud workspace details (see [below for nested schema](#nestedatt--targets--gcp_targets))
 
 <a id="nestedatt--targets--aws_account_targets"></a>
 ### Nested Schema for `targets.aws_account_targets`
 
-Read-Only:
+Optional:
 
 - `role_id` (String) The unique identifier assigned to the role
 - `role_name` (String) The name of role with which the identity can access the target workspace (read-only)
@@ -202,7 +202,7 @@ Read-Only:
 <a id="nestedatt--targets--aws_organization_targets"></a>
 ### Nested Schema for `targets.aws_organization_targets`
 
-Read-Only:
+Optional:
 
 - `org_id` (String) The AWS organization management account ID (required for AWS Organization targets)
 - `role_id` (String) The unique identifier assigned to the role
@@ -214,7 +214,7 @@ Read-Only:
 <a id="nestedatt--targets--azure_targets"></a>
 ### Nested Schema for `targets.azure_targets`
 
-Read-Only:
+Optional:
 
 - `org_id` (String) The Azure directory ID (UUID) - required for Azure targets
 - `role_id` (String) The unique identifier assigned to the role
@@ -222,13 +222,13 @@ Read-Only:
 - `role_type` (Number) The type of the role in Azure (read-only)
 - `workspace_id` (String) The unique identifier assigned to the workspace when it was onboarded to the platform
 - `workspace_name` (String) The workspace name of the target (read-only)
-- `workspace_type` (String) The level at which the Microsoft Entra ID workspace was onboarded to CyberArk (Directory, Subscription, Resource Group, Resource, Management Group)
+- `workspace_type` (String) The level at which the Microsoft Entra ID workspace was onboarded to Idira (Directory, Subscription, Resource Group, Resource, Management Group)
 
 
 <a id="nestedatt--targets--gcp_targets"></a>
 ### Nested Schema for `targets.gcp_targets`
 
-Read-Only:
+Optional:
 
 - `domain_name` (String) The Google Workspace domain name (read-only)
 - `org_id` (String) The Google Cloud organization ID
@@ -238,6 +238,6 @@ Read-Only:
 - `role_type` (Number) The type of role in GCP: 0=PreDefined, 1=Custom, 2=Basic (read-only)
 - `workspace_id` (String) The unique identifier assigned to the workspace when it was onboarded to the platform
 - `workspace_name` (String) The workspace name of the target (read-only)
-- `workspace_type` (String) The level at which the Google Cloud organization was onboarded to CyberArk (Organization, Folder, or Project - case sensitive)
+- `workspace_type` (String) The level at which the Google Cloud organization was onboarded to Idira (Organization, Folder, or Project - case sensitive)
 
 

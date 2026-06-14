@@ -1126,8 +1126,16 @@ func TestMergePlanAndStateMap(t *testing.T) {
 					t.Fatalf("Expected types.Set for 'tags', got %T", result["tags"])
 				}
 				elems := setVal.Elements()
+				// Object-element sets merge by identity with a positional fallback: the
+				// fully-known plan elements survive and the wholly-unknown plan element is
+				// dropped, so no unknown value is ever persisted into state.
 				if len(elems) != 2 {
-					t.Errorf("Expected 2 set elements (unknown filtered), got %d", len(elems))
+					t.Fatalf("Expected 2 set elements (unknown dropped), got %d", len(elems))
+				}
+				for _, elem := range elems {
+					if elem.IsUnknown() {
+						t.Errorf("Merged set must not contain unknown elements")
+					}
 				}
 			},
 		},
@@ -1253,6 +1261,33 @@ func TestMergePlanAndStateMap(t *testing.T) {
 				}
 				if valName.ValueString() != "existing" {
 					t.Error("Unknown plan value should not override existing state")
+				}
+			},
+		},
+		{
+			name: "success_null_plan_nulls_absent_state_value",
+			existingAttrs: map[string]attr.Value{
+				"from_hour": types.StringValue(""),
+				"populated": types.StringValue("server-value"),
+			},
+			attrsToMerge: map[string]attr.Value{
+				"from_hour": types.StringNull(),
+				"populated": types.StringNull(),
+			},
+			validateFunc: func(t *testing.T, result map[string]attr.Value) {
+				removed, ok := result["from_hour"].(types.String)
+				if !ok {
+					t.Fatalf("Expected types.String for 'from_hour', got %T", result["from_hour"])
+				}
+				if !removed.IsNull() {
+					t.Errorf("Null plan over absent state should null state, got %q", removed.ValueString())
+				}
+				populated, ok := result["populated"].(types.String)
+				if !ok {
+					t.Fatalf("Expected types.String for 'populated', got %T", result["populated"])
+				}
+				if populated.ValueString() != "server-value" {
+					t.Error("Null plan over meaningful state should preserve the server value")
 				}
 			},
 		},
@@ -2937,6 +2972,167 @@ func TestConvertGoValueToAttr(t *testing.T) {
 				t.Errorf("expected %v, got %v", tt.expectedValue, result)
 			}
 		})
+	}
+}
+
+type clearTestMetadata struct {
+	PolicyID    string `mapstructure:"policy_id,omitempty"`
+	Description string `mapstructure:"description,omitempty"`
+}
+
+type clearTestSquashed struct {
+	Name string `mapstructure:"name"`
+}
+
+// clearTestRequest combines squashed, leaf, and nested fields to exercise clearRemovedAttributes.
+type clearTestRequest struct {
+	clearTestSquashed `mapstructure:",squash"`
+	FromHour          string            `mapstructure:"from_hour,omitempty"`
+	AccessApproval    string            `mapstructure:"access_approval,omitempty"`
+	Metadata          clearTestMetadata `mapstructure:"metadata,omitempty"`
+}
+
+// TestClearRemovedAttributes verifies the contract: a field is cleared only when it is null in
+// configuration AND was set in prior state (a user removal); values present/unknown in config,
+// fields absent from state, and server-managed fields (still carried in config) are preserved.
+func TestClearRemovedAttributes(t *testing.T) {
+	t.Parallel()
+
+	metaType := map[string]attr.Type{"policy_id": types.StringType, "description": types.StringType}
+	meta := func(policyID, desc attr.Value) attr.Value {
+		return types.ObjectValueMust(metaType, map[string]attr.Value{"policy_id": policyID, "description": desc})
+	}
+
+	tests := []struct {
+		name          string
+		target        clearTestRequest
+		config        map[string]attr.Value
+		state         map[string]attr.Value
+		computedAttrs []string
+		userSetPaths  map[string]bool
+		want          clearTestRequest
+	}{
+		{
+			name:   "user_field_removed_is_cleared",
+			target: clearTestRequest{AccessApproval: "approval-1"},
+			config: map[string]attr.Value{"access_approval": types.StringNull()},
+			state:  map[string]attr.Value{"access_approval": types.StringValue("approval-1")},
+			want:   clearTestRequest{},
+		},
+		{
+			name:   "value_present_or_unknown_in_config_is_preserved",
+			target: clearTestRequest{FromHour: "09:00"},
+			config: map[string]attr.Value{"from_hour": types.StringUnknown()},
+			state:  map[string]attr.Value{"from_hour": types.StringValue("08:00")},
+			want:   clearTestRequest{FromHour: "09:00"},
+		},
+		{
+			// Empty prior state ("" is absent per valueIsAbsent), so config-null is not a removal:
+			// clearing it would be a cosmetic shadow change, so the field is preserved.
+			name:   "empty_prior_state_is_not_cleared",
+			target: clearTestRequest{AccessApproval: "keep"},
+			config: map[string]attr.Value{"access_approval": types.StringNull()},
+			state:  map[string]attr.Value{"access_approval": types.StringValue("")},
+			want:   clearTestRequest{AccessApproval: "keep"},
+		},
+		{
+			name:   "squashed_field_removed_is_cleared",
+			target: clearTestRequest{clearTestSquashed: clearTestSquashed{Name: "old"}},
+			config: map[string]attr.Value{"name": types.StringNull()},
+			state:  map[string]attr.Value{"name": types.StringValue("old")},
+			want:   clearTestRequest{},
+		},
+		{
+			// Nested object: description removed (set->null) is cleared; policy_id stays known in
+			// config (user never nulls the identifier) so it is preserved.
+			name:   "nested_clears_removed_subfield_preserves_identifier",
+			target: clearTestRequest{Metadata: clearTestMetadata{PolicyID: "p-1", Description: "d"}},
+			config: map[string]attr.Value{"metadata": meta(types.StringValue("p-1"), types.StringNull())},
+			state:  map[string]attr.Value{"metadata": meta(types.StringValue("p-1"), types.StringValue("d"))},
+			want:   clearTestRequest{Metadata: clearTestMetadata{PolicyID: "p-1"}},
+		},
+		{
+			// Computed-only bare name: policy_id is null in config (user cannot set it) over a set
+			// state, which looks like a removal, but the computedAttrs entry protects it at any depth.
+			name:          "computed_only_bare_name_is_not_cleared",
+			target:        clearTestRequest{Metadata: clearTestMetadata{PolicyID: "p-1"}},
+			config:        map[string]attr.Value{"metadata": meta(types.StringNull(), types.StringNull())},
+			state:         map[string]attr.Value{"metadata": meta(types.StringValue("p-1"), types.StringNull())},
+			computedAttrs: []string{"policy_id"},
+			want:          clearTestRequest{Metadata: clearTestMetadata{PolicyID: "p-1"}},
+		},
+		{
+			// Same protection via a dotted path instead of a bare name.
+			name:          "computed_only_dotted_path_is_not_cleared",
+			target:        clearTestRequest{Metadata: clearTestMetadata{PolicyID: "p-1"}},
+			config:        map[string]attr.Value{"metadata": meta(types.StringNull(), types.StringNull())},
+			state:         map[string]attr.Value{"metadata": meta(types.StringValue("p-1"), types.StringNull())},
+			computedAttrs: []string{"metadata.policy_id"},
+			want:          clearTestRequest{Metadata: clearTestMetadata{PolicyID: "p-1"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			target := tt.target
+			clearRemovedAttributes(reflect.ValueOf(&target), tt.config, tt.state, tt.computedAttrs, tt.userSetPaths, "")
+			if !reflect.DeepEqual(target, tt.want) {
+				t.Errorf("expected %+v, got %+v", tt.want, target)
+			}
+		})
+	}
+}
+
+func TestClearComputedAttributes(t *testing.T) {
+	t.Parallel()
+
+	type squashed struct {
+		LastModifiedTime int `mapstructure:"last_modified_time"`
+	}
+	type target struct {
+		squashed  `mapstructure:",squash"`
+		AccountID string `mapstructure:"account_id"`
+		Name      string `mapstructure:"name"`
+	}
+
+	tgt := &target{squashed: squashed{LastModifiedTime: 1}, AccountID: "acc-1", Name: "n"}
+	if err := ClearComputedAttributes(tgt, []string{"account_id", "last_modified_time"}, []string{"account_id"}); err != nil {
+		t.Fatalf("ClearComputedAttributes: %v", err)
+	}
+	want := &target{AccountID: "acc-1", Name: "n"}
+	if !reflect.DeepEqual(tgt, want) {
+		t.Errorf("got %+v, want %+v", tgt, want)
+	}
+}
+
+// TestFindStructFieldByNameShadowing verifies that a field declared directly on a struct shadows
+// an identically named field promoted from a squashed embed, matching encoding/json resolution.
+// This mirrors IdsecPolicyCloudAccessConditions, where the outer access_window shadows the one in
+// the squashed IdsecPolicyConditions: clearing must target the outer field that JSON serializes.
+func TestFindStructFieldByNameShadowing(t *testing.T) {
+	t.Parallel()
+
+	type embedded struct {
+		AccessWindow string `mapstructure:"access_window"`
+	}
+	type outer struct {
+		embedded     `mapstructure:",squash"`
+		AccessWindow string `mapstructure:"access_window"`
+	}
+
+	tgt := &outer{embedded: embedded{AccessWindow: "embedded"}, AccessWindow: "outer"}
+	field, found := findStructFieldByName(reflect.ValueOf(tgt), "access_window")
+	if !found {
+		t.Fatalf("expected to find access_window")
+	}
+	field.SetString("changed")
+
+	if tgt.AccessWindow != "changed" {
+		t.Errorf("expected direct (outer) field to be modified, got %q", tgt.AccessWindow)
+	}
+	if tgt.embedded.AccessWindow != "embedded" {
+		t.Errorf("expected squashed embed field to be untouched, got %q", tgt.embedded.AccessWindow)
 	}
 }
 

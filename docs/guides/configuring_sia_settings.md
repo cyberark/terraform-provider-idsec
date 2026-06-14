@@ -31,7 +31,7 @@ Each setting has a dedicated resource:
 
 # Workflow
 The workflow will:
-- Authenticate to CyberArk with a user who is a member of the DpaAdmin role.
+- Authenticate to Idira with a user who is a member of the DpaAdmin role.
 - Demonstrate how to update SIA settings using both of the following methods:  
    - Global settings update
    - Specific per setting updates
@@ -43,7 +43,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }

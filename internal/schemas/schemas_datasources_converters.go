@@ -189,6 +189,26 @@ func dataSourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool,
 			if fieldType.Elem().Kind() == reflect.Struct {
 				// Handle nested structs by recursively generating their schema
 				nestedSchemaAttrs := dataSourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs)
+				// Mirror the resource schema: order-insensitive nested object slices are modeled as sets.
+				if slices.Contains(computedAsSetAttrs, fieldName) {
+					setAttr := schema.SetNestedAttribute{
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: nestedSchemaAttrs,
+						},
+						Description: desc,
+						Sensitive:   isSensitive,
+					}
+					if setAsComputed {
+						setAttr.Optional = true
+						setAttr.Computed = true
+					} else {
+						setAttr.Optional = !isRequired
+						setAttr.Required = isRequired
+						setAttr.Computed = !isRequired
+					}
+					attributes[fieldName] = applyDeprecation(setAttr, depInfo)
+					continue
+				}
 				if setAsComputed {
 					attributes[fieldName] = applyDeprecation(schema.ListNestedAttribute{
 						NestedObject: schema.NestedAttributeObject{

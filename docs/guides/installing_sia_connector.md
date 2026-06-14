@@ -6,13 +6,13 @@ description: |-
 
 # Motivation
 
-This workflow describes how to install a SIA connector using the Idsec Terraform Provider. The SIA connector enables secure access to target machines as part of the CyberArk Identity Security Platform.
+This workflow describes how to install a SIA connector using the Idsec Terraform Provider. The SIA connector enables secure access to target machines as part of the Idira Identity Security Platform.
 
 The installation includes creating a network and a pool. These components are prerequisites for the SIA connector installation and define where the connector is associated.
 
 # Workflow
 The workflow will:
-- Authenticate to CyberArk with a user who is a member of the DpaAdmin role.
+- Authenticate to Idira with a user who is a member of the DpaAdmin role.
 - Create an EC2 machine for the SIA connector installation.
 - Create a network.
 - Create a pool.
@@ -29,7 +29,7 @@ terraform {
     }
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }

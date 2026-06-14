@@ -80,7 +80,7 @@ resource "idsec_policy_cloud_access" "example_policy" {
 Optional:
 
 - `access_approval` (Attributes) Determines whether additional approval is required before access to a target for an eligible identity can be elevated (see [below for nested schema](#nestedatt--conditions--access_approval))
-- `access_window` (Attributes) The days and times when the user can connect to their target using this policy (see [below for nested schema](#nestedatt--conditions--access_window))
+- `access_window` (Attributes) The days and times when the user can connect to their target using this policy. Important: When the accessApproval.required property is set to true, omit this field entirely from the payload. (see [below for nested schema](#nestedatt--conditions--access_window))
 - `max_session_duration` (Number) The maximum length of time (in hours) a user can remain connected in a single session. Default: 1
 
 <a id="nestedatt--conditions--access_approval"></a>
@@ -96,7 +96,7 @@ Optional:
 
 Required:
 
-- `id` (String) The unique identifier of the identity in CyberArk. An identity is a user, group, or role. maxLength: 40
+- `id` (String) The unique identifier of the identity in Idira. An identity is a user, group, or role. maxLength: 40
 - `name` (String) The name of the principal. minLength: 1
 - `type` (String) The type of principal
 
@@ -220,7 +220,7 @@ Optional:
 
 Required:
 
-- `id` (String) The unique identifier of the identity in CyberArk. An identity is a user, group, or role. maxLength: 40
+- `id` (String) The unique identifier of the identity in Idira. An identity is a user, group, or role. maxLength: 40
 - `name` (String) The name of the principal. minLength: 1
 - `type` (String) The type of principal
 
@@ -277,7 +277,7 @@ Required:
 - `org_id` (String) The Azure directory ID (UUID) - required for Azure targets
 - `role_id` (String) The unique identifier assigned to the role
 - `workspace_id` (String) The unique identifier assigned to the workspace when it was onboarded to the platform
-- `workspace_type` (String) The level at which the Microsoft Entra ID workspace was onboarded to CyberArk (Directory, Subscription, Resource Group, Resource, Management Group)
+- `workspace_type` (String) The level at which the Microsoft Entra ID workspace was onboarded to Idira (Directory, Subscription, Resource Group, Resource, Management Group)
 
 Optional:
 
@@ -293,7 +293,7 @@ Required:
 
 - `role_id` (String) The unique identifier assigned to the role
 - `workspace_id` (String) The unique identifier assigned to the workspace when it was onboarded to the platform
-- `workspace_type` (String) The level at which the Google Cloud organization was onboarded to CyberArk (Organization, Folder, or Project - case sensitive)
+- `workspace_type` (String) The level at which the Google Cloud organization was onboarded to Idira (Organization, Folder, or Project - case sensitive)
 
 Optional:
 
@@ -305,3 +305,13 @@ Optional:
 - `workspace_name` (String) The workspace name of the target (read-only)
 
 
+
+
+
+## Import
+
+The `idsec_policy_cloud_access` resource can be imported using the following command:
+
+```shell
+terraform import idsec_policy_cloud_access.example policy-id-123
+```

@@ -1,12 +1,12 @@
 ---
 page_title: "idsec Terraform Provider"
 description: |-
-  A Terraform provider for CyberArk that enables consistent, automated, and scalable identity security across your organization.
+  A Terraform provider for Idira that enables consistent, automated, and scalable identity security across your organization.
 ---
 
 ## Motivation
 
-By enabling teams to define and automate CyberArk configurations as Infrastructure as Code (IaC), the *idsec* Terraform provider delivers consistent security, reduces operational risk, and accelerates deployment speed across all cloud and on-premises environments.
+By enabling teams to define and automate Idira configurations as Infrastructure as Code (IaC), the *idsec* Terraform provider delivers consistent security, reduces operational risk, and accelerates deployment speed across all cloud and on-premises environments.
 
 This solution ensures that identity and access controls scale securely alongside your critical infrastructure, maintaining full auditability and least-privilege control at every step.
 
@@ -20,12 +20,12 @@ The Terraform public registry–based provider requires **Terraform 0.13.x** or 
 
 ## Coverage
 
-The *idsec* Terraform provider centralizes the automation of identity security across key CyberArk solutions, ensuring comprehensive governance:
+The *idsec* Terraform provider centralizes the automation of identity security across key Idira solutions, ensuring comprehensive governance:
 
 | Service | Supported operations |
 |--------|----------------------|
 | *Connector Management* | Standardize and deploy key components for connecting to target systems |
-| *CyberArk Identity* | Manage user provisioning, roles, and access policies for workforce identities |
+| *Identity* | Manage user provisioning, roles, and access policies for workforce identities |
 | *Privilege Cloud* | Automate onboarding and policy management of privileged accounts and access |
 | *Secure Cloud Access* | Automate dynamic access and permissions for cloud environments |
 | *Secure Infrastructure Access* | Extend least-privilege control to internal, developer-facing infrastructure |
@@ -35,7 +35,7 @@ The *idsec* Terraform provider centralizes the automation of identity security a
 
 ## Additional information
 
-- *Developer resources:* Explore the <MadCap:variable name="cc_C_CyberArk.CompanyName" /> API reference on the [CyberArk API documentation](https://api-docs.cyberark.com/) site or in the individual service documentation sets.
+- *Developer resources:* Explore the Idira API reference on the [Idira API documentation](https://api-docs.cyberark.com/) site or in the individual service documentation sets.
 
 
 ## Example Usage
@@ -46,7 +46,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }

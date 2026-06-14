@@ -6,11 +6,11 @@ description: |-
 
 # Motivation
 
-The following workflow describes how to configure a ZSP DB environment using the Idsec Terraform Provider. This will allow the users to perform connections via CyberArk to their target databases with ephemeral users.
+The following workflow describes how to configure a ZSP DB environment using the Idsec Terraform Provider. This will allow the users to perform connections via Idira to their target databases with ephemeral users.
 
 # Workflow
 The workflow will:
-- Login to CyberArk with a normal user
+- Login to Idira with a normal user
 - Create a secret for the database strong user
 - Onboard a database
 - Create a policy that defines the access
@@ -22,7 +22,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }

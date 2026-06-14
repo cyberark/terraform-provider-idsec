@@ -19,7 +19,7 @@ func init() {
 						ActionName: "pcloud-account", ActionDescription: "Manage Privilege Cloud account information, metadata, and credentials", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
 					ExtraRequiredAttributes: []string{},
-					ComputedAttributes:      []string{"status", "created_time", "category_modification_time", "secret_management.last_modified_time"},
+					ComputedAttributes:      []string{"status", "created_time", "category_modification_time", "last_modified_time"},
 					SensitiveAttributes:     []string{"secret"},
 					StateSchema:             &accountsmodels.IdsecPCloudAccount{},
 				},

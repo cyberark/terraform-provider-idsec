@@ -26,7 +26,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }
@@ -248,7 +248,7 @@ variable "role_id" {
   type        = string
 }
 variable "workspace_id" {
-  description = "The ID given to the AWS organization workspace when it was onboarded to CyberArk. Required."
+  description = "The ID given to the AWS organization workspace when it was onboarded to Idira. Required."
   type        = string
 }
 variable "org_id" {
@@ -256,7 +256,7 @@ variable "org_id" {
   type        = string
 }
 variable "principal_id" {
-  description = "The unique identifier of the identity in CyberArk. An identity is a user, group, or role. maxLength: 40. Required."
+  description = "The unique identifier of the identity in Idira. An identity is a user, group, or role. maxLength: 40. Required."
   type        = string
   validation {
     condition     = length(var.principal_id) > 0 && length(var.principal_id) <= 40

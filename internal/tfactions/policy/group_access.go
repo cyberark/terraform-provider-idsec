@@ -24,6 +24,7 @@ func init() {
 				DeleteSchemaPath:    "metadata",
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "create-policy", tfactions.ReadOperation: "policy", tfactions.UpdateOperation: "update-policy", tfactions.DeleteOperation: "delete-policy"},
+				ImportID:            "metadata.policy_id",
 			},
 		},
 		DataSources: []*tfactions.IdsecServiceTerraformDataSourceActionDefinition{

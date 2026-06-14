@@ -6,7 +6,7 @@ description: |-
 
 # Motivation
 
-Target sets define Windows targets (domains, specific targets, or suffixes) for secure RDP access through CyberArk's Secure Infrastructure Access. Each target set is associated with a strong account.
+Target sets define Windows targets (domains, specific targets, or suffixes) for secure RDP access through Idira's Secure Infrastructure Access. Each target set is associated with a strong account.
 
 The following workflow describes how to create target sets for various scenarios, from enterprise-wide domain access to individual server management.
 
@@ -48,7 +48,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }
@@ -153,7 +153,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }
@@ -260,7 +260,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }

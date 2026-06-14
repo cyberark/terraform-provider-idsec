@@ -133,7 +133,39 @@ func (s *IdsecResource) getImportID() string {
 	return "" // Return empty string if not configured (import not supported)
 }
 
-func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions.IdsecServiceActionOperation, diagnostics *diag.Diagnostics, plan *tfsdk.Plan, state *tfsdk.State) (interface{}, error) {
+// readKeyTopLevelAttributes returns the top-level attribute names that make up the resource's read
+// key (its ImportID). Only un-nested names are returned: a dotted key such as "metadata.policy_id"
+// addresses a nested attribute (a stable, server-owned id) that is handled elsewhere and should keep
+// its UseStateForUnknown pinning, whereas a top-level key such as "id" may mirror a mutable attribute
+// and must not be pinned. These names are passed to ApplyRemovedToNullModifiers to exclude them from
+// UseStateForUnknown so a renamed id refreshes from the operation response instead of staying stale.
+func (s *IdsecResource) readKeyTopLevelAttributes() []string {
+	importID := s.getImportID()
+	if importID == "" {
+		return nil
+	}
+	var topLevel []string
+	for _, attr := range schemas.SplitImportIDAttributes(importID) {
+		if !strings.Contains(attr, ".") {
+			topLevel = append(topLevel, attr)
+		}
+	}
+	return topLevel
+}
+
+// readKeyAttributePaths returns the full dotted attribute paths that make up the resource's read key
+// (its ImportID), for example "account_id" or "metadata.policy_id". These paths identify the resource
+// in subsequent operations and must be preserved when stripping computed (server-managed) fields from
+// a write payload, so they are passed to ClearComputedAttributes as the skip list.
+func (s *IdsecResource) readKeyAttributePaths() []string {
+	importID := s.getImportID()
+	if importID == "" {
+		return nil
+	}
+	return schemas.SplitImportIDAttributes(importID)
+}
+
+func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions.IdsecServiceActionOperation, diagnostics *diag.Diagnostics, plan *tfsdk.Plan, state *tfsdk.State, config *tfsdk.Config, userSetPaths map[string]bool) (interface{}, error) {
 	var operationSchemaInput interface{}
 	if plan != nil && state != nil {
 		tflog.Info(ctx, "Plan and state are not nil")
@@ -146,6 +178,16 @@ func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions
 		if err != nil {
 			tflog.Error(ctx, fmt.Sprintf("Failed to convert plan and state object to schema: %s", err.Error()))
 			diagnostics.AddError("Schema Conversion Error", fmt.Sprintf("Failed to convert plan and state object to schema: %s", err.Error()))
+			return nil, err
+		}
+		if err = schemas.ClearRemovedAttributes(ctx, operationSchemaInput, config, state, s.getComputedAttributes(), userSetPaths); err != nil {
+			tflog.Error(ctx, fmt.Sprintf("Failed to reconcile removed attributes: %s", err.Error()))
+			diagnostics.AddError("Schema Conversion Error", fmt.Sprintf("Failed to reconcile removed attributes: %s", err.Error()))
+			return nil, err
+		}
+		if err = schemas.ClearComputedAttributes(operationSchemaInput, s.getComputedAttributes(), s.readKeyAttributePaths()); err != nil {
+			tflog.Error(ctx, fmt.Sprintf("Failed to clear computed attributes: %s", err.Error()))
+			diagnostics.AddError("Schema Conversion Error", fmt.Sprintf("Failed to clear computed attributes: %s", err.Error()))
 			return nil, err
 		}
 	} else if plan != nil {
@@ -222,7 +264,7 @@ func (s *IdsecResource) finalizeFailure(ctx context.Context, summary string, det
 	s.finalizeState(ctx, operation, originalState, respState, diagnostics)
 }
 
-func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.IdsecServiceActionOperation, diagnostics *diag.Diagnostics, plan *tfsdk.Plan, state *tfsdk.State, respState *tfsdk.State) {
+func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.IdsecServiceActionOperation, diagnostics *diag.Diagnostics, plan *tfsdk.Plan, state *tfsdk.State, config *tfsdk.Config, respState *tfsdk.State, userSetPaths map[string]bool) {
 	tflog.Info(ctx, fmt.Sprintf("Triggering operation: %s", operation))
 	var originalState basetypes.ObjectValue
 	if state != nil {
@@ -237,7 +279,7 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 		s.finalizeState(ctx, operation, originalState, respState, diagnostics)
 		return
 	}
-	operationSchemaInput, err := s.parsePlanAndState(ctx, operation, diagnostics, plan, state)
+	operationSchemaInput, err := s.parsePlanAndState(ctx, operation, diagnostics, plan, state, config, userSetPaths)
 	if diagnostics.HasError() || err != nil {
 		if err != nil {
 			s.finalizeFailure(ctx, "Parsing Error", fmt.Sprintf("Failed to parse plan and state: %s", err.Error()), operation, originalState, respState, diagnostics)
@@ -401,6 +443,7 @@ func (s *IdsecResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 		s.getComputedAttributes(),
 		s.getCaseInsensitiveAttributes(),
 	)
+	schemas.ApplyRemovedToNullModifiers(resp.Schema.Attributes, s.readKeyTopLevelAttributes()...)
 	resp.Schema.Description = s.actionDefinition.ActionDescription
 	if s.actionDefinition.ActionVersion != 0 {
 		resp.Schema.Version = s.actionDefinition.ActionVersion
@@ -443,12 +486,42 @@ func (s *IdsecResource) Configure(ctx context.Context, req resource.ConfigureReq
 	}
 }
 
+// privateStateWriter is the minimal write surface of the framework's resource private-state provider
+// data, satisfied by *privatestate.ProviderData on the create/update responses. It lets this package
+// persist user-set history without importing the framework's internal privatestate package.
+type privateStateWriter interface {
+	SetKey(ctx context.Context, key string, value []byte) diag.Diagnostics
+}
+
+// recordUserSetHistory persists the set of attribute paths the user explicitly set in config into the
+// resource's private state, powering history-gated removal. It is a best-effort write: on encode
+// failure it logs and returns without failing the operation.
+func (s *IdsecResource) recordUserSetHistory(ctx context.Context, config *tfsdk.Config, private privateStateWriter, diagnostics *diag.Diagnostics) {
+	if config == nil || private == nil {
+		return
+	}
+	paths, err := schemas.CollectUserSetPaths(ctx, config)
+	if err != nil {
+		tflog.Warn(ctx, fmt.Sprintf("Failed to collect user-set attribute paths: %s", err.Error()))
+		return
+	}
+	data, err := schemas.MarshalUserSetHistory(paths, providerVersion)
+	if err != nil {
+		tflog.Warn(ctx, fmt.Sprintf("Failed to encode user-set attribute history: %s", err.Error()))
+		return
+	}
+	diagnostics.Append(private.SetKey(ctx, schemas.UserSetAttrsPrivateKey, data)...)
+}
+
 // Create handles the creation of the resource.
 func (s *IdsecResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	s.setTerraformContext("Create")
 	defer s.clearTerraformContext()
 	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Create"))()
-	s.triggerOperation(ctx, actions.CreateOperation, &resp.Diagnostics, &req.Plan, nil, &resp.State)
+	s.triggerOperation(ctx, actions.CreateOperation, &resp.Diagnostics, &req.Plan, nil, nil, &resp.State, nil)
+	if !resp.Diagnostics.HasError() {
+		s.recordUserSetHistory(ctx, &req.Config, resp.Private, &resp.Diagnostics)
+	}
 }
 
 // Read handles reading the resource state.
@@ -456,7 +529,7 @@ func (s *IdsecResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	s.setTerraformContext("Read")
 	defer s.clearTerraformContext()
 	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Read"))()
-	s.triggerOperation(ctx, actions.ReadOperation, &resp.Diagnostics, nil, &req.State, &resp.State)
+	s.triggerOperation(ctx, actions.ReadOperation, &resp.Diagnostics, nil, &req.State, nil, &resp.State, nil)
 }
 
 // Update handles updating the resource.
@@ -464,7 +537,13 @@ func (s *IdsecResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	s.setTerraformContext("Update")
 	defer s.clearTerraformContext()
 	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Update"))()
-	s.triggerOperation(ctx, actions.UpdateOperation, &resp.Diagnostics, &req.Plan, &req.State, &resp.State)
+	// Prior user-set history gates which removed attributes are actually cleared on apply: only
+	// attributes the user had previously set are removed, leaving server-defaulted values intact.
+	priorUserSetPaths := schemas.ReadUserSetPaths(ctx, req.Private)
+	s.triggerOperation(ctx, actions.UpdateOperation, &resp.Diagnostics, &req.Plan, &req.State, &req.Config, &resp.State, priorUserSetPaths)
+	if !resp.Diagnostics.HasError() {
+		s.recordUserSetHistory(ctx, &req.Config, resp.Private, &resp.Diagnostics)
+	}
 }
 
 // Delete handles deleting the resource.
@@ -472,7 +551,7 @@ func (s *IdsecResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 	s.setTerraformContext("Delete")
 	defer s.clearTerraformContext()
 	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Delete"))()
-	s.triggerOperation(ctx, actions.DeleteOperation, &resp.Diagnostics, nil, &req.State, nil)
+	s.triggerOperation(ctx, actions.DeleteOperation, &resp.Diagnostics, nil, &req.State, nil, nil, nil)
 }
 
 // ImportState handles importing existing resources into Terraform state.

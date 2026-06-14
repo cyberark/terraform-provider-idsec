@@ -34,7 +34,6 @@ resource "idsec_pcloud_account" "example_account" {
 - `account_id` (String) The unique ID of the account to updatee
 - `address` (String) The name or address of the machine where the account will be used
 - `automatic_management_enabled` (Boolean) Whether the account secret is managed automatically
-- `last_modified_time` (Number) Last time the account was modified
 - `manual_management_reason` (String) The reason for disabling automatic management
 - `name` (String) Name of the account
 - `platform_account_properties` (Dynamic) The object containing key-value pairs to associate with the account, as defined by the account platform. Optional properties that do not exist or internal properties are not returned
@@ -49,6 +48,7 @@ resource "idsec_pcloud_account" "example_account" {
 
 - `category_modification_time` (Number) The last time the account or one of its file categories was created or changed
 - `created_time` (Number) The date and time the account was created
+- `last_modified_time` (Number) Last time the account was modified
 - `status` (String) The account's management status
 
 

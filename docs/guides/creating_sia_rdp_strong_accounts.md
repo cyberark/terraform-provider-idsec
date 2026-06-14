@@ -71,7 +71,7 @@ Use this decision tree to select the correct strong account configuration:
 ## Secret Types
 
 ### ProvisionerUser (Secure Infrastructure Access)
-Credentials stored directly in CyberArk's secrets service.
+Credentials stored directly in Idira's secrets service.
 - **Best For**: Environments without Privilege Cloud, or development/test environments
 - **Requires**: Username and password
 - **Options**: Can be configured for local, domain, or domain ephemeral user provisioning
@@ -113,7 +113,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }
@@ -181,7 +181,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }
@@ -255,7 +255,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }
@@ -327,7 +327,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.4"
+      version = ">= 0.5"
     }
   }
 }

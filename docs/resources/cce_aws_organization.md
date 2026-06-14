@@ -70,11 +70,14 @@ resource "idsec_cce_aws_organization_account" "organization_account_example" {
 ### Optional
 
 - `display_name` (String) Display name shown in the CCE UI.
-- `id` (String) CCE organization onboarding ID (for example, ef858a2d8f8f4f1781578089bb4ea010)
-- `last_successful_scan` (String) Timestamp of the last successful organization scan (RFC3339 format).
-- `onboarding_type` (String) The method used to deploy resources in AWS.
 - `organization_display_name` (String)
 - `parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.
 - `region` (String)
 - `service_parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.
+
+### Read-Only
+
+- `id` (String) CCE organization onboarding ID (for example, ef858a2d8f8f4f1781578089bb4ea010)
+- `last_successful_scan` (String) Timestamp of the last successful organization scan (RFC3339 format).
+- `onboarding_type` (String) The method used to deploy resources in AWS.
 - `status` (String) Onboarding status of the organization.
