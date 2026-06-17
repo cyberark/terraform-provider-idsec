@@ -3013,11 +3013,12 @@ func TestClearRemovedAttributes(t *testing.T) {
 		want          clearTestRequest
 	}{
 		{
-			name:   "user_field_removed_is_cleared",
-			target: clearTestRequest{AccessApproval: "approval-1"},
-			config: map[string]attr.Value{"access_approval": types.StringNull()},
-			state:  map[string]attr.Value{"access_approval": types.StringValue("approval-1")},
-			want:   clearTestRequest{},
+			name:         "user_field_removed_is_cleared",
+			target:       clearTestRequest{AccessApproval: "approval-1"},
+			config:       map[string]attr.Value{"access_approval": types.StringNull()},
+			state:        map[string]attr.Value{"access_approval": types.StringValue("approval-1")},
+			userSetPaths: map[string]bool{"access_approval": true},
+			want:         clearTestRequest{},
 		},
 		{
 			name:   "value_present_or_unknown_in_config_is_preserved",
@@ -3036,20 +3037,22 @@ func TestClearRemovedAttributes(t *testing.T) {
 			want:   clearTestRequest{AccessApproval: "keep"},
 		},
 		{
-			name:   "squashed_field_removed_is_cleared",
-			target: clearTestRequest{clearTestSquashed: clearTestSquashed{Name: "old"}},
-			config: map[string]attr.Value{"name": types.StringNull()},
-			state:  map[string]attr.Value{"name": types.StringValue("old")},
-			want:   clearTestRequest{},
+			name:         "squashed_field_removed_is_cleared",
+			target:       clearTestRequest{clearTestSquashed: clearTestSquashed{Name: "old"}},
+			config:       map[string]attr.Value{"name": types.StringNull()},
+			state:        map[string]attr.Value{"name": types.StringValue("old")},
+			userSetPaths: map[string]bool{"name": true},
+			want:         clearTestRequest{},
 		},
 		{
 			// Nested object: description removed (set->null) is cleared; policy_id stays known in
 			// config (user never nulls the identifier) so it is preserved.
-			name:   "nested_clears_removed_subfield_preserves_identifier",
-			target: clearTestRequest{Metadata: clearTestMetadata{PolicyID: "p-1", Description: "d"}},
-			config: map[string]attr.Value{"metadata": meta(types.StringValue("p-1"), types.StringNull())},
-			state:  map[string]attr.Value{"metadata": meta(types.StringValue("p-1"), types.StringValue("d"))},
-			want:   clearTestRequest{Metadata: clearTestMetadata{PolicyID: "p-1"}},
+			name:         "nested_clears_removed_subfield_preserves_identifier",
+			target:       clearTestRequest{Metadata: clearTestMetadata{PolicyID: "p-1", Description: "d"}},
+			config:       map[string]attr.Value{"metadata": meta(types.StringValue("p-1"), types.StringNull())},
+			state:        map[string]attr.Value{"metadata": meta(types.StringValue("p-1"), types.StringValue("d"))},
+			userSetPaths: map[string]bool{"metadata.description": true},
+			want:         clearTestRequest{Metadata: clearTestMetadata{PolicyID: "p-1"}},
 		},
 		{
 			// Computed-only bare name: policy_id is null in config (user cannot set it) over a set

@@ -915,7 +915,7 @@ func ClearRemovedAttributes(ctx context.Context, target interface{}, config *tfs
 
 // clearRemovedAttributes recursively walks the configuration and state attribute maps in parallel
 // with the request struct, zeroing fields the user removed (isUserRemoval: config null over a
-// meaningful prior-state value).
+// meaningful prior-state value) AND that were previously recorded as user-set in history.
 func clearRemovedAttributes(structVal reflect.Value, configAttrs map[string]attr.Value, stateAttrs map[string]attr.Value, computedAttrs []string, userSetPaths map[string]bool, pathPrefix string) {
 	for structVal.Kind() == reflect.Pointer {
 		if structVal.IsNil() {
@@ -940,7 +940,7 @@ func clearRemovedAttributes(structVal reflect.Value, configAttrs map[string]attr
 		}
 		stateVal := stateAttrs[key]
 		if configVal.IsNull() {
-			if isUserRemoval(configVal, stateVal) && (userSetPaths == nil || userSetPaths[path]) {
+			if shouldRemoveToNull(userSetPaths, path, configVal, stateVal) {
 				fieldVal.Set(reflect.Zero(fieldVal.Type()))
 			}
 			continue

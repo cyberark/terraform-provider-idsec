@@ -5,6 +5,7 @@ package schemas
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -153,4 +154,46 @@ func TestApplyRemovedToNullModifiers(t *testing.T) {
 			t.Errorf("name: got %d modifiers, want 2", n)
 		}
 	})
+}
+
+func TestComputedOnlyAttributePaths(t *testing.T) {
+	t.Parallel()
+
+	attrs := map[string]schema.Attribute{
+		"id":   schema.StringAttribute{Computed: true},
+		"name": schema.StringAttribute{Optional: true, Computed: true},
+		"metadata": schema.SingleNestedAttribute{
+			Optional: true,
+			Attributes: map[string]schema.Attribute{
+				"status": schema.StringAttribute{Computed: true},
+				"note":   schema.StringAttribute{Optional: true},
+			},
+		},
+		"targets": schema.SetNestedAttribute{
+			Optional: true,
+			NestedObject: schema.NestedAttributeObject{
+				Attributes: map[string]schema.Attribute{
+					"role_name": schema.StringAttribute{Computed: true},
+					"role_id":   schema.StringAttribute{Optional: true},
+				},
+			},
+		},
+		"server_only": schema.SingleNestedAttribute{
+			Computed: true,
+			Attributes: map[string]schema.Attribute{
+				"x": schema.StringAttribute{Computed: true},
+			},
+		},
+	}
+
+	got := ComputedOnlyAttributePaths(attrs)
+	want := []string{
+		"id",
+		"metadata.status",
+		"server_only",
+		"targets.role_name",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ComputedOnlyAttributePaths = %v, want %v", got, want)
+	}
 }

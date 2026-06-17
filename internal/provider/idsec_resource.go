@@ -493,6 +493,12 @@ type privateStateWriter interface {
 	SetKey(ctx context.Context, key string, value []byte) diag.Diagnostics
 }
 
+// privateStateReader is the minimal read surface of the framework's resource private-state provider
+// data, used to check whether user-set history is already present.
+type privateStateReader interface {
+	GetKey(ctx context.Context, key string) ([]byte, diag.Diagnostics)
+}
+
 // recordUserSetHistory persists the set of attribute paths the user explicitly set in config into the
 // resource's private state, powering history-gated removal. It is a best-effort write: on encode
 // failure it logs and returns without failing the operation.
@@ -508,6 +514,54 @@ func (s *IdsecResource) recordUserSetHistory(ctx context.Context, config *tfsdk.
 	data, err := schemas.MarshalUserSetHistory(paths, providerVersion)
 	if err != nil {
 		tflog.Warn(ctx, fmt.Sprintf("Failed to encode user-set attribute history: %s", err.Error()))
+		return
+	}
+	diagnostics.Append(private.SetKey(ctx, schemas.UserSetAttrsPrivateKey, data)...)
+}
+
+// seedUserSetHistoryFromState synthesizes a best-effort user-set history from refreshed state when
+// no history exists yet (for example right after import or provider upgrade), then persists it in
+// private state. Computed/server-managed and read-key paths are excluded.
+func (s *IdsecResource) seedUserSetHistoryFromState(ctx context.Context, state *tfsdk.State, existingPrivate privateStateReader, private privateStateWriter, diagnostics *diag.Diagnostics) {
+	if state == nil || private == nil {
+		return
+	}
+	if schemas.ReadUserSetPaths(ctx, existingPrivate) != nil {
+		return
+	}
+	paths, err := schemas.CollectStateSetPaths(ctx, state)
+	if err != nil {
+		tflog.Warn(ctx, fmt.Sprintf("Failed to collect state-set attribute paths: %s", err.Error()))
+		return
+	}
+	createSchema, err := s.schemaForOperation(actions.CreateOperation)
+	if err != nil || createSchema == nil {
+		tflog.Warn(ctx, "Skipping synthetic user-set history seed: failed to resolve create schema")
+		return
+	}
+	updateSchema, err := s.schemaForOperation(actions.UpdateOperation)
+	if err != nil || updateSchema == nil {
+		tflog.Warn(ctx, "Skipping synthetic user-set history seed: failed to resolve update schema")
+		return
+	}
+	outputSchemaDef := schemas.GenerateResourceSchemaFromStruct(
+		createSchema,
+		updateSchema,
+		s.actionDefinition.StateSchema,
+		s.actionDefinition.SensitiveAttributes,
+		s.actionDefinition.ExtraRequiredAttributes,
+		s.actionDefinition.ComputedAsSetAttributes,
+		s.getImmutableAttributes(),
+		s.getForceNewAttributes(),
+		s.getComputedAttributes(),
+		s.getCaseInsensitiveAttributes(),
+	)
+	computedPaths := append([]string{}, s.getComputedAttributes()...)
+	computedPaths = append(computedPaths, schemas.ComputedOnlyAttributePaths(outputSchemaDef.Attributes)...)
+	reducedPaths := schemas.ReduceComputedPaths(paths, computedPaths, s.readKeyAttributePaths())
+	data, err := schemas.MarshalSyntheticUserSetHistory(reducedPaths, providerVersion)
+	if err != nil {
+		tflog.Warn(ctx, fmt.Sprintf("Failed to encode synthetic user-set history: %s", err.Error()))
 		return
 	}
 	diagnostics.Append(private.SetKey(ctx, schemas.UserSetAttrsPrivateKey, data)...)
@@ -530,6 +584,9 @@ func (s *IdsecResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	defer s.clearTerraformContext()
 	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Read"))()
 	s.triggerOperation(ctx, actions.ReadOperation, &resp.Diagnostics, nil, &req.State, nil, &resp.State, nil)
+	if !resp.Diagnostics.HasError() {
+		s.seedUserSetHistoryFromState(ctx, &resp.State, req.Private, resp.Private, &resp.Diagnostics)
+	}
 }
 
 // Update handles updating the resource.

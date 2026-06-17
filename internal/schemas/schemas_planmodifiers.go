@@ -9,6 +9,7 @@ package schemas
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -846,6 +847,82 @@ func (m removedToNullObjectModifier) PlanModifyObject(ctx context.Context, req p
 // config is always null, so asserting null would conflict with the value the backend supplies.
 func isComputedOnlyAttr(optional, required, computed bool) bool {
 	return computed && !optional && !required
+}
+
+// ComputedOnlyAttributePaths returns dotted paths of attributes that are computed-only (server
+// managed): computed=true and both optional/required=false. For computed-only nested objects, the
+// object path is included and traversal does not descend into children.
+func ComputedOnlyAttributePaths(attributes map[string]schema.Attribute) []string {
+	if len(attributes) == 0 {
+		return nil
+	}
+	paths := map[string]bool{}
+	collectComputedOnlyAttributePaths(attributes, "", paths)
+	out := make([]string, 0, len(paths))
+	for path := range paths {
+		out = append(out, path)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func collectComputedOnlyAttributePaths(attributes map[string]schema.Attribute, prefix string, paths map[string]bool) {
+	for name, attribute := range attributes {
+		path := name
+		if prefix != "" {
+			path = prefix + "." + name
+		}
+		switch a := attribute.(type) {
+		case schema.StringAttribute:
+			if isComputedOnlyAttr(a.Optional, a.Required, a.Computed) {
+				paths[path] = true
+			}
+		case schema.BoolAttribute:
+			if isComputedOnlyAttr(a.Optional, a.Required, a.Computed) {
+				paths[path] = true
+			}
+		case schema.Int64Attribute:
+			if isComputedOnlyAttr(a.Optional, a.Required, a.Computed) {
+				paths[path] = true
+			}
+		case schema.ListAttribute:
+			if isComputedOnlyAttr(a.Optional, a.Required, a.Computed) {
+				paths[path] = true
+			}
+		case schema.SetAttribute:
+			if isComputedOnlyAttr(a.Optional, a.Required, a.Computed) {
+				paths[path] = true
+			}
+		case schema.MapAttribute:
+			if isComputedOnlyAttr(a.Optional, a.Required, a.Computed) {
+				paths[path] = true
+			}
+		case schema.SingleNestedAttribute:
+			if isComputedOnlyAttr(a.Optional, a.Required, a.Computed) {
+				paths[path] = true
+				continue
+			}
+			collectComputedOnlyAttributePaths(a.Attributes, path, paths)
+		case schema.ListNestedAttribute:
+			if isComputedOnlyAttr(a.Optional, a.Required, a.Computed) {
+				paths[path] = true
+				continue
+			}
+			collectComputedOnlyAttributePaths(a.NestedObject.Attributes, path, paths)
+		case schema.SetNestedAttribute:
+			if isComputedOnlyAttr(a.Optional, a.Required, a.Computed) {
+				paths[path] = true
+				continue
+			}
+			collectComputedOnlyAttributePaths(a.NestedObject.Attributes, path, paths)
+		case schema.MapNestedAttribute:
+			if isComputedOnlyAttr(a.Optional, a.Required, a.Computed) {
+				paths[path] = true
+				continue
+			}
+			collectComputedOnlyAttributePaths(a.NestedObject.Attributes, path, paths)
+		}
+	}
 }
 
 // ApplyRemovedToNullModifiers walks an attribute tree and, for every Optional+Computed attribute

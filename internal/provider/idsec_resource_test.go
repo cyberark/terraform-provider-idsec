@@ -8,9 +8,12 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/cyberark/idsec-sdk-golang/pkg/services"
 	"github.com/cyberark/terraform-provider-idsec/internal/actions"
 	"github.com/cyberark/terraform-provider-idsec/internal/schemas"
@@ -541,5 +544,107 @@ func assertImportStateString(t *testing.T, ctx context.Context, state tfsdk.Stat
 	}
 	if attrValue.ValueString() != expectedValue {
 		t.Fatalf("expected attribute %q to be %q, got %q", attributePath, expectedValue, attrValue.ValueString())
+	}
+}
+
+type testPrivateData struct {
+	data map[string][]byte
+}
+
+func (t *testPrivateData) GetKey(_ context.Context, key string) ([]byte, diag.Diagnostics) {
+	if t.data == nil {
+		t.data = map[string][]byte{}
+	}
+	return t.data[key], nil
+}
+
+func (t *testPrivateData) SetKey(_ context.Context, key string, value []byte) diag.Diagnostics {
+	if t.data == nil {
+		t.data = map[string][]byte{}
+	}
+	t.data[key] = value
+	return nil
+}
+
+func TestIdsecResource_seedUserSetHistoryFromState(t *testing.T) {
+	t.Parallel()
+
+	type createUpdateSchema struct {
+		ID   string `json:"id,omitempty" mapstructure:"id"`
+		Name string `json:"name,omitempty" mapstructure:"name"`
+	}
+	type stateSchema struct {
+		ID     string `json:"id,omitempty" mapstructure:"id"`
+		Name   string `json:"name,omitempty" mapstructure:"name"`
+		Status string `json:"status,omitempty" mapstructure:"status"`
+	}
+
+	actionDef := &actions.IdsecServiceTerraformResourceActionDefinition{
+		IdsecServiceBaseTerraformActionDefinition: actions.IdsecServiceBaseTerraformActionDefinition{
+			IdsecServiceBaseActionDefinition: actions.IdsecServiceBaseActionDefinition{
+				ActionName: "test-action",
+				Schemas: map[string]interface{}{
+					"create-action": createUpdateSchema{},
+					"update-action": createUpdateSchema{},
+				},
+			},
+			StateSchema:        &stateSchema{},
+			ComputedAttributes: []string{"status"},
+		},
+		SupportedOperations: []actions.IdsecServiceActionOperation{actions.CreateOperation, actions.UpdateOperation},
+		ActionsMappings: map[actions.IdsecServiceActionOperation]string{
+			actions.CreateOperation: "create-action",
+			actions.UpdateOperation: "update-action",
+		},
+		ImportID: "id",
+	}
+	idsecRes := &IdsecResource{
+		actionDefinition: actionDef,
+	}
+
+	state := tfsdk.State{
+		Schema: schema.Schema{
+			Attributes: map[string]schema.Attribute{
+				"id":     schema.StringAttribute{},
+				"name":   schema.StringAttribute{},
+				"status": schema.StringAttribute{},
+			},
+		},
+		Raw: tftypes.NewValue(
+			tftypes.Object{
+				AttributeTypes: map[string]tftypes.Type{
+					"id":     tftypes.String,
+					"name":   tftypes.String,
+					"status": tftypes.String,
+				},
+			},
+			map[string]tftypes.Value{
+				"id":     tftypes.NewValue(tftypes.String, "rid-1"),
+				"name":   tftypes.NewValue(tftypes.String, "policy"),
+				"status": tftypes.NewValue(tftypes.String, "Active"),
+			},
+		),
+	}
+
+	private := &testPrivateData{data: map[string][]byte{}}
+	var diagnostics diag.Diagnostics
+	idsecRes.seedUserSetHistoryFromState(context.Background(), &state, private, private, &diagnostics)
+	if diagnostics.HasError() {
+		t.Fatalf("unexpected diagnostics errors: %v", diagnostics.Errors())
+	}
+	got := schemas.ReadUserSetPaths(context.Background(), private)
+	if !reflect.DeepEqual(got, map[string]bool{"name": true}) {
+		t.Fatalf("seeded history = %v, want only name", got)
+	}
+
+	existingBlob, err := schemas.MarshalUserSetHistory([]string{"existing_path"}, "1.0.0")
+	if err != nil {
+		t.Fatalf("MarshalUserSetHistory error = %v", err)
+	}
+	private.data[schemas.UserSetAttrsPrivateKey] = existingBlob
+	idsecRes.seedUserSetHistoryFromState(context.Background(), &state, private, private, &diagnostics)
+	got = schemas.ReadUserSetPaths(context.Background(), private)
+	if !reflect.DeepEqual(got, map[string]bool{"existing_path": true}) {
+		t.Fatalf("existing history should be preserved, got %v", got)
 	}
 }

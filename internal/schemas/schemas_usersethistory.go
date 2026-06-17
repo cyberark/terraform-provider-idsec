@@ -39,6 +39,9 @@ type userSetHistory struct {
 	ProviderVersion string `json:"provider_version,omitempty"`
 	// Paths is the sorted, de-duplicated list of user-set attribute paths.
 	Paths []string `json:"paths"`
+	// Synthetic reports whether this history was synthesized from state instead of collected
+	// from explicit configuration. Omitted for legacy/non-synthetic records.
+	Synthetic bool `json:"synthetic,omitempty"`
 }
 
 // nowFunc returns the current time; it is a package variable so tests can inject a deterministic
@@ -95,6 +98,118 @@ func collectUserSetPaths(attrs map[string]attr.Value, prefix string, paths map[s
 	}
 }
 
+// CollectStateSetPaths returns the sorted, de-duplicated set of dot-notation attribute paths with
+// meaningful values in state. Paths with absent values are ignored to reduce server-default noise
+// (for example empty lists/maps, false, or numeric zero values).
+func CollectStateSetPaths(ctx context.Context, state *tfsdk.State) ([]string, error) {
+	if state == nil {
+		return nil, nil
+	}
+	var stateObj types.Object
+	if diags := state.Get(ctx, &stateObj); diags.HasError() {
+		return nil, diagsToError(diags)
+	}
+	if stateObj.IsNull() || stateObj.IsUnknown() {
+		return nil, nil
+	}
+	paths := map[string]bool{}
+	collectStateSetPaths(stateObj.Attributes(), "", paths)
+	out := make([]string, 0, len(paths))
+	for p := range paths {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+// collectStateSetPaths recursively records every state path carrying a meaningful value.
+func collectStateSetPaths(attrs map[string]attr.Value, prefix string, paths map[string]bool) {
+	for key, val := range attrs {
+		path := key
+		if prefix != "" {
+			path = prefix + "." + key
+		}
+		collectStateSetPathValue(val, path, paths)
+	}
+}
+
+// collectStateSetPathValue records path and any nested paths from a state attribute value when its
+// value is meaningful. Unknown values are treated as meaningful to avoid losing paths still
+// pending provider computation.
+func collectStateSetPathValue(val attr.Value, path string, paths map[string]bool) {
+	if val == nil || val.IsNull() {
+		return
+	}
+	if !val.IsUnknown() && valueIsAbsent(val) {
+		return
+	}
+	paths[path] = true
+	switch v := val.(type) {
+	case types.Object:
+		if v.IsNull() || v.IsUnknown() {
+			return
+		}
+		collectStateSetPaths(v.Attributes(), path, paths)
+	case types.List:
+		if v.IsNull() || v.IsUnknown() {
+			return
+		}
+		for _, elem := range v.Elements() {
+			collectStateSetPathValue(elem, path, paths)
+		}
+	case types.Set:
+		if v.IsNull() || v.IsUnknown() {
+			return
+		}
+		for _, elem := range v.Elements() {
+			collectStateSetPathValue(elem, path, paths)
+		}
+	case types.Map:
+		if v.IsNull() || v.IsUnknown() {
+			return
+		}
+		for _, elem := range v.Elements() {
+			collectStateSetPathValue(elem, path, paths)
+		}
+	}
+}
+
+// ReduceComputedPaths removes computed/server-managed paths and read-key paths (and their nested
+// subpaths) from a candidate history path set.
+func ReduceComputedPaths(paths, computedAttrs, readKeyPaths []string) []string {
+	if len(paths) == 0 {
+		return nil
+	}
+	excluded := make([]string, 0, len(computedAttrs)+len(readKeyPaths))
+	excluded = append(excluded, computedAttrs...)
+	excluded = append(excluded, readKeyPaths...)
+	unique := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		if path == "" {
+			continue
+		}
+		keep := true
+		for _, ex := range excluded {
+			if ex == "" {
+				continue
+			}
+			if path == ex || strings.HasPrefix(path, ex+".") {
+				keep = false
+				break
+			}
+		}
+		if keep {
+			unique[path] = true
+		}
+	}
+	out := make([]string, 0, len(unique))
+	for path := range unique {
+		out = append(out, path)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // MarshalUserSetHistory encodes the user-set attribute paths together with metadata (schema version,
 // save timestamp, and the provider version that wrote them) as a JSON envelope for private state.
 //
@@ -106,6 +221,16 @@ func collectUserSetPaths(attrs map[string]attr.Value, prefix string, paths map[s
 //
 // Returns the encoded JSON bytes, or an error if marshaling fails.
 func MarshalUserSetHistory(paths []string, providerVersion string) ([]byte, error) {
+	return marshalUserSetHistory(paths, providerVersion, false)
+}
+
+// MarshalSyntheticUserSetHistory is equivalent to MarshalUserSetHistory but marks the persisted
+// record as synthetic (derived from state instead of explicit config).
+func MarshalSyntheticUserSetHistory(paths []string, providerVersion string) ([]byte, error) {
+	return marshalUserSetHistory(paths, providerVersion, true)
+}
+
+func marshalUserSetHistory(paths []string, providerVersion string, synthetic bool) ([]byte, error) {
 	if paths == nil {
 		paths = []string{}
 	}
@@ -114,6 +239,7 @@ func MarshalUserSetHistory(paths []string, providerVersion string) ([]byte, erro
 		SavedAt:         nowFunc().UTC().Format(time.RFC3339),
 		ProviderVersion: providerVersion,
 		Paths:           paths,
+		Synthetic:       synthetic,
 	})
 }
 

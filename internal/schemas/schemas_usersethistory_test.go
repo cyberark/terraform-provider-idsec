@@ -13,7 +13,10 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 type fakePrivateReader struct {
@@ -144,7 +147,7 @@ func TestClearRemovedAttributesHistoryGate(t *testing.T) {
 	}{
 		{"gated", map[string]bool{"secret_type": true}, target{HostName: "host-1"}},
 		{"empty_history", map[string]bool{}, target{SecretType: "password", HostName: "host-1"}},
-		{"nil_history", nil, target{}},
+		{"nil_history", nil, target{SecretType: "password", HostName: "host-1"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -154,5 +157,82 @@ func TestClearRemovedAttributesHistoryGate(t *testing.T) {
 				t.Errorf("got %+v, want %+v", tgt, tt.want)
 			}
 		})
+	}
+}
+
+func TestSyntheticHistoryFromState(t *testing.T) {
+	t.Parallel()
+
+	state := tfsdk.State{
+		Schema: schema.Schema{
+			Attributes: map[string]schema.Attribute{
+				"name":    schema.StringAttribute{},
+				"enabled": schema.BoolAttribute{},
+				"limit":   schema.Int64Attribute{},
+				"tags":    schema.ListAttribute{ElementType: types.StringType},
+				"metadata": schema.SingleNestedAttribute{
+					Attributes: map[string]schema.Attribute{
+						"policy_id":   schema.StringAttribute{},
+						"description": schema.StringAttribute{},
+					},
+				},
+			},
+		},
+		Raw: tftypes.NewValue(
+			tftypes.Object{
+				AttributeTypes: map[string]tftypes.Type{
+					"name":    tftypes.String,
+					"enabled": tftypes.Bool,
+					"limit":   tftypes.Number,
+					"tags":    tftypes.List{ElementType: tftypes.String},
+					"metadata": tftypes.Object{
+						AttributeTypes: map[string]tftypes.Type{
+							"policy_id":   tftypes.String,
+							"description": tftypes.String,
+						},
+					},
+				},
+			},
+			map[string]tftypes.Value{
+				"name":    tftypes.NewValue(tftypes.String, "policy"),
+				"enabled": tftypes.NewValue(tftypes.Bool, false),
+				"limit":   tftypes.NewValue(tftypes.Number, 0),
+				"tags":    tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{}),
+				"metadata": tftypes.NewValue(
+					tftypes.Object{
+						AttributeTypes: map[string]tftypes.Type{
+							"policy_id":   tftypes.String,
+							"description": tftypes.String,
+						},
+					},
+					map[string]tftypes.Value{
+						"policy_id":   tftypes.NewValue(tftypes.String, "pid-1"),
+						"description": tftypes.NewValue(tftypes.String, ""),
+					},
+				),
+			},
+		),
+	}
+
+	got, err := CollectStateSetPaths(context.Background(), &state)
+	if err != nil {
+		t.Fatalf("CollectStateSetPaths error = %v", err)
+	}
+	got = ReduceComputedPaths(got, []string{"metadata.status"}, []string{"metadata.policy_id"})
+	want := []string{"metadata", "name"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Synthetic reduced paths = %v, want %v", got, want)
+	}
+
+	blob, err := MarshalSyntheticUserSetHistory([]string{"name"}, "1.0.0")
+	if err != nil {
+		t.Fatalf("MarshalSyntheticUserSetHistory error = %v", err)
+	}
+	var env userSetHistory
+	if err := json.Unmarshal(blob, &env); err != nil {
+		t.Fatalf("unmarshal error = %v", err)
+	}
+	if !env.Synthetic {
+		t.Fatalf("Synthetic = false, want true")
 	}
 }
