@@ -588,8 +588,8 @@ func TestIdsecResource_seedUserSetHistoryFromState(t *testing.T) {
 					"update-action": createUpdateSchema{},
 				},
 			},
-			StateSchema:        &stateSchema{},
-			ComputedAttributes: []string{"status"},
+			StateSchema:               &stateSchema{},
+			HistoryComputedAttributes: []string{"status"},
 		},
 		SupportedOperations: []actions.IdsecServiceActionOperation{actions.CreateOperation, actions.UpdateOperation},
 		ActionsMappings: map[actions.IdsecServiceActionOperation]string{

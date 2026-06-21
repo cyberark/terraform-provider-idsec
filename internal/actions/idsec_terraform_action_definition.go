@@ -46,6 +46,7 @@ type IdsecServiceBaseTerraformActionDefinition struct {
 	ComputedAsSetAttributes   []string
 	ImmutableAttributes       []string
 	ComputedAttributes        []string
+	HistoryComputedAttributes []string
 	CaseInsensitiveAttributes []string
 }
 

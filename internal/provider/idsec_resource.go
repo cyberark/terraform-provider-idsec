@@ -116,6 +116,10 @@ func (s *IdsecResource) getComputedAttributes() []string {
 	return s.getStringSliceFromActionDefinition("ComputedAttributes")
 }
 
+func (s *IdsecResource) getHistoryComputedAttributes() []string {
+	return s.getStringSliceFromActionDefinition("HistoryComputedAttributes")
+}
+
 func (s *IdsecResource) getCaseInsensitiveAttributes() []string {
 	return s.getStringSliceFromActionDefinition("CaseInsensitiveAttributes")
 }
@@ -557,6 +561,7 @@ func (s *IdsecResource) seedUserSetHistoryFromState(ctx context.Context, state *
 		s.getCaseInsensitiveAttributes(),
 	)
 	computedPaths := append([]string{}, s.getComputedAttributes()...)
+	computedPaths = append(computedPaths, s.getHistoryComputedAttributes()...)
 	computedPaths = append(computedPaths, schemas.ComputedOnlyAttributePaths(outputSchemaDef.Attributes)...)
 	reducedPaths := schemas.ReduceComputedPaths(paths, computedPaths, s.readKeyAttributePaths())
 	data, err := schemas.MarshalSyntheticUserSetHistory(reducedPaths, providerVersion)
