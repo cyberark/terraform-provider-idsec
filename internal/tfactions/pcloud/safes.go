@@ -23,7 +23,6 @@ func init() {
 						"creator",
 						"creation_time",
 						"last_modification_time",
-						"safe_id",
 						"is_expired_member",
 					},
 					ImmutableAttributes: []string{
@@ -39,6 +38,18 @@ func init() {
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
 						ActionName: "pcloud-safe-member", ActionDescription: "Privilege Cloud safe member resource, manages Privilege Cloud Safe members and their relevant permissions.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
+					},
+					ComputedAttributes: []string{
+						"member_id",
+						"safe_number",
+						"is_expired_membership_enabled",
+						"is_predefined_user",
+						"is_read_only",
+					},
+					ImmutableAttributes: []string{
+						"search_in",
+						"member_name",
+						"member_type",
 					},
 					StateSchema: &safesmodels.IdsecPCloudSafeMember{},
 				},

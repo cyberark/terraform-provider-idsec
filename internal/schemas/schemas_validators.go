@@ -294,6 +294,178 @@ func (v SliceInChoicesValidator) ValidateList(ctx context.Context, req validator
 	}
 }
 
+// formatBound renders an optional bound for description messages.
+func formatBound(v *int64) string {
+	if v == nil {
+		return "unbounded"
+	}
+	return fmt.Sprintf("%d", *v)
+}
+
+// StringLengthValidator ensures a string's length is within the optional [Min, Max] range (inclusive).
+// A nil bound means that side of the range is unbounded.
+type StringLengthValidator struct {
+	Min *int64
+	Max *int64
+}
+
+// Description returns a description of the validator.
+func (v StringLengthValidator) Description(ctx context.Context) string {
+	return fmt.Sprintf("String length must be between %s and %s (inclusive)", formatBound(v.Min), formatBound(v.Max))
+}
+
+// MarkdownDescription returns a markdown description of the validator.
+func (v StringLengthValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+// ValidateString checks the rune length of the configured string against the configured bounds.
+func (v StringLengthValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	length := int64(len([]rune(req.ConfigValue.ValueString())))
+	if v.Min != nil && length < *v.Min {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid String Length",
+			fmt.Sprintf("String length must be at least %d, got %d", *v.Min, length),
+		)
+		return
+	}
+	if v.Max != nil && length > *v.Max {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid String Length",
+			fmt.Sprintf("String length must be at most %d, got %d", *v.Max, length),
+		)
+		return
+	}
+}
+
+// ListSizeValidator ensures a list's element count is within the optional [Min, Max] range (inclusive).
+// A nil bound means that side of the range is unbounded.
+type ListSizeValidator struct {
+	Min *int64
+	Max *int64
+}
+
+// Description returns a description of the validator.
+func (v ListSizeValidator) Description(ctx context.Context) string {
+	return fmt.Sprintf("List size must be between %s and %s (inclusive)", formatBound(v.Min), formatBound(v.Max))
+}
+
+// MarkdownDescription returns a markdown description of the validator.
+func (v ListSizeValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+// ValidateList checks the element count of the configured list against the configured bounds.
+func (v ListSizeValidator) ValidateList(ctx context.Context, req validator.ListRequest, resp *validator.ListResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	size := int64(len(req.ConfigValue.Elements()))
+	if v.Min != nil && size < *v.Min {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid List Size",
+			fmt.Sprintf("List must contain at least %d elements, got %d", *v.Min, size),
+		)
+		return
+	}
+	if v.Max != nil && size > *v.Max {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid List Size",
+			fmt.Sprintf("List must contain at most %d elements, got %d", *v.Max, size),
+		)
+		return
+	}
+}
+
+// SetSizeValidator ensures a set's element count is within the optional [Min, Max] range (inclusive).
+// A nil bound means that side of the range is unbounded.
+type SetSizeValidator struct {
+	Min *int64
+	Max *int64
+}
+
+// Description returns a description of the validator.
+func (v SetSizeValidator) Description(ctx context.Context) string {
+	return fmt.Sprintf("Set size must be between %s and %s (inclusive)", formatBound(v.Min), formatBound(v.Max))
+}
+
+// MarkdownDescription returns a markdown description of the validator.
+func (v SetSizeValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+// ValidateSet checks the element count of the configured set against the configured bounds.
+func (v SetSizeValidator) ValidateSet(ctx context.Context, req validator.SetRequest, resp *validator.SetResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	size := int64(len(req.ConfigValue.Elements()))
+	if v.Min != nil && size < *v.Min {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid Set Size",
+			fmt.Sprintf("Set must contain at least %d elements, got %d", *v.Min, size),
+		)
+		return
+	}
+	if v.Max != nil && size > *v.Max {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid Set Size",
+			fmt.Sprintf("Set must contain at most %d elements, got %d", *v.Max, size),
+		)
+		return
+	}
+}
+
+// MapSizeValidator ensures a map's element count is within the optional [Min, Max] range (inclusive).
+// A nil bound means that side of the range is unbounded.
+type MapSizeValidator struct {
+	Min *int64
+	Max *int64
+}
+
+// Description returns a description of the validator.
+func (v MapSizeValidator) Description(ctx context.Context) string {
+	return fmt.Sprintf("Map size must be between %s and %s (inclusive)", formatBound(v.Min), formatBound(v.Max))
+}
+
+// MarkdownDescription returns a markdown description of the validator.
+func (v MapSizeValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+// ValidateMap checks the element count of the configured map against the configured bounds.
+func (v MapSizeValidator) ValidateMap(ctx context.Context, req validator.MapRequest, resp *validator.MapResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	size := int64(len(req.ConfigValue.Elements()))
+	if v.Min != nil && size < *v.Min {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid Map Size",
+			fmt.Sprintf("Map must contain at least %d entries, got %d", *v.Min, size),
+		)
+		return
+	}
+	if v.Max != nil && size > *v.Max {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid Map Size",
+			fmt.Sprintf("Map must contain at most %d entries, got %d", *v.Max, size),
+		)
+		return
+	}
+}
+
 // SliceInSetValidator ensures all strings in a slice are in the allowed choices.
 type SliceInSetValidator struct {
 	Choices []string

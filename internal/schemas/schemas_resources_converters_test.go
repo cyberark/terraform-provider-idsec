@@ -4,9 +4,11 @@
 package schemas
 
 import (
+	"context"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
 
 // Test helper structs for testing nested struct scenarios
@@ -695,4 +697,401 @@ func TestGenerateResourceSchemaFromStructWithAttributeConflict(t *testing.T) {
 	if _, exists := result.Attributes["other_field"]; exists {
 		t.Error("Expected other_field to NOT exist at root level (should only be in nested_struct)")
 	}
+}
+
+// Test helper structs for testing the `min` / `max` field tag support.
+
+// testMinMaxNestedItem is the element type used in nested list/map fields below.
+type testMinMaxNestedItem struct {
+	Field string `mapstructure:"field" desc:"Nested item field"`
+}
+
+// testMinMaxCreateModel exercises all attribute kinds that support min/max:
+// string, list-of-simple, set-of-simple (via computedAsSetAttrs), map-of-simple,
+// list-of-structs, map-of-structs, and a few edge cases (only-min, only-max,
+// no min/max, validate tag without min/max clauses, and unparsable values). The
+// min/max bounds are embedded inside the `validate` tag, in go-playground/validator
+// style ("required,min=3,max=10").
+type testMinMaxCreateModel struct {
+	Name        string                          `mapstructure:"name" desc:"Name" validate:"required,min=3,max=10"`
+	Description string                          `mapstructure:"description" desc:"Description" validate:"max=200"`
+	Code        string                          `mapstructure:"code" desc:"Code" validate:"min=5"`
+	Plain       string                          `mapstructure:"plain" desc:"Plain"`
+	ReqOnly     string                          `mapstructure:"req_only" desc:"Required without bounds" validate:"required"`
+	BadBounds   string                          `mapstructure:"bad_bounds" desc:"Bad bounds" validate:"min=abc,max=xyz"`
+	Tags        []string                        `mapstructure:"tags" desc:"Tags" validate:"min=1,max=5"`
+	SetItems    []string                        `mapstructure:"set_items" desc:"Set items" validate:"min=2,max=4"`
+	Props       map[string]string               `mapstructure:"props" desc:"Props" validate:"min=1,max=10"`
+	Items       []testMinMaxNestedItem          `mapstructure:"items" desc:"Items" validate:"min=1,max=3"`
+	ItemsMap    map[string]testMinMaxNestedItem `mapstructure:"items_map" desc:"Items map" validate:"min=0,max=5"`
+}
+
+// findValidatorOfType returns the first element of vs that is of the requested concrete
+// type T. Returns the zero value of T and false when no match exists.
+func findValidatorOfType[T any](vs []validator.String) (T, bool) {
+	for _, v := range vs {
+		if typed, ok := v.(T); ok {
+			return typed, true
+		}
+	}
+	var zero T
+	return zero, false
+}
+
+// findListValidatorOfType returns the first list validator of the requested concrete type.
+func findListValidatorOfType[T any](vs []validator.List) (T, bool) {
+	for _, v := range vs {
+		if typed, ok := v.(T); ok {
+			return typed, true
+		}
+	}
+	var zero T
+	return zero, false
+}
+
+// findSetValidatorOfType returns the first set validator of the requested concrete type.
+func findSetValidatorOfType[T any](vs []validator.Set) (T, bool) {
+	for _, v := range vs {
+		if typed, ok := v.(T); ok {
+			return typed, true
+		}
+	}
+	var zero T
+	return zero, false
+}
+
+// findMapValidatorOfType returns the first map validator of the requested concrete type.
+func findMapValidatorOfType[T any](vs []validator.Map) (T, bool) {
+	for _, v := range vs {
+		if typed, ok := v.(T); ok {
+			return typed, true
+		}
+	}
+	var zero T
+	return zero, false
+}
+
+// int64PtrEquals checks whether got matches want (both possibly nil pointers).
+func int64PtrEquals(got, want *int64) bool {
+	if got == nil || want == nil {
+		return got == want
+	}
+	return *got == *want
+}
+
+func int64Ptr(v int64) *int64 {
+	return &v
+}
+
+// TestGenerateResourceSchemaFromStructMinMaxTags verifies that the `min` and `max`
+// struct tags are translated into the right validator on every attribute kind that
+// supports them: strings, lists, sets, maps, list-of-structs and map-of-structs.
+// It also covers the edge cases of only-min, only-max, no min/max, and tags whose
+// values cannot be parsed as int64 (which must be ignored, not crash).
+func TestGenerateResourceSchemaFromStructMinMaxTags(t *testing.T) {
+	t.Parallel()
+
+	result := GenerateResourceSchemaFromStruct(
+		&testMinMaxCreateModel{},
+		nil,
+		nil,
+		nil,
+		nil,
+		[]string{"set_items"},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	tests := []struct {
+		name         string
+		validateFunc func(t *testing.T)
+	}{
+		{
+			name: "success_string_with_min_and_max",
+			validateFunc: func(t *testing.T) {
+				strAttr, ok := result.Attributes["name"].(schema.StringAttribute)
+				if !ok {
+					t.Fatalf("expected name to be StringAttribute, got %T", result.Attributes["name"])
+				}
+				v, found := findValidatorOfType[StringLengthValidator](strAttr.Validators)
+				if !found {
+					t.Fatal("expected StringLengthValidator on name")
+				}
+				if !int64PtrEquals(v.Min, int64Ptr(3)) || !int64PtrEquals(v.Max, int64Ptr(10)) {
+					t.Errorf("expected Min=3 Max=10, got Min=%v Max=%v", v.Min, v.Max)
+				}
+			},
+		},
+		{
+			name: "success_string_with_only_max",
+			validateFunc: func(t *testing.T) {
+				strAttr, ok := result.Attributes["description"].(schema.StringAttribute)
+				if !ok {
+					t.Fatalf("expected description to be StringAttribute, got %T", result.Attributes["description"])
+				}
+				v, found := findValidatorOfType[StringLengthValidator](strAttr.Validators)
+				if !found {
+					t.Fatal("expected StringLengthValidator on description")
+				}
+				if v.Min != nil {
+					t.Errorf("expected Min to be nil, got %v", *v.Min)
+				}
+				if !int64PtrEquals(v.Max, int64Ptr(200)) {
+					t.Errorf("expected Max=200, got %v", v.Max)
+				}
+			},
+		},
+		{
+			name: "success_string_with_only_min",
+			validateFunc: func(t *testing.T) {
+				strAttr, ok := result.Attributes["code"].(schema.StringAttribute)
+				if !ok {
+					t.Fatalf("expected code to be StringAttribute, got %T", result.Attributes["code"])
+				}
+				v, found := findValidatorOfType[StringLengthValidator](strAttr.Validators)
+				if !found {
+					t.Fatal("expected StringLengthValidator on code")
+				}
+				if !int64PtrEquals(v.Min, int64Ptr(5)) {
+					t.Errorf("expected Min=5, got %v", v.Min)
+				}
+				if v.Max != nil {
+					t.Errorf("expected Max to be nil, got %v", *v.Max)
+				}
+			},
+		},
+		{
+			name: "success_string_without_min_max_has_no_length_validator",
+			validateFunc: func(t *testing.T) {
+				strAttr, ok := result.Attributes["plain"].(schema.StringAttribute)
+				if !ok {
+					t.Fatalf("expected plain to be StringAttribute, got %T", result.Attributes["plain"])
+				}
+				if _, found := findValidatorOfType[StringLengthValidator](strAttr.Validators); found {
+					t.Error("expected no StringLengthValidator on plain")
+				}
+			},
+		},
+		{
+			name: "success_string_with_unparsable_bounds_is_ignored",
+			validateFunc: func(t *testing.T) {
+				strAttr, ok := result.Attributes["bad_bounds"].(schema.StringAttribute)
+				if !ok {
+					t.Fatalf("expected bad_bounds to be StringAttribute, got %T", result.Attributes["bad_bounds"])
+				}
+				if _, found := findValidatorOfType[StringLengthValidator](strAttr.Validators); found {
+					t.Error("expected no StringLengthValidator when both min/max clauses are unparsable")
+				}
+			},
+		},
+		{
+			name: "success_validate_required_without_min_max_has_no_length_validator",
+			validateFunc: func(t *testing.T) {
+				strAttr, ok := result.Attributes["req_only"].(schema.StringAttribute)
+				if !ok {
+					t.Fatalf("expected req_only to be StringAttribute, got %T", result.Attributes["req_only"])
+				}
+				if _, found := findValidatorOfType[StringLengthValidator](strAttr.Validators); found {
+					t.Error("expected no StringLengthValidator when validate tag only contains 'required'")
+				}
+				if !strAttr.Required {
+					t.Error("expected req_only to be marked Required (validate:\"required\")")
+				}
+			},
+		},
+		{
+			name: "success_list_of_strings_gets_list_size_validator",
+			validateFunc: func(t *testing.T) {
+				listAttr, ok := result.Attributes["tags"].(schema.ListAttribute)
+				if !ok {
+					t.Fatalf("expected tags to be ListAttribute, got %T", result.Attributes["tags"])
+				}
+				v, found := findListValidatorOfType[ListSizeValidator](listAttr.Validators)
+				if !found {
+					t.Fatal("expected ListSizeValidator on tags")
+				}
+				if !int64PtrEquals(v.Min, int64Ptr(1)) || !int64PtrEquals(v.Max, int64Ptr(5)) {
+					t.Errorf("expected Min=1 Max=5, got Min=%v Max=%v", v.Min, v.Max)
+				}
+			},
+		},
+		{
+			name: "success_set_attribute_gets_set_size_validator",
+			validateFunc: func(t *testing.T) {
+				setAttr, ok := result.Attributes["set_items"].(schema.SetAttribute)
+				if !ok {
+					t.Fatalf("expected set_items to be SetAttribute, got %T", result.Attributes["set_items"])
+				}
+				v, found := findSetValidatorOfType[SetSizeValidator](setAttr.Validators)
+				if !found {
+					t.Fatal("expected SetSizeValidator on set_items")
+				}
+				if !int64PtrEquals(v.Min, int64Ptr(2)) || !int64PtrEquals(v.Max, int64Ptr(4)) {
+					t.Errorf("expected Min=2 Max=4, got Min=%v Max=%v", v.Min, v.Max)
+				}
+			},
+		},
+		{
+			name: "success_map_of_simple_gets_map_size_validator",
+			validateFunc: func(t *testing.T) {
+				mapAttr, ok := result.Attributes["props"].(schema.MapAttribute)
+				if !ok {
+					t.Fatalf("expected props to be MapAttribute, got %T", result.Attributes["props"])
+				}
+				v, found := findMapValidatorOfType[MapSizeValidator](mapAttr.Validators)
+				if !found {
+					t.Fatal("expected MapSizeValidator on props")
+				}
+				if !int64PtrEquals(v.Min, int64Ptr(1)) || !int64PtrEquals(v.Max, int64Ptr(10)) {
+					t.Errorf("expected Min=1 Max=10, got Min=%v Max=%v", v.Min, v.Max)
+				}
+			},
+		},
+		{
+			name: "success_list_of_structs_gets_list_size_validator",
+			validateFunc: func(t *testing.T) {
+				listAttr, ok := result.Attributes["items"].(schema.ListNestedAttribute)
+				if !ok {
+					t.Fatalf("expected items to be ListNestedAttribute, got %T", result.Attributes["items"])
+				}
+				v, found := findListValidatorOfType[ListSizeValidator](listAttr.Validators)
+				if !found {
+					t.Fatal("expected ListSizeValidator on items")
+				}
+				if !int64PtrEquals(v.Min, int64Ptr(1)) || !int64PtrEquals(v.Max, int64Ptr(3)) {
+					t.Errorf("expected Min=1 Max=3, got Min=%v Max=%v", v.Min, v.Max)
+				}
+			},
+		},
+		{
+			name: "success_map_of_structs_gets_map_size_validator",
+			validateFunc: func(t *testing.T) {
+				mapAttr, ok := result.Attributes["items_map"].(schema.MapNestedAttribute)
+				if !ok {
+					t.Fatalf("expected items_map to be MapNestedAttribute, got %T", result.Attributes["items_map"])
+				}
+				v, found := findMapValidatorOfType[MapSizeValidator](mapAttr.Validators)
+				if !found {
+					t.Fatal("expected MapSizeValidator on items_map")
+				}
+				if !int64PtrEquals(v.Min, int64Ptr(0)) || !int64PtrEquals(v.Max, int64Ptr(5)) {
+					t.Errorf("expected Min=0 Max=5, got Min=%v Max=%v", v.Min, v.Max)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.validateFunc(t)
+		})
+	}
+}
+
+// testMinMaxBoundsModel reuses the same field types across tests below that exercise
+// the StringLengthValidator / ListSizeValidator / SetSizeValidator / MapSizeValidator
+// runtime semantics. The schema attributes here are produced by the converter, so
+// validating their behavior also validates the wiring end-to-end.
+type testMinMaxBoundsModel struct {
+	Name     string            `mapstructure:"name" desc:"Name" validate:"min=3,max=5"`
+	Tags     []string          `mapstructure:"tags" desc:"Tags" validate:"min=1,max=2"`
+	SetItems []string          `mapstructure:"set_items" desc:"Set items" validate:"min=1,max=2"`
+	Props    map[string]string `mapstructure:"props" desc:"Props" validate:"min=1,max=2"`
+}
+
+// TestMinMaxValidatorsAttachedHaveCorrectDescriptions verifies the human-readable
+// description of validators produced through the schema converter — both for the
+// fully-bounded and the half-bounded cases — so users get useful provider docs.
+func TestMinMaxValidatorsAttachedHaveCorrectDescriptions(t *testing.T) {
+	t.Parallel()
+
+	result := GenerateResourceSchemaFromStruct(
+		&testMinMaxBoundsModel{},
+		nil,
+		nil,
+		nil,
+		nil,
+		[]string{"set_items"},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+
+	t.Run("success_string_length_validator_description_non_empty", func(t *testing.T) {
+		t.Parallel()
+		strAttr, ok := result.Attributes["name"].(schema.StringAttribute)
+		if !ok {
+			t.Fatalf("expected name to be StringAttribute, got %T", result.Attributes["name"])
+		}
+		v, found := findValidatorOfType[StringLengthValidator](strAttr.Validators)
+		if !found {
+			t.Fatal("expected StringLengthValidator")
+		}
+		if v.Description(ctx) == "" {
+			t.Error("expected non-empty description")
+		}
+		if v.MarkdownDescription(ctx) == "" {
+			t.Error("expected non-empty markdown description")
+		}
+	})
+
+	t.Run("success_list_size_validator_description_non_empty", func(t *testing.T) {
+		t.Parallel()
+		listAttr, ok := result.Attributes["tags"].(schema.ListAttribute)
+		if !ok {
+			t.Fatalf("expected tags to be ListAttribute, got %T", result.Attributes["tags"])
+		}
+		v, found := findListValidatorOfType[ListSizeValidator](listAttr.Validators)
+		if !found {
+			t.Fatal("expected ListSizeValidator")
+		}
+		if v.Description(ctx) == "" {
+			t.Error("expected non-empty description")
+		}
+		if v.MarkdownDescription(ctx) == "" {
+			t.Error("expected non-empty markdown description")
+		}
+	})
+
+	t.Run("success_set_size_validator_description_non_empty", func(t *testing.T) {
+		t.Parallel()
+		setAttr, ok := result.Attributes["set_items"].(schema.SetAttribute)
+		if !ok {
+			t.Fatalf("expected set_items to be SetAttribute, got %T", result.Attributes["set_items"])
+		}
+		v, found := findSetValidatorOfType[SetSizeValidator](setAttr.Validators)
+		if !found {
+			t.Fatal("expected SetSizeValidator")
+		}
+		if v.Description(ctx) == "" {
+			t.Error("expected non-empty description")
+		}
+		if v.MarkdownDescription(ctx) == "" {
+			t.Error("expected non-empty markdown description")
+		}
+	})
+
+	t.Run("success_map_size_validator_description_non_empty", func(t *testing.T) {
+		t.Parallel()
+		mapAttr, ok := result.Attributes["props"].(schema.MapAttribute)
+		if !ok {
+			t.Fatalf("expected props to be MapAttribute, got %T", result.Attributes["props"])
+		}
+		v, found := findMapValidatorOfType[MapSizeValidator](mapAttr.Validators)
+		if !found {
+			t.Fatal("expected MapSizeValidator")
+		}
+		if v.Description(ctx) == "" {
+			t.Error("expected non-empty description")
+		}
+		if v.MarkdownDescription(ctx) == "" {
+			t.Error("expected non-empty markdown description")
+		}
+	})
 }

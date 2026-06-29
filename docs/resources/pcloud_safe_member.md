@@ -30,16 +30,19 @@ resource "idsec_pcloud_safe_member" "example_member" {
 
 ### Optional
 
-- `is_expired_membership_enabled` (Boolean) Whether or not the membership for the Safe is expired. For expired members, the value is True
-- `is_predefined_user` (Boolean) Whether the member is a predefined Vault user or group
-- `is_read_only` (Boolean) Whether or not the current user can update the permissions of the member
-- `member_id` (Dynamic) The user, group or role ID
 - `membership_expiration_date` (Number) The member's expiration date for this Safe. For members with no expiration date, this value is null
 - `permission_set` (String) Predefined permission set to use (connect_only,read_only,approver,accounts_manager,full,custom)
 - `permissions` (Attributes) The permissions that the user or group has on this Safe (see [below for nested schema](#nestedatt--permissions))
 - `safe_name` (String) The unique name of the Safe to which the member belongs
-- `safe_number` (Number) The unique numerical ID of the Safe to which the member belongs
 - `search_in` (String) Where to search. Search within the domain using the domain ID, or within the Vault for a system component user. Retrieve the domain ID (also known as Identity Directory ID - UUID - using a POST request to {{baseUrl}/Core/GetDirectoryServices
+
+### Read-Only
+
+- `is_expired_membership_enabled` (Boolean) Whether or not the membership for the Safe is expired. For expired members, the value is True
+- `is_predefined_user` (Boolean) Whether the member is a predefined Vault user or group
+- `is_read_only` (Boolean) Whether or not the current user can update the permissions of the member
+- `member_id` (Dynamic) The user, group or role ID
+- `safe_number` (Number) The unique numerical ID of the Safe to which the member belongs
 
 <a id="nestedatt--permissions"></a>
 ### Nested Schema for `permissions`

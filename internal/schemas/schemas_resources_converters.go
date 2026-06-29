@@ -88,6 +88,34 @@ func appendCaseInsensitiveStringModifier(existing []planmodifier.String, fieldNa
 	return append(slices.Clone(existing), CaseInsensitiveString())
 }
 
+// parseMinMaxFromValidateTag extracts the optional `min=N` and `max=N` clauses from
+// a `validate` struct tag (go-playground/validator-style comma-separated tokens) and
+// returns them as int64 pointers. A nil pointer means the clause was absent or could
+// not be parsed as an integer. These bounds constrain string length and list/set/map
+// element counts.
+//
+// Example: `validate:"required,min=3,max=10"` -> Min=3, Max=10.
+func parseMinMaxFromValidateTag(validate string) (*int64, *int64) {
+	if validate == "" {
+		return nil, nil
+	}
+	var minVal, maxVal *int64
+	for _, token := range strings.Split(validate, ",") {
+		token = strings.TrimSpace(token)
+		switch {
+		case strings.HasPrefix(token, "min="):
+			if v, err := strconv.ParseInt(strings.TrimPrefix(token, "min="), 10, 64); err == nil {
+				minVal = &v
+			}
+		case strings.HasPrefix(token, "max="):
+			if v, err := strconv.ParseInt(strings.TrimPrefix(token, "max="), 10, 64); err == nil {
+				maxVal = &v
+			}
+		}
+	}
+	return minVal, maxVal
+}
+
 func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string, forceNewAttrs []string, computedAttrs []string, caseInsensitiveAttrs []string, pathPrefix string) map[string]schema.Attribute {
 	modelType := reflect.TypeOf(inputModel)
 	if modelType.Kind() == reflect.Pointer {
@@ -104,6 +132,8 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 		validate := field.Tag.Get("validate")
 		choices := field.Tag.Get("choices")
 		defaultValue := field.Tag.Get("default")
+		minVal, maxVal := parseMinMaxFromValidateTag(validate)
+		hasMinMax := minVal != nil || maxVal != nil
 		fieldName := resolveFieldName(field)
 		fieldPath := fieldName
 		if pathPrefix != "" {
@@ -150,6 +180,9 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			}
 			if choices != "" {
 				strAttr.Validators = append(strAttr.Validators, StringInChoicesValidator{Choices: strings.Split(choices, ",")})
+			}
+			if hasMinMax {
+				strAttr.Validators = append(strAttr.Validators, StringLengthValidator{Min: minVal, Max: maxVal})
 			}
 			if isImmutable {
 				strAttr.PlanModifiers = []planmodifier.String{
@@ -329,6 +362,9 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					if choices != "" {
 						sliceAttr.Validators = append(sliceAttr.Validators, SliceInSetValidator{Choices: strings.Split(choices, ",")})
 					}
+					if hasMinMax {
+						sliceAttr.Validators = append(sliceAttr.Validators, SetSizeValidator{Min: minVal, Max: maxVal})
+					}
 					if isImmutable {
 						sliceAttr.PlanModifiers = []planmodifier.Set{
 							ImmutableSet(),
@@ -399,6 +435,9 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					if choices != "" {
 						sliceAttr.Validators = append(sliceAttr.Validators, SliceInChoicesValidator{Choices: strings.Split(choices, ",")})
 					}
+					if hasMinMax {
+						sliceAttr.Validators = append(sliceAttr.Validators, ListSizeValidator{Min: minVal, Max: maxVal})
+					}
 					if isImmutable {
 						sliceAttr.PlanModifiers = []planmodifier.List{
 							ImmutableList(),
@@ -433,6 +472,9 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 						Computed:    !isRequired,
 						Sensitive:   isSensitive,
 					}
+					if hasMinMax {
+						sliceAttr.Validators = append(sliceAttr.Validators, ListSizeValidator{Min: minVal, Max: maxVal})
+					}
 					if isImmutable {
 						sliceAttr.PlanModifiers = []planmodifier.List{
 							ImmutableList(),
@@ -460,7 +502,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					}, depInfo)
 					continue
 				}
-				attributes[fieldName] = applyDeprecation(schema.ListNestedAttribute{
+				listNested := schema.ListNestedAttribute{
 					NestedObject: schema.NestedAttributeObject{
 						Attributes: nestedSchemaAttrs,
 					},
@@ -469,7 +511,11 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Required:    isRequired,
 					Computed:    !isRequired,
 					Sensitive:   isSensitive,
-				}, depInfo)
+				}
+				if hasMinMax {
+					listNested.Validators = append(listNested.Validators, ListSizeValidator{Min: minVal, Max: maxVal})
+				}
+				attributes[fieldName] = applyDeprecation(listNested, depInfo)
 			}
 		case reflect.Map:
 			// Inner dynamic types are not supported in terraform
@@ -515,6 +561,9 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Required:    isRequired,
 					Computed:    !isRequired,
 					Sensitive:   isSensitive,
+				}
+				if hasMinMax {
+					mapAttr.Validators = append(mapAttr.Validators, MapSizeValidator{Min: minVal, Max: maxVal})
 				}
 				if isImmutable {
 					mapAttr.PlanModifiers = []planmodifier.Map{
@@ -567,6 +616,9 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Required:    isRequired,
 					Computed:    !isRequired,
 					Sensitive:   isSensitive,
+				}
+				if hasMinMax {
+					complexMapAttr.Validators = append(complexMapAttr.Validators, MapSizeValidator{Min: minVal, Max: maxVal})
 				}
 				attributes[fieldName] = applyDeprecation(complexMapAttr, depInfo)
 			}
