@@ -699,31 +699,29 @@ func TestGenerateResourceSchemaFromStructWithAttributeConflict(t *testing.T) {
 	}
 }
 
-// Test helper structs for testing the `min` / `max` field tag support.
+// Test helper structs for testing the `minlength` / `maxlength` field tag support.
 
 // testMinMaxNestedItem is the element type used in nested list/map fields below.
 type testMinMaxNestedItem struct {
 	Field string `mapstructure:"field" desc:"Nested item field"`
 }
 
-// testMinMaxCreateModel exercises all attribute kinds that support min/max:
+// testMinMaxCreateModel exercises all attribute kinds that support minlength/maxlength:
 // string, list-of-simple, set-of-simple (via computedAsSetAttrs), map-of-simple,
-// list-of-structs, map-of-structs, and a few edge cases (only-min, only-max,
-// no min/max, validate tag without min/max clauses, and unparsable values). The
-// min/max bounds are embedded inside the `validate` tag, in go-playground/validator
-// style ("required,min=3,max=10").
+// list-of-structs, map-of-structs, and a few edge cases (only-minlength, only-maxlength,
+// no minlength/maxlength, required without length tags, and unparsable tag values).
 type testMinMaxCreateModel struct {
-	Name        string                          `mapstructure:"name" desc:"Name" validate:"required,min=3,max=10"`
-	Description string                          `mapstructure:"description" desc:"Description" validate:"max=200"`
-	Code        string                          `mapstructure:"code" desc:"Code" validate:"min=5"`
+	Name        string                          `mapstructure:"name" desc:"Name" validate:"required" minlength:"3" maxlength:"10"`
+	Description string                          `mapstructure:"description" desc:"Description" maxlength:"200"`
+	Code        string                          `mapstructure:"code" desc:"Code" minlength:"5"`
 	Plain       string                          `mapstructure:"plain" desc:"Plain"`
 	ReqOnly     string                          `mapstructure:"req_only" desc:"Required without bounds" validate:"required"`
-	BadBounds   string                          `mapstructure:"bad_bounds" desc:"Bad bounds" validate:"min=abc,max=xyz"`
-	Tags        []string                        `mapstructure:"tags" desc:"Tags" validate:"min=1,max=5"`
-	SetItems    []string                        `mapstructure:"set_items" desc:"Set items" validate:"min=2,max=4"`
-	Props       map[string]string               `mapstructure:"props" desc:"Props" validate:"min=1,max=10"`
-	Items       []testMinMaxNestedItem          `mapstructure:"items" desc:"Items" validate:"min=1,max=3"`
-	ItemsMap    map[string]testMinMaxNestedItem `mapstructure:"items_map" desc:"Items map" validate:"min=0,max=5"`
+	BadBounds   string                          `mapstructure:"bad_bounds" desc:"Bad bounds" minlength:"abc" maxlength:"xyz"`
+	Tags        []string                        `mapstructure:"tags" desc:"Tags" minlength:"1" maxlength:"5"`
+	SetItems    []string                        `mapstructure:"set_items" desc:"Set items" minlength:"2" maxlength:"4"`
+	Props       map[string]string               `mapstructure:"props" desc:"Props" minlength:"1" maxlength:"10"`
+	Items       []testMinMaxNestedItem          `mapstructure:"items" desc:"Items" minlength:"1" maxlength:"3"`
+	ItemsMap    map[string]testMinMaxNestedItem `mapstructure:"items_map" desc:"Items map" minlength:"0" maxlength:"5"`
 }
 
 // findValidatorOfType returns the first element of vs that is of the requested concrete
@@ -783,12 +781,12 @@ func int64Ptr(v int64) *int64 {
 	return &v
 }
 
-// TestGenerateResourceSchemaFromStructMinMaxTags verifies that the `min` and `max`
-// struct tags are translated into the right validator on every attribute kind that
+// TestGenerateResourceSchemaFromStructMinMaxLengthTags verifies that the `minlength` and
+// `maxlength` struct tags are translated into the right validator on every attribute kind that
 // supports them: strings, lists, sets, maps, list-of-structs and map-of-structs.
-// It also covers the edge cases of only-min, only-max, no min/max, and tags whose
-// values cannot be parsed as int64 (which must be ignored, not crash).
-func TestGenerateResourceSchemaFromStructMinMaxTags(t *testing.T) {
+// It also covers the edge cases of only-minlength, only-maxlength, no minlength/maxlength,
+// and tags whose values cannot be parsed as int64 (which must be ignored, not crash).
+func TestGenerateResourceSchemaFromStructMinMaxLengthTags(t *testing.T) {
 	t.Parallel()
 
 	result := GenerateResourceSchemaFromStruct(
@@ -809,7 +807,7 @@ func TestGenerateResourceSchemaFromStructMinMaxTags(t *testing.T) {
 		validateFunc func(t *testing.T)
 	}{
 		{
-			name: "success_string_with_min_and_max",
+			name: "success_string_with_minlength_and_maxlength",
 			validateFunc: func(t *testing.T) {
 				strAttr, ok := result.Attributes["name"].(schema.StringAttribute)
 				if !ok {
@@ -825,7 +823,7 @@ func TestGenerateResourceSchemaFromStructMinMaxTags(t *testing.T) {
 			},
 		},
 		{
-			name: "success_string_with_only_max",
+			name: "success_string_with_only_maxlength",
 			validateFunc: func(t *testing.T) {
 				strAttr, ok := result.Attributes["description"].(schema.StringAttribute)
 				if !ok {
@@ -844,7 +842,7 @@ func TestGenerateResourceSchemaFromStructMinMaxTags(t *testing.T) {
 			},
 		},
 		{
-			name: "success_string_with_only_min",
+			name: "success_string_with_only_minlength",
 			validateFunc: func(t *testing.T) {
 				strAttr, ok := result.Attributes["code"].(schema.StringAttribute)
 				if !ok {
@@ -863,7 +861,7 @@ func TestGenerateResourceSchemaFromStructMinMaxTags(t *testing.T) {
 			},
 		},
 		{
-			name: "success_string_without_min_max_has_no_length_validator",
+			name: "success_string_without_minlength_maxlength_has_no_length_validator",
 			validateFunc: func(t *testing.T) {
 				strAttr, ok := result.Attributes["plain"].(schema.StringAttribute)
 				if !ok {
@@ -882,19 +880,19 @@ func TestGenerateResourceSchemaFromStructMinMaxTags(t *testing.T) {
 					t.Fatalf("expected bad_bounds to be StringAttribute, got %T", result.Attributes["bad_bounds"])
 				}
 				if _, found := findValidatorOfType[StringLengthValidator](strAttr.Validators); found {
-					t.Error("expected no StringLengthValidator when both min/max clauses are unparsable")
+					t.Error("expected no StringLengthValidator when both minlength/maxlength tags are unparsable")
 				}
 			},
 		},
 		{
-			name: "success_validate_required_without_min_max_has_no_length_validator",
+			name: "success_required_without_minlength_maxlength_has_no_length_validator",
 			validateFunc: func(t *testing.T) {
 				strAttr, ok := result.Attributes["req_only"].(schema.StringAttribute)
 				if !ok {
 					t.Fatalf("expected req_only to be StringAttribute, got %T", result.Attributes["req_only"])
 				}
 				if _, found := findValidatorOfType[StringLengthValidator](strAttr.Validators); found {
-					t.Error("expected no StringLengthValidator when validate tag only contains 'required'")
+					t.Error("expected no StringLengthValidator when minlength/maxlength tags are absent")
 				}
 				if !strAttr.Required {
 					t.Error("expected req_only to be marked Required (validate:\"required\")")
@@ -996,16 +994,16 @@ func TestGenerateResourceSchemaFromStructMinMaxTags(t *testing.T) {
 // runtime semantics. The schema attributes here are produced by the converter, so
 // validating their behavior also validates the wiring end-to-end.
 type testMinMaxBoundsModel struct {
-	Name     string            `mapstructure:"name" desc:"Name" validate:"min=3,max=5"`
-	Tags     []string          `mapstructure:"tags" desc:"Tags" validate:"min=1,max=2"`
-	SetItems []string          `mapstructure:"set_items" desc:"Set items" validate:"min=1,max=2"`
-	Props    map[string]string `mapstructure:"props" desc:"Props" validate:"min=1,max=2"`
+	Name     string            `mapstructure:"name" desc:"Name" minlength:"3" maxlength:"5"`
+	Tags     []string          `mapstructure:"tags" desc:"Tags" minlength:"1" maxlength:"2"`
+	SetItems []string          `mapstructure:"set_items" desc:"Set items" minlength:"1" maxlength:"2"`
+	Props    map[string]string `mapstructure:"props" desc:"Props" minlength:"1" maxlength:"2"`
 }
 
-// TestMinMaxValidatorsAttachedHaveCorrectDescriptions verifies the human-readable
+// TestMinMaxLengthValidatorsAttachedHaveCorrectDescriptions verifies the human-readable
 // description of validators produced through the schema converter — both for the
 // fully-bounded and the half-bounded cases — so users get useful provider docs.
-func TestMinMaxValidatorsAttachedHaveCorrectDescriptions(t *testing.T) {
+func TestMinMaxLengthValidatorsAttachedHaveCorrectDescriptions(t *testing.T) {
 	t.Parallel()
 
 	result := GenerateResourceSchemaFromStruct(

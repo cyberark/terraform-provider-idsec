@@ -88,29 +88,22 @@ func appendCaseInsensitiveStringModifier(existing []planmodifier.String, fieldNa
 	return append(slices.Clone(existing), CaseInsensitiveString())
 }
 
-// parseMinMaxFromValidateTag extracts the optional `min=N` and `max=N` clauses from
-// a `validate` struct tag (go-playground/validator-style comma-separated tokens) and
-// returns them as int64 pointers. A nil pointer means the clause was absent or could
-// not be parsed as an integer. These bounds constrain string length and list/set/map
-// element counts.
+// parseMinMaxLengthFromFieldTags parses standalone `minlength` and `maxlength` struct tags
+// and returns them as int64 pointers. A nil pointer means the tag was absent or could not be
+// parsed as an integer. For strings these bounds constrain rune length; for lists, sets, and
+// maps they constrain element count.
 //
-// Example: `validate:"required,min=3,max=10"` -> Min=3, Max=10.
-func parseMinMaxFromValidateTag(validate string) (*int64, *int64) {
-	if validate == "" {
-		return nil, nil
-	}
+// Example: `minlength:"3" maxlength:"10"`.
+func parseMinMaxLengthFromFieldTags(minlength, maxlength string) (*int64, *int64) {
 	var minVal, maxVal *int64
-	for _, token := range strings.Split(validate, ",") {
-		token = strings.TrimSpace(token)
-		switch {
-		case strings.HasPrefix(token, "min="):
-			if v, err := strconv.ParseInt(strings.TrimPrefix(token, "min="), 10, 64); err == nil {
-				minVal = &v
-			}
-		case strings.HasPrefix(token, "max="):
-			if v, err := strconv.ParseInt(strings.TrimPrefix(token, "max="), 10, 64); err == nil {
-				maxVal = &v
-			}
+	if minlength != "" {
+		if v, err := strconv.ParseInt(minlength, 10, 64); err == nil {
+			minVal = &v
+		}
+	}
+	if maxlength != "" {
+		if v, err := strconv.ParseInt(maxlength, 10, 64); err == nil {
+			maxVal = &v
 		}
 	}
 	return minVal, maxVal
@@ -132,8 +125,8 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 		validate := field.Tag.Get("validate")
 		choices := field.Tag.Get("choices")
 		defaultValue := field.Tag.Get("default")
-		minVal, maxVal := parseMinMaxFromValidateTag(validate)
-		hasMinMax := minVal != nil || maxVal != nil
+		minVal, maxVal := parseMinMaxLengthFromFieldTags(field.Tag.Get("minlength"), field.Tag.Get("maxlength"))
+		hasMinMaxLength := minVal != nil || maxVal != nil
 		fieldName := resolveFieldName(field)
 		fieldPath := fieldName
 		if pathPrefix != "" {
@@ -181,7 +174,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			if choices != "" {
 				strAttr.Validators = append(strAttr.Validators, StringInChoicesValidator{Choices: strings.Split(choices, ",")})
 			}
-			if hasMinMax {
+			if hasMinMaxLength {
 				strAttr.Validators = append(strAttr.Validators, StringLengthValidator{Min: minVal, Max: maxVal})
 			}
 			if isImmutable {
@@ -362,7 +355,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					if choices != "" {
 						sliceAttr.Validators = append(sliceAttr.Validators, SliceInSetValidator{Choices: strings.Split(choices, ",")})
 					}
-					if hasMinMax {
+					if hasMinMaxLength {
 						sliceAttr.Validators = append(sliceAttr.Validators, SetSizeValidator{Min: minVal, Max: maxVal})
 					}
 					if isImmutable {
@@ -435,7 +428,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					if choices != "" {
 						sliceAttr.Validators = append(sliceAttr.Validators, SliceInChoicesValidator{Choices: strings.Split(choices, ",")})
 					}
-					if hasMinMax {
+					if hasMinMaxLength {
 						sliceAttr.Validators = append(sliceAttr.Validators, ListSizeValidator{Min: minVal, Max: maxVal})
 					}
 					if isImmutable {
@@ -472,7 +465,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 						Computed:    !isRequired,
 						Sensitive:   isSensitive,
 					}
-					if hasMinMax {
+					if hasMinMaxLength {
 						sliceAttr.Validators = append(sliceAttr.Validators, ListSizeValidator{Min: minVal, Max: maxVal})
 					}
 					if isImmutable {
@@ -512,7 +505,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Computed:    !isRequired,
 					Sensitive:   isSensitive,
 				}
-				if hasMinMax {
+				if hasMinMaxLength {
 					listNested.Validators = append(listNested.Validators, ListSizeValidator{Min: minVal, Max: maxVal})
 				}
 				attributes[fieldName] = applyDeprecation(listNested, depInfo)
@@ -562,7 +555,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Computed:    !isRequired,
 					Sensitive:   isSensitive,
 				}
-				if hasMinMax {
+				if hasMinMaxLength {
 					mapAttr.Validators = append(mapAttr.Validators, MapSizeValidator{Min: minVal, Max: maxVal})
 				}
 				if isImmutable {
@@ -617,7 +610,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Computed:    !isRequired,
 					Sensitive:   isSensitive,
 				}
-				if hasMinMax {
+				if hasMinMaxLength {
 					complexMapAttr.Validators = append(complexMapAttr.Validators, MapSizeValidator{Min: minVal, Max: maxVal})
 				}
 				attributes[fieldName] = applyDeprecation(complexMapAttr, depInfo)
