@@ -15,7 +15,7 @@ Privilege Cloud target platform resource, manages the import of Privilege Cloud 
 
 - `platform_zip_path` (String) Local path of the platform's zip file
 
-### Optional
+### Read-Only
 
 - `active` (Boolean) Whether a platform is active or inactive
 - `allowed_safes` (String) Regex of safes in which accounts from this platform can be managed

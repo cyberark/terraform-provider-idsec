@@ -13,14 +13,17 @@ Privilege Cloud target platform data source, reads target platform information a
 
 ### Required
 
-- `target_platform_id` (Number) ID of the target platform to retrieve
+- `id` (Number) ID of the target platform to retrieve
+
+### Optional
+
+- `target_platform_id` (Number, Deprecated) ID of the target platform to retrieve **Deprecated**: Use "id" instead. use the new flag
 
 ### Read-Only
 
 - `active` (Boolean) Whether a platform is active or inactive
 - `allowed_safes` (String) Regex of safes in which accounts from this platform can be managed
 - `credentials_management_policy` (Attributes) Secrets rotation policy (see [below for nested schema](#nestedatt--credentials_management_policy))
-- `id` (Number) Unique numeric ID of the platform
 - `name` (String) The display name of the platform
 - `platform_id` (String) Unique string ID of the platform
 - `privileged_access_workflows` (Attributes) Workflow configuration (see [below for nested schema](#nestedatt--privileged_access_workflows))
