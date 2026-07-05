@@ -7,6 +7,8 @@ description: The Identity service policy resource that is used to manage policie
 # idsec_identity_policy (Resource)
 
 The Identity service policy resource that is used to manage policies.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 
@@ -42,9 +44,12 @@ resource "idsec_identity_policy" "myrole_policy" {
 - `filter_system_settings` (Boolean) Indicates whether to filter system settings when returning the policy
 - `policy_name` (String) Name of the policy to create
 - `policy_status` (String) Status of the policy to create
-- `rev_stamp` (String) Revision stamp of the policy
 - `role_names` (Set of String) List of role names associated with the policy
 - `settings` (Dynamic) Additional settings for the policy
+
+### Read-Only
+
+- `rev_stamp` (String) Revision stamp of the policy
 
 
 

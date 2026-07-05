@@ -7,6 +7,8 @@ description: CCE AWS organization datasource, reads organization details includi
 # idsec_cce_aws_organization (Data Source)
 
 CCE AWS organization datasource, reads organization details including added services based on the organization's management account ID.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

@@ -7,6 +7,8 @@ description: The SIA RDP File Parameters resource.
 # idsec_sia_settings_rdp_file_parameters (Resource)
 
 The SIA RDP File Parameters resource.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

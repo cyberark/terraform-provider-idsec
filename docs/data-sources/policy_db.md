@@ -7,6 +7,8 @@ description: The infrastructure database policy data source.
 # idsec_policy_db (Data Source)
 
 The infrastructure database policy data source.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

@@ -7,6 +7,8 @@ description: The Identity service webapp permission resource that is used to man
 # idsec_identity_webapp_permission (Resource)
 
 The Identity service webapp permission resource that is used to manage webapp permissions.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

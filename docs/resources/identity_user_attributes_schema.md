@@ -7,6 +7,8 @@ description: The Identity service user attributes schema resource that is used t
 # idsec_identity_user_attributes_schema (Resource)
 
 The Identity service user attributes schema resource that is used to manage user attributes schema.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

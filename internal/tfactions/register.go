@@ -7,6 +7,7 @@ import (
 	_ "github.com/cyberark/terraform-provider-idsec/internal/tfactions/cce"
 	_ "github.com/cyberark/terraform-provider-idsec/internal/tfactions/cmgr"
 	_ "github.com/cyberark/terraform-provider-idsec/internal/tfactions/identity"
+	_ "github.com/cyberark/terraform-provider-idsec/internal/tfactions/pamsh"
 	_ "github.com/cyberark/terraform-provider-idsec/internal/tfactions/pcloud"
 	_ "github.com/cyberark/terraform-provider-idsec/internal/tfactions/policy"
 	_ "github.com/cyberark/terraform-provider-idsec/internal/tfactions/sca"

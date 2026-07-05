@@ -7,6 +7,8 @@ description: The Identity service user attributes schema data source. It reads t
 # idsec_identity_user_attributes_schema (Data Source)
 
 The Identity service user attributes schema data source. It reads the user attributes schema information and metadata and is based on the ID of the user attributes schema.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

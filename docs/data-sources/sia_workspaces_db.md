@@ -7,6 +7,8 @@ description: The SIA workspaces database data source, reads database information
 # idsec_sia_workspaces_db (Data Source)
 
 The SIA workspaces database data source, reads database information and metadata, based on the ID of the database.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

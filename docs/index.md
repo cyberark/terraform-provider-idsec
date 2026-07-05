@@ -46,7 +46,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.5"
+      version = ">= 0.6"
     }
   }
 }
@@ -76,6 +76,31 @@ resource "idsec_sia_access_connector" "example_connector" {
   target_machine    = "1.1.1.1"
   username          = "ec2-user"
   private_key_path  = "~/.ssh/key.pem"
+}
+```
+
+### Identity Authentication to a Specific Tenant
+
+The default `identity` method discovers your tenant automatically from your username. To authenticate against a specific tenant explicitly (for example, when using an external IDP), set the `subdomain` attribute:
+
+```terraform
+provider "idsec" {
+  auth_method = "identity"
+  username    = var.idsec_username
+  secret      = var.idsec_secret
+  subdomain   = var.idsec_subdomain # Tenant subdomain, e.g. "my-tenant"
+}
+```
+
+### Identity Service User Authentication
+
+Use this configuration to authenticate with a CyberArk Identity service user, which is well suited for CI/CD pipelines and other automated, non-interactive workflows:
+
+```terraform
+provider "idsec" {
+  auth_method   = "identity_service_user"
+  service_user  = var.idsec_service_user
+  service_token = var.idsec_service_token
 }
 ```
 

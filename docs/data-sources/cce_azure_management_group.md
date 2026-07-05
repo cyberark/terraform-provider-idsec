@@ -7,6 +7,8 @@ description: CCE Azure management group data source, reads management group deta
 # idsec_cce_azure_management_group (Data Source)
 
 CCE Azure management group data source, reads management group details based on the CCE management group onboarding ID.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

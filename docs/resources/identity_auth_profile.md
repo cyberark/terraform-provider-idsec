@@ -7,6 +7,8 @@ description: The Identity service auth profile resource that is used to manage a
 # idsec_identity_auth_profile (Resource)
 
 The Identity service auth profile resource that is used to manage auth profiles.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

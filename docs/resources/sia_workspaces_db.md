@@ -7,6 +7,8 @@ description: The SIA workspaces database resource, manages database workspaces i
 # idsec_sia_workspaces_db (Resource)
 
 The SIA workspaces database resource, manages database workspaces information and metadata, along with the association to the relevant Secret.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

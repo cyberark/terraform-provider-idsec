@@ -7,6 +7,8 @@ description: Privilege Cloud Safe data source, reads safe information and metada
 # idsec_pcloud_safe (Data Source)
 
 Privilege Cloud Safe data source, reads safe information and metadata, based on the Safe ID.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

@@ -7,6 +7,8 @@ description: The Identity service policies order resource that is used to manage
 # idsec_identity_policies_order (Resource)
 
 The Identity service policies order resource that is used to manage the order of policies.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

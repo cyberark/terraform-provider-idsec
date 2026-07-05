@@ -7,6 +7,8 @@ description: The Identity service auth profile data source. It reads the auth pr
 # idsec_identity_auth_profile (Data Source)
 
 The Identity service auth profile data source. It reads the auth profile information and metadata and is based on the ID of the auth profile.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

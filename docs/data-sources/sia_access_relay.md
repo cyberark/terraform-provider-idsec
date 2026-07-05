@@ -7,6 +7,8 @@ description: The SIA access relay data source, reads HTTPS relay information and
 # idsec_sia_access_relay (Data Source)
 
 The SIA access relay data source, reads HTTPS relay information and metadata based on the relay ID.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 
@@ -28,12 +30,18 @@ data "idsec_sia_access_relay" "example" {
 - `active_sessions_count` (Number) The number of currently active sessions.
 - `host_ip` (String) The IP address of the host machine.
 - `host_name` (String) The host name of the relay.
+- `is_cert_rotation` (Boolean) Indicates whether the relay supports certificate rotation.
 - `is_latest_version` (Boolean) Whether the HTTPS relay is on the latest version.
 - `is_upgradable` (Boolean) Whether the HTTPS relay can be upgraded.
 - `last_job_error_code` (String) The error code of the last executed job.
 - `last_job_info_update_date` (String) The timestamp of the last job status update.
 - `last_job_status` (String) The status of the last executed job.
 - `last_job_status_description` (String) The description of the last executed job.
+- `last_rotation_job_error_code` (String) The error code of the last certificate rotation job, if one exists.
+- `last_rotation_job_info_update_date` (String) The last time the rotation job status was updated, if one exists.
+- `last_rotation_job_status` (String) The status of the last certificate rotation job, if one exists.(QUEUED, IN_PROGRESS, SUCCEEDED, FAILED, TIMED_OUT, REJECTED).
+- `last_rotation_job_status_description` (String) The description of the last certificate rotation job error, if one exists.
+- `last_success_rotation_date` (String) The date of the last successful certificate rotation, if one exists.
 - `os` (String) The operating system of the HTTPS relay host.
 - `proxy_settings` (String) The HTTP proxy details, if configured.
 - `status` (String) The human-readable status of the HTTPS relay.

@@ -7,6 +7,8 @@ description: SIA HTTPS relay resource, manages SIA HTTPS relay installation and 
 # idsec_sia_access_relay (Resource)
 
 SIA HTTPS relay resource, manages SIA HTTPS relay installation and removal on target machines.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 
@@ -44,6 +46,12 @@ resource "idsec_sia_access_relay" "example_relay" {
 
 - `expiration_minutes` (Number) The number of minutes the setup script will be valid for (15-240). Defaults to 15.
 - `force_delete` (Boolean) When true, forces deletion of the HTTPS relay even if it has active sessions.
+- `is_cert_rotation` (Boolean) Indicates whether the relay supports certificate rotation.
+- `last_rotation_job_error_code` (String) The error code of the last certificate rotation job, if one exists.
+- `last_rotation_job_info_update_date` (String) The last time the rotation job status was updated, if one exists.
+- `last_rotation_job_status` (String) The status of the last certificate rotation job, if one exists.(QUEUED, IN_PROGRESS, SUCCEEDED, FAILED, TIMED_OUT, REJECTED).
+- `last_rotation_job_status_description` (String) The description of the last certificate rotation job error, if one exists.
+- `last_success_rotation_date` (String) The date of the last successful certificate rotation, if one exists.
 - `password` (String, Sensitive) The password used to connect to the target machine.
 - `private_key_contents` (String, Sensitive) The private key contents used to connect to the target machine via SSH.
 - `private_key_path` (String) The private key file path used to connect to the target machine via SSH.

@@ -166,8 +166,7 @@ func (s *IdsecDataSource) parseConfig(ctx context.Context, diagnostics *diag.Dia
 	tflog.Info(ctx, "Parsing input actionDefinition")
 	inputScheme, ok := s.actionDefinition.Schemas[s.actionDefinition.DataSourceAction]
 	if !ok || inputScheme == nil {
-		diagnostics.AddError("Schema Error", fmt.Sprintf("Data source schema for action %s is not provided.", s.actionDefinition.DataSourceAction))
-		return nil, fmt.Errorf("data source schema for action %s is not provided", s.actionDefinition.DataSourceAction)
+		return nil, nil
 	}
 	inputScheme, _ = modelsactions.UnwrapSchema(inputScheme)
 	inputConfigSchema, err := schemas.StructFromConfigObject(ctx, &config, inputScheme)
@@ -209,11 +208,14 @@ func (s *IdsecDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		resp.Diagnostics.AddError("Action Method Error", fmt.Sprintf("Unable to find action method: %s", err.Error()))
 		return
 	}
-	actionArgs := []reflect.Value{reflect.ValueOf(operationSchemaInput)}
-	if err := validation.ValidateStruct(operationSchemaInput); err != nil {
-		tflog.Error(ctx, fmt.Sprintf("Invalid Configuration - %s", err.Error()))
-		appendValidationDiagnostics(&resp.Diagnostics, err)
-		return
+	var actionArgs []reflect.Value
+	if operationSchemaInput != nil {
+		actionArgs = append(actionArgs, reflect.ValueOf(operationSchemaInput))
+		if err := validation.ValidateStruct(operationSchemaInput); err != nil {
+			tflog.Error(ctx, fmt.Sprintf("Invalid Configuration - %s", err.Error()))
+			appendValidationDiagnostics(&resp.Diagnostics, err)
+			return
+		}
 	}
 	tflog.Info(ctx, "Calling action method")
 	result := actionMethod.Call(actionArgs)

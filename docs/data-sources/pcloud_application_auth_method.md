@@ -7,6 +7,8 @@ description: PCloud Application auth method data source, reads application authe
 # idsec_pcloud_application_auth_method (Data Source)
 
 PCloud Application auth method data source, reads application authentication method information and metadata, based on the id of the application auth method.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

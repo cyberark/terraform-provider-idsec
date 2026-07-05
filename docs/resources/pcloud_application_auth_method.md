@@ -7,6 +7,8 @@ description: pCloud application auth method resource, manages pCloud application
 # idsec_pcloud_application_auth_method (Resource)
 
 pCloud application auth method resource, manages pCloud application authentication methods information / metadata and credentials.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

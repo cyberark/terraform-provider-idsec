@@ -7,6 +7,8 @@ description: SIA connector resource, manages SIA connector installation and remo
 # idsec_sia_access_connector (Resource)
 
 SIA connector resource, manages SIA connector installation and removal on SIA and target machines.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

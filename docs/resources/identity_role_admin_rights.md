@@ -7,6 +7,8 @@ description: The Identity service role admin rights resource that is used to man
 # idsec_identity_role_admin_rights (Resource)
 
 The Identity service role admin rights resource that is used to manage role admin rights.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

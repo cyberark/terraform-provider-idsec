@@ -7,6 +7,8 @@ description: The SIA HTTPS Relay settings resource.
 # idsec_sia_settings_https_relay (Resource)
 
 The SIA HTTPS Relay settings resource.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

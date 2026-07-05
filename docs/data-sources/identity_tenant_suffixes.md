@@ -7,6 +7,8 @@ description: The Identity service tenant suffixes data source. It reads the tena
 # idsec_identity_tenant_suffixes (Data Source)
 
 The Identity service tenant suffixes data source. It reads the tenant suffixes information.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

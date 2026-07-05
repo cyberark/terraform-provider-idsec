@@ -7,6 +7,8 @@ description: CCE AWS organization resource, manages AWS organization programmati
 # idsec_cce_aws_organization (Resource)
 
 CCE AWS organization resource, manages AWS organization programmatic onboarding.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

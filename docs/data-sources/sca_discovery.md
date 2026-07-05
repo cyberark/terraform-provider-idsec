@@ -7,6 +7,8 @@ description: Discover structural updates to an organization/directory that has a
 # idsec_sca_discovery (Data Source)
 
 Discover structural updates to an organization/directory that has already been onboarded to Idira, and scan for roles and resources
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

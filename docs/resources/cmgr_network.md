@@ -7,6 +7,8 @@ description: The Connector Management service network resource that is used to m
 # idsec_cmgr_network (Resource)
 
 The Connector Management service network resource that is used to manage networks associated with pools.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 
@@ -26,8 +28,11 @@ resource "idsec_cmgr_network" "example_network" {
 ### Optional
 
 - `assigned_pools` (Attributes List) The pools assigned to the network. (see [below for nested schema](#nestedatt--assigned_pools))
-- `created_at` (String) The creation time of the network.
 - `network_id` (String) The ID of the network to update.
+
+### Read-Only
+
+- `created_at` (String) The creation time of the network.
 - `updated_at` (String) The last update time of the network.
 
 <a id="nestedatt--assigned_pools"></a>

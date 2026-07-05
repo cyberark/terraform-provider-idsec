@@ -23,6 +23,7 @@ func init() {
 					},
 					ExtraRequiredAttributes: []string{"assigned_network_ids"},
 					StateSchema:             &poolsmodels.IdsecCmgrPool{},
+					ComputedAttributes:      []string{"created_at", "updated_at"},
 				},
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{
 					tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation,

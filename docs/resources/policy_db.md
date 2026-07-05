@@ -7,6 +7,8 @@ description: The infrastructure database policy resource.
 # idsec_policy_db (Resource)
 
 The infrastructure database policy resource.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

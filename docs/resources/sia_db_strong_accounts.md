@@ -7,6 +7,8 @@ description: The SIA strong accounts resource, manages strong account informatio
 # idsec_sia_db_strong_accounts (Resource)
 
 The SIA strong accounts resource, manages strong account information and metadata.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

@@ -7,6 +7,8 @@ description: The Identity service role attributes schema data source. It reads t
 # idsec_identity_role_attributes_schema (Data Source)
 
 The Identity service role attributes schema data source. It reads the role attributes schema information and metadata and is based on the ID of the role attributes schema.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

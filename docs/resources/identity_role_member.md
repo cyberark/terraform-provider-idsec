@@ -7,6 +7,8 @@ description: The Identity service role member resource that is used to manage ro
 # idsec_identity_role_member (Resource)
 
 The Identity service role member resource that is used to manage role members.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

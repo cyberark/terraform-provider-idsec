@@ -48,7 +48,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.5"
+      version = ">= 0.6"
     }
   }
 }
@@ -128,7 +128,7 @@ variable "target_set_description" {
 }
 
 variable "provision_format" {
-  description = "Username format for ephemeral provisioning (e.g., 'eph_{guid}')"
+  description = "Username format for ephemeral provisioning. Tokens: <user> (required), <session-guid>. E.g. '<user>_<session-guid>'"
   type        = string
   default     = ""
 }
@@ -153,7 +153,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.5"
+      version = ">= 0.6"
     }
   }
 }
@@ -235,7 +235,7 @@ variable "target_set_description" {
 }
 
 variable "provision_format" {
-  description = "Username format for ephemeral provisioning"
+  description = "Username format for ephemeral provisioning. Tokens: <user> (required), <session-guid>. E.g. '<user>_<session-guid>'"
   type        = string
   default     = ""
 }
@@ -260,7 +260,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.5"
+      version = ">= 0.6"
     }
   }
 }
@@ -342,7 +342,7 @@ variable "target_set_description" {
 }
 
 variable "provision_format" {
-  description = "Username format for ephemeral provisioning"
+  description = "Username format for ephemeral provisioning. Tokens: <user> (required), <session-guid>. E.g. '<user>_<session-guid>'"
   type        = string
   default     = ""
 }
@@ -370,7 +370,7 @@ resource "idsec_sia_workspaces_target_set" "dev_servers" {
   description                   = "Development environment servers"
   secret_type                   = "ProvisionerUser"
   secret_id                     = idsec_sia_secrets_vm.dev_account.secret_id
-  provision_format              = "dev_{guid}"
+  provision_format              = "dev_<user>_<session-guid>"
   enable_certificate_validation = false
 }
 
@@ -381,7 +381,7 @@ resource "idsec_sia_workspaces_target_set" "prod_servers" {
   description                   = "Production environment servers"
   secret_type                   = "PCloudAccount"
   secret_id                     = idsec_sia_secrets_vm.prod_account.secret_id
-  provision_format              = "prod_{guid}"
+  provision_format              = "prod_<user>_<session-guid>"
   enable_certificate_validation = true
 }
 ```
@@ -433,21 +433,30 @@ resource "idsec_sia_workspaces_target_set" "db_server" {
 | Field | Type | Description | Example |
 |-------|------|-------------|---------|
 | `description` | string | Human-readable description | `"Production web servers"` |
-| `provision_format` | string | Format for ephemeral usernames | `"eph_{guid}"`, `"prod_{guid}"` |
+| `provision_format` | string | Format for ephemeral usernames (tokens: `<user>`, `<session-guid>`) | `"<user>_<session-guid>"` |
 | `enable_certificate_validation` | bool | Validate server certificates | `true` or `false` |
 
-## Provision Format Placeholders
+## Provision Format Tokens
 
-The `provision_format` field supports these placeholders:
+The `provision_format` field controls the name of the ephemeral user that SIA creates for each session. Tokens are delimited by angle brackets (`<...>`):
 
-| Placeholder | Description |
-|-------------|-------------|
-| `{guid}` | Unique identifier for the session |
+| Token | Required | Description |
+|-------|----------|-------------|
+| `<user>` | **Yes** | The connecting user's name (the part before `@`, with punctuation stripped). |
+| `<session-guid>` | No | A short unique identifier generated per session. |
+
+Rules (enforced by the backend when the ephemeral user is provisioned, not by Terraform):
+
+- **`<user>` is mandatory.** A format that does not contain `<user>` is rejected at session time, so the RDP login fails to provision an ephemeral user even though the target set applies cleanly.
+- The final username is **truncated to 20 characters**.
+- These characters are stripped from the result: ``@ " / \ [ ] : ; | = , + * ? < >``.
+- If `provision_format` is left empty, SIA auto-generates a name from part of the user's name plus a random string (capped at 20 characters).
 
 Examples:
-- `eph_{guid}` → `eph_a1b2c3d4-e5f6-7890-abcd-ef1234567890`
-- `prod_{guid}` → `prod_a1b2c3d4-e5f6-7890-abcd-ef1234567890`
-- `web_{guid}` → `web_a1b2c3d4-e5f6-7890-abcd-ef1234567890`
+- `<user>_<session-guid>` — the connecting user's name followed by a per-session unique token.
+- `eph_<user>_<session-guid>` — same, with a static `eph_` prefix.
+
+Because the result is capped at 20 characters, long user names (and any trailing tokens) are shortened in the final username, so the exact layout may differ from the format string. Uniqueness is always guaranteed by the session token.
 
 ---
 
@@ -473,7 +482,7 @@ resource "idsec_sia_workspaces_target_set" "servers" {
   type             = "Suffix"
   secret_type      = "ProvisionerUser"
   secret_id        = idsec_sia_secrets_vm.admin.secret_id
-  provision_format = "newformat_{guid}"  # Changed from "oldformat_{guid}"
+  provision_format = "eph_<user>_<session-guid>"  # Changed from "<user>_<session-guid>"
 }
 ```
 

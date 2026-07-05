@@ -7,6 +7,8 @@ description: Cloud Access Policy data source.
 # idsec_policy_cloud_access (Data Source)
 
 Cloud Access Policy data source.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

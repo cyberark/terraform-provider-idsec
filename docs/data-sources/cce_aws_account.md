@@ -7,6 +7,8 @@ description: CCE AWS account data source, reads account details based on the CCE
 # idsec_cce_aws_account (Data Source)
 
 CCE AWS account data source, reads account details based on the CCE account onboarding ID.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

@@ -7,6 +7,8 @@ description: The Connector Management service pool data source. It reads the poo
 # idsec_cmgr_pool_identifier (Data Source)
 
 The Connector Management service pool data source. It reads the pool information and metadata and is based on the ID of the pool.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

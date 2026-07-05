@@ -243,6 +243,17 @@ func init() {
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "set-https-relay", tfactions.ReadOperation: "https-relay", tfactions.UpdateOperation: "set-https-relay"},
 				ImportID:            tfactions.SingletonResourceImportDummyID,
 			},
+			{
+				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
+					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
+						ActionName: "sia-settings-rdp-channels", ActionDescription: "The SIA RDP Channels resource.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
+					},
+					StateSchema: &settingsmodels.IdsecSIASettingsRdpChannels{},
+				},
+				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.StateOperation},
+				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "set-rdp-channels", tfactions.ReadOperation: "rdp-channels", tfactions.UpdateOperation: "set-rdp-channels"},
+				ImportID:            tfactions.SingletonResourceImportDummyID,
+			},
 		},
 		DataSources: []*tfactions.IdsecServiceTerraformDataSourceActionDefinition{
 			{
@@ -433,6 +444,15 @@ func init() {
 					StateSchema: &settingsmodels.IdsecSIASettingsHTTPSRelay{},
 				},
 				DataSourceAction: "https-relay",
+			},
+			{
+				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
+					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
+						ActionName: "sia-settings-rdp-channels", ActionDescription: "The SIA RDP Channels settings data source.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
+					},
+					StateSchema: &settingsmodels.IdsecSIASettingsRdpChannels{},
+				},
+				DataSourceAction: "rdp-channels",
 			},
 		},
 	})

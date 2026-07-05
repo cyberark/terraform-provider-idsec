@@ -7,6 +7,8 @@ description: The SIA workspaces target set resource, manages target set informat
 # idsec_sia_workspaces_target_set (Resource)
 
 The SIA workspaces target set resource, manages target set information about one or more targets and how they are represented, along with the association to the relevant Secret.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

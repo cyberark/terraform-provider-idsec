@@ -7,6 +7,8 @@ description: Privilege Cloud account credentials data source, reads account cred
 # idsec_pcloud_account_credentials (Data Source)
 
 Privilege Cloud account credentials data source, reads account credentials from vault, based on the account ID.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

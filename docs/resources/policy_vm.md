@@ -7,6 +7,8 @@ description: Infrastructure Virtual Machine (VM) policy resource.
 # idsec_policy_vm (Resource)
 
 Infrastructure Virtual Machine (VM) policy resource.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

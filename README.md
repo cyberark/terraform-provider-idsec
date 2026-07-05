@@ -84,9 +84,42 @@ export IDSEC_SECRET=your-password           # Your password
 | `username` | Your CyberArk Identity username |
 | `secret` | Your password |
 
+
 ---
 
-### 2. PVWA Authentication (`pvwa`)
+### 2. Identity Service User Authentication (`identity_service_user`)
+
+Use this method for non-interactive authentication via a CyberArk Identity service user. It is the recommended method for CI/CD pipelines and automation.
+
+#### Configuration
+
+```hcl
+provider "idsec" {
+  auth_method   = "identity_service_user"
+  service_user  = var.idsec_service_user
+  service_token = var.idsec_service_token
+}
+```
+
+#### Environment Variables
+
+```bash
+export IDSEC_AUTH_METHOD=identity_service_user   # Authentication method
+export IDSEC_SERVICE_USER=service-user@cyberark  # Your service user
+export IDSEC_SERVICE_TOKEN=your-service-token     # Your service token
+```
+
+#### Required Attributes
+
+| Attribute | Description |
+|-----------|-------------|
+| `service_user` | Your CyberArk Identity service user |
+| `service_token` | The service user's token |
+
+
+---
+
+### 3. PVWA Authentication (`pvwa`)
 
 Use this method to authenticate against a Password Vault Web Access (PVWA) server for PAM Self-Hosted environments.
 
@@ -180,6 +213,27 @@ resource idsec_sia_access_connector "example_connector" {
 ```
 
 In this example, we create a network, a pool, and a SIA connector using the Idsec Terraform provider. The access connector is configured to be installed on the ec2 machine with the given private key and username.
+
+### Using Identity Service User Authentication
+
+```terraform
+terraform {
+  required_providers {
+    idsec = {
+      source  = "cyberark/idsec"
+      version = ">= 0.5"
+    }
+  }
+}
+
+provider "idsec" {
+  auth_method   = "identity_service_user"
+  service_user  = var.idsec_service_user
+  service_token = var.idsec_service_token
+}
+```
+
+In this example, we configure the provider to authenticate using a CyberArk Identity service user.
 
 ### Using PVWA Authentication (PAM Self-Hosted)
 

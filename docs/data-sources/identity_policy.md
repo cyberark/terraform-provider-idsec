@@ -7,6 +7,8 @@ description: The Identity service policy data source. It reads the policy inform
 # idsec_identity_policy (Data Source)
 
 The Identity service policy data source. It reads the policy information and metadata and is based on the ID of the policy.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

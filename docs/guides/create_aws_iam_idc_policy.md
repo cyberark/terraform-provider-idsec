@@ -26,7 +26,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.5"
+      version = ">= 0.6"
     }
   }
 }
@@ -137,7 +137,7 @@ variable "name" {
   type        = string
   
   validation {
-    condition     = length(var.name) >= 0 && length(var.name) <= 200
+    condition     = length(var.name) >= 1 && length(var.name) <= 200
     error_message = "The name must be between 1 and 200 characters."
   }
 }
@@ -240,7 +240,7 @@ variable "max_session_duration" {
   default     = 1
   validation {
     condition     = var.max_session_duration >= 1 && var.max_session_duration <= 12
-    error_message = "max_session_duration must be an number between 1 and 12."
+    error_message = "max_session_duration must be a number between 1 and 12."
   }
 }
 variable "role_id" {
@@ -282,10 +282,6 @@ variable "principal_source_directory_name" {
 variable "principal_source_directory_id" {
   description = "The unique identifier of the directory service. If the type is ROLE, then this field is optional and may be empty."
   type        = string
-  validation {
-    condition     = length(var.principal_source_directory_id) == 0 || length(var.principal_source_directory_id) > 0
-    error_message = "principal_source_directory_id must be empty or a non-empty string."
-  }
 }
 variable "principal_type" {
   description = "The type of principal. Allowed values: USER, ROLE, GROUP."

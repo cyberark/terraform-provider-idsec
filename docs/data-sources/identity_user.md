@@ -7,6 +7,8 @@ description: The Identity service user data source. It reads the user informatio
 # idsec_identity_user (Data Source)
 
 The Identity service user data source. It reads the user information and metadata and is based on the ID of the user.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

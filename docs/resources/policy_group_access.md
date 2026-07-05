@@ -7,6 +7,8 @@ description: Group Access Policy resource.
 # idsec_policy_group_access (Resource)
 
 Group Access Policy resource.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

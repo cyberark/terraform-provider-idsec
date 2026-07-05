@@ -7,6 +7,8 @@ description: Cloud Access Policy resource.
 # idsec_policy_cloud_access (Resource)
 
 Cloud Access Policy resource.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

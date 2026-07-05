@@ -7,6 +7,8 @@ description: SIA Certificate resource, manages a certificate in SIA that is used
 # idsec_sia_certificate (Resource)
 
 SIA Certificate resource, manages a certificate in SIA that is used for connections.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

@@ -7,6 +7,8 @@ description: The Identity service role attributes data source. It reads the role
 # idsec_identity_role_attributes (Data Source)
 
 The Identity service role attributes data source. It reads the role attributes information and metadata and is based on the ID of the role attributes.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

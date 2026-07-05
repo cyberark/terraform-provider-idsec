@@ -7,6 +7,8 @@ description: The Identity service user attributes resource that is used to manag
 # idsec_identity_user_attributes (Resource)
 
 The Identity service user attributes resource that is used to manage user attributes.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

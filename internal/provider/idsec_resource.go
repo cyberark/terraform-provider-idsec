@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -19,6 +20,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	api "github.com/cyberark/idsec-sdk-golang/pkg"
 	"github.com/cyberark/idsec-sdk-golang/pkg/auth"
+	sdkcommon "github.com/cyberark/idsec-sdk-golang/pkg/common"
 	modelsactions "github.com/cyberark/idsec-sdk-golang/pkg/models/actions"
 	"github.com/cyberark/idsec-sdk-golang/pkg/services"
 	"github.com/cyberark/idsec-sdk-golang/pkg/validation"
@@ -330,12 +332,30 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 	}
 	tflog.Info(ctx, "Calling action method")
 	result := actionMethod.Call(actionArgs)
+
+	// Check for errors in the result values.
+	// If the SDK wraps the error as IdsecPolicyPartialStateError it signals that the resource
+	// was created/updated in the backend but did not reach Active status. In that case we extract
+	// the partial result, fall through to write state, and surface a warning — so Terraform records
+	// the resource and subsequent runs can manage it. Any other error is treated as a full failure.
+	var actionErr error
 	for _, res := range result {
-		if err, ok := res.Interface().(error); ok && err != nil {
-			s.finalizeFailure(ctx, "Action Error", fmt.Sprintf("Unable to call action method: %s", err.Error()), operation, originalState, respState, diagnostics)
+		if e, ok := res.Interface().(error); ok && e != nil {
+			actionErr = e
+			break
+		}
+	}
+	if actionErr != nil {
+		var partialStateErr *sdkcommon.IdsecPartialStateError
+		if errors.As(actionErr, &partialStateErr) {
+			tflog.Warn(ctx, fmt.Sprintf("Operation partially succeeded; writing partial state before surfacing error: %s", actionErr.Error()))
+			result[0] = reflect.ValueOf(partialStateErr.PartialResult)
+		} else {
+			s.finalizeFailure(ctx, "Action Error", fmt.Sprintf("Unable to call action method: %s", actionErr.Error()), operation, originalState, respState, diagnostics)
 			return
 		}
 	}
+
 	if len(result) < 1 {
 		tflog.Info(ctx, "No result returned from action method")
 		return
@@ -392,6 +412,12 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 			tflog.Error(ctx, fmt.Sprintf("Failed to set state: %s", diags))
 		}
 		diagnostics.Append(diags...)
+	}
+
+	// Surface the partial-success error as a warning after state has been written.
+	// Using AddWarning (not AddError) so Terraform commits the state file.
+	if actionErr != nil {
+		diagnostics.AddWarning("Action completed with errors", fmt.Sprintf("The operation encountered an error but the resource state has been saved: %s", actionErr.Error()))
 	}
 }
 

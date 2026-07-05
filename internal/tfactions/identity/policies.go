@@ -20,6 +20,7 @@ func init() {
 					},
 					StateSchema:             &policiesmodels.IdsecIdentityPolicy{},
 					ComputedAsSetAttributes: []string{"role_names"},
+					ComputedAttributes:      []string{"rev_stamp"},
 				},
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "create", tfactions.ReadOperation: "get", tfactions.UpdateOperation: "update", tfactions.DeleteOperation: "delete"},

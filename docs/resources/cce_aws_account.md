@@ -7,6 +7,8 @@ description: CCE AWS account resource, manages AWS account programmatic onboardi
 # idsec_cce_aws_account (Resource)
 
 CCE AWS account resource, manages AWS account programmatic onboarding.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

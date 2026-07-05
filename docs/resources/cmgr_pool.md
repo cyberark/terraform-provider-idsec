@@ -7,6 +7,8 @@ description: The Connector Management service pool resource that manages the poo
 # idsec_cmgr_pool (Resource)
 
 The Connector Management service pool resource that manages the pool of Secure Infrastructure Access (SIA) and system connectors.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 
@@ -29,10 +31,13 @@ resource "idsec_cmgr_pool" "example_pool" {
 ### Optional
 
 - `components_count` (Map of Number) The number of components on the pool.
-- `created_at` (String) The creation time of the pool.
 - `description` (String) The pool description.
 - `identifiers_count` (Number) The number of identifiers on the pool.
 - `pool_id` (String) The ID of the pool to update.
+
+### Read-Only
+
+- `created_at` (String) The creation time of the pool.
 - `updated_at` (String) The last update time of the pool.
 
 

@@ -7,6 +7,8 @@ description: The Identity service webapp template data source. It reads the weba
 # idsec_identity_webapp_template (Data Source)
 
 The Identity service webapp template data source. It reads the webapp template information and metadata and is based on the ID of the webapp template or its name.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

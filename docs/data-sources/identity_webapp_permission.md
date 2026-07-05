@@ -7,6 +7,8 @@ description: The Identity service webapp permission data source. It reads the we
 # idsec_identity_webapp_permission (Data Source)
 
 The Identity service webapp permission data source. It reads the webapp permission information and metadata and is based on the ID of the webapp or its name.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

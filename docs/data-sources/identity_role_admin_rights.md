@@ -7,6 +7,8 @@ description: The Identity service role admin rights data source. It reads the ro
 # idsec_identity_role_admin_rights (Data Source)
 
 The Identity service role admin rights data source. It reads the role admin rights information and metadata and is based on the role name.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

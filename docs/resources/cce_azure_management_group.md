@@ -7,6 +7,8 @@ description: CCE Azure management group resource, manages Azure management group
 # idsec_cce_azure_management_group (Resource)
 
 CCE Azure management group resource, manages Azure management group manual onboarding.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

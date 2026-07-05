@@ -7,6 +7,8 @@ description: The SIA workspaces target set data source, reads target set informa
 # idsec_sia_workspaces_target_set (Data Source)
 
 The SIA workspaces target set data source, reads target set information and metadata, based on the ID of the target set.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

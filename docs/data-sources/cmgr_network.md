@@ -7,6 +7,8 @@ description: The Connector Management service network data source. It reads the 
 # idsec_cmgr_network (Data Source)
 
 The Connector Management service network data source. It reads the network information and metadata and is based on the ID of the network.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

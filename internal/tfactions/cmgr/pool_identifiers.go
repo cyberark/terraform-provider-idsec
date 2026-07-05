@@ -23,6 +23,7 @@ func init() {
 					},
 					ExtraRequiredAttributes: []string{"pool_id", "type", "value"},
 					StateSchema:             &identifiersmodels.IdsecCmgrPoolIdentifier{},
+					ComputedAttributes:      []string{"created_at", "updated_at"},
 				},
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{
 					tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation,

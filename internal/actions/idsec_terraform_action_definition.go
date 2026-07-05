@@ -17,6 +17,27 @@ const (
 // SingletonResourceImportDummyID is a constant used as a dummy ID for importing singleton resources in Terraform, where the resource does not have a natural unique identifier.
 const SingletonResourceImportDummyID = "singleton"
 
+// DocNoteSeverity defines the severity of a custom documentation note.
+//
+// The severity controls how the note is rendered per documentation target:
+//   - DocNoteInfo    -> MkDocs "note"    / Terraform Registry "->"
+//   - DocNoteWarning -> MkDocs "warning" / Terraform Registry "~>"
+//   - DocNoteDanger  -> MkDocs "danger"  / Terraform Registry "!>"
+type DocNoteSeverity string
+
+const (
+	DocNoteInfo    DocNoteSeverity = "info"
+	DocNoteWarning DocNoteSeverity = "warning"
+	DocNoteDanger  DocNoteSeverity = "danger"
+)
+
+// DocNote is a single custom documentation note injected into the generated
+// resource or data source documentation.
+type DocNote struct {
+	Severity DocNoteSeverity
+	Body     string
+}
+
 // IdsecServiceBaseActionDefinition is a struct that defines the base structure of a Terraform action definition.
 type IdsecServiceBaseActionDefinition struct {
 	ActionName        string
@@ -48,6 +69,8 @@ type IdsecServiceBaseTerraformActionDefinition struct {
 	ComputedAttributes        []string
 	HistoryComputedAttributes []string
 	CaseInsensitiveAttributes []string
+	PageNotes                 []DocNote
+	AttributeNotes            map[string][]DocNote
 }
 
 // IdsecServiceTerraformResourceActionDefinition is a struct that defines the structure of a resource action in the Idsec Terraform provider.

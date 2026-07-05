@@ -7,6 +7,8 @@ description: The Identity service user resource that is used to manage users.
 # idsec_identity_user (Resource)
 
 The Identity service user resource that is used to manage users.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

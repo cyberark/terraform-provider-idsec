@@ -7,6 +7,8 @@ description: CCE AWS workspaces data source, retrieves AWS organizations and acc
 # idsec_cce_aws_workspaces (Data Source)
 
 CCE AWS workspaces data source, retrieves AWS organizations and accounts with filtering.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

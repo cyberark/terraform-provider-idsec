@@ -7,6 +7,8 @@ description: The SIA SSH fingerprint validation for Zero Standing connections re
 # idsec_sia_settings_validate_fingerprint_for_ssh_zero_standing (Resource)
 
 The SIA SSH fingerprint validation for Zero Standing connections resource.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

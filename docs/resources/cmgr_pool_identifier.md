@@ -7,6 +7,8 @@ description: The Connector Management service pool identifier resource that is a
 # idsec_cmgr_pool_identifier (Resource)
 
 The Connector Management service pool identifier resource that is associated with a pool and is used to identify the pool in a simplified manner. It is not identified using only the network name
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 
@@ -29,8 +31,11 @@ resource "idsec_cmgr_pool_identifier" "example_identifier" {
 
 ### Optional
 
-- `created_at` (String) The creation time of the identifier.
 - `identifier_id` (String) The ID of the identifier to update from the pool.
+
+### Read-Only
+
+- `created_at` (String) The creation time of the identifier.
 - `updated_at` (String) The last update time of the identifier.
 
 

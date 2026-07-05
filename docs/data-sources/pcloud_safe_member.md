@@ -7,6 +7,8 @@ description: Privilege Cloud Safe Member data source, reads Safe member informat
 # idsec_pcloud_safe_member (Data Source)
 
 Privilege Cloud Safe Member data source, reads Safe member information and metadata, based on the Safe ID and the member name.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

@@ -7,6 +7,8 @@ description: The SIA Secrets VM resource, manages VM Secrets information and met
 # idsec_sia_secrets_vm (Resource)
 
 The SIA Secrets VM resource, manages VM Secrets information and metadata, based on the type of Secret.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

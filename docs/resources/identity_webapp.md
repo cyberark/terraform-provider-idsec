@@ -7,6 +7,8 @@ description: The Identity service webapp resource that is used to manage webapps
 # idsec_identity_webapp (Resource)
 
 The Identity service webapp resource that is used to manage webapps.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

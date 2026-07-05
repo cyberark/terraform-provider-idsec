@@ -7,6 +7,8 @@ description: The SIA Secrets VM data source, reads VM Secrets information and me
 # idsec_sia_secrets_vm (Data Source)
 
 The SIA Secrets VM data source, reads VM Secrets information and metadata, based on the ID of the Secret.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

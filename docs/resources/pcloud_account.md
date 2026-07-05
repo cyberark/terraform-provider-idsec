@@ -7,6 +7,8 @@ description: Manage Privilege Cloud account information, metadata, and credentia
 # idsec_pcloud_account (Resource)
 
 Manage Privilege Cloud account information, metadata, and credentials
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 
@@ -31,7 +33,6 @@ resource "idsec_pcloud_account" "example_account" {
 ### Optional
 
 - `access_restricted_to_remote_machines` (Boolean) Whether to restrict access only to the specified remote machines
-- `account_id` (String) The unique ID of the account to updatee
 - `address` (String) The name or address of the machine where the account will be used
 - `automatic_management_enabled` (Boolean) Whether the account secret is managed automatically
 - `manual_management_reason` (String) The reason for disabling automatic management
@@ -46,6 +47,7 @@ resource "idsec_pcloud_account" "example_account" {
 
 ### Read-Only
 
+- `account_id` (String) The unique ID of the account to updatee
 - `category_modification_time` (Number) The last time the account or one of its file categories was created or changed
 - `created_time` (Number) The date and time the account was created
 - `last_modified_time` (Number) Last time the account was modified

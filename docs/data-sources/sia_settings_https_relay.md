@@ -7,6 +7,8 @@ description: The SIA HTTPS Relay settings data source.
 # idsec_sia_settings_https_relay (Data Source)
 
 The SIA HTTPS Relay settings data source.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

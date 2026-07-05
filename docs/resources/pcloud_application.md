@@ -7,6 +7,8 @@ description: pCloud application resource, manages pCloud applications informatio
 # idsec_pcloud_application (Resource)
 
 pCloud application resource, manages pCloud applications information / metadata and credentials.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

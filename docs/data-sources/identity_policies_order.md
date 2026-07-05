@@ -7,6 +7,8 @@ description: The Identity service policies order data source. It reads the order
 # idsec_identity_policies_order (Data Source)
 
 The Identity service policies order data source. It reads the order of policies and is based on the ID of the policy order configuration.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

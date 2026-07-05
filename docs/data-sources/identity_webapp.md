@@ -7,6 +7,8 @@ description: The Identity service webapp data source. It reads the webapp inform
 # idsec_identity_webapp (Data Source)
 
 The Identity service webapp data source. It reads the webapp information and metadata and is based on the ID of the webapp or its name.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

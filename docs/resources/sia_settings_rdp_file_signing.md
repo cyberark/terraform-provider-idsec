@@ -7,6 +7,8 @@ description: The SIA RDP File Signing resource.
 # idsec_sia_settings_rdp_file_signing (Resource)
 
 The SIA RDP File Signing resource.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

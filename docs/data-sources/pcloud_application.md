@@ -7,6 +7,8 @@ description: PCloud Application data source, reads application information and m
 # idsec_pcloud_application (Data Source)
 
 PCloud Application data source, reads application information and metadata, based on the id of the application.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

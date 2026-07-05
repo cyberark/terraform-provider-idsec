@@ -21,7 +21,8 @@ func init() {
 						ActionVersion:     1,
 						Schemas:           actions.ActionToSchemaMap,
 					},
-					StateSchema: &networksmodels.IdsecCmgrNetwork{},
+					ComputedAttributes: []string{"created_at", "updated_at"},
+					StateSchema:        &networksmodels.IdsecCmgrNetwork{},
 				},
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{
 					tfactions.CreateOperation,

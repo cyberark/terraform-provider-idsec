@@ -7,6 +7,8 @@ description: CCE Azure subscription resource, manages Azure subscription manual 
 # idsec_cce_azure_subscription (Resource)
 
 CCE Azure subscription resource, manages Azure subscription manual onboarding.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

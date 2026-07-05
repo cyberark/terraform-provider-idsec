@@ -7,6 +7,8 @@ description: Privilege Cloud Safe resource, manages Privilege Cloud Safes inform
 # idsec_pcloud_safe (Resource)
 
 Privilege Cloud Safe resource, manages Privilege Cloud Safes information and metadata.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

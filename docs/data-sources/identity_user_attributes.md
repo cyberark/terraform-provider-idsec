@@ -7,6 +7,8 @@ description: The Identity service user attributes data source. It reads the user
 # idsec_identity_user_attributes (Data Source)
 
 The Identity service user attributes data source. It reads the user attributes information and metadata and is based on the ID of the user attributes.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

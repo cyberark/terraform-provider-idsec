@@ -7,6 +7,8 @@ description: The Identity service role attributes schema resource that is used t
 # idsec_identity_role_attributes_schema (Resource)
 
 The Identity service role attributes schema resource that is used to manage role attributes schema.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 
@@ -34,7 +36,7 @@ resource "idsec_identity_role_attributes_schema" "myrole_attributes_schema" {
 
 - `columns` (Attributes List) List of attribute columns to create (see [below for nested schema](#nestedatt--columns))
 
-### Optional
+### Read-Only
 
 - `total_count` (Number) Total number of attribute schema columns
 
@@ -44,9 +46,12 @@ resource "idsec_identity_role_attributes_schema" "myrole_attributes_schema" {
 Optional:
 
 - `description` (String) Description of the attribute column
-- `id` (String) Unique identifier of the attribute column
 - `name` (String) Name of the attribute column
 - `type` (String) Data type of the attribute column (e.g., Text)
+
+Read-Only:
+
+- `id` (String) Unique identifier of the attribute column
 
 
 

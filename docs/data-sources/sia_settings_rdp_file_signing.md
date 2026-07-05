@@ -7,6 +7,8 @@ description: The SIA RDP File Signing settings data source.
 # idsec_sia_settings_rdp_file_signing (Data Source)
 
 The SIA RDP File Signing settings data source.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

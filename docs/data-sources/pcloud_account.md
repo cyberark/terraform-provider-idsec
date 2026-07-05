@@ -7,6 +7,8 @@ description: Privilege Cloud account data source, reads account information and 
 # idsec_pcloud_account (Data Source)
 
 Privilege Cloud account data source, reads account information and metadata, based on the account ID.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

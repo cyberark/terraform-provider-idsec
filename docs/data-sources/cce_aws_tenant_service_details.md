@@ -7,6 +7,8 @@ description: CCE AWS tenant service details data source, retrieves tenant servic
 # idsec_cce_aws_tenant_service_details (Data Source)
 
 CCE AWS tenant service details data source, retrieves tenant service details.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

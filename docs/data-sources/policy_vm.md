@@ -7,6 +7,8 @@ description: Infrastructure Virtual Machine (VM) policy data source.
 # idsec_policy_vm (Data Source)
 
 Infrastructure Virtual Machine (VM) policy data source.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

@@ -7,6 +7,8 @@ description: CCE Azure Subscription data source, reads subscription details base
 # idsec_cce_azure_subscription (Data Source)
 
 CCE Azure Subscription data source, reads subscription details based on the CCE subscription onboarding ID.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

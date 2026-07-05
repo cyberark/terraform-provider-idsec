@@ -7,6 +7,8 @@ description: CCE Microsoft Entra tenant resource, manages Microsoft Entra tenant
 # idsec_cce_azure_entra (Resource)
 
 CCE Microsoft Entra tenant resource, manages Microsoft Entra tenant manual onboarding.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

@@ -7,6 +7,8 @@ description: CCE Microsoft Entra tenant data source, reads Microsoft Entra tenan
 # idsec_cce_azure_entra (Data Source)
 
 CCE Microsoft Entra tenant data source, reads Microsoft Entra tenant details based on the CCE Microsoft Entra tenant onboarding ID.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 

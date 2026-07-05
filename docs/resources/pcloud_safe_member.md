@@ -7,6 +7,8 @@ description: Privilege Cloud safe member resource, manages Privilege Cloud Safe 
 # idsec_pcloud_safe_member (Resource)
 
 Privilege Cloud safe member resource, manages Privilege Cloud Safe members and their relevant permissions.
+<!-- BEGIN CUSTOM NOTES -->
+<!-- END CUSTOM NOTES -->
 
 ## Example Usage
 
