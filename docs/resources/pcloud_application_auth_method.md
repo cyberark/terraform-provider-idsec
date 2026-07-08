@@ -28,7 +28,7 @@ resource "idsec_pcloud_application_auth_method" "myapp_auth_method" {
 
 - `allow_internal_scripts` (Boolean) Whether to allow internal scripts
 - `app_id` (String) The application ID
-- `auth_id` (String) The authentication method ID
+- `auth_id` (String) The authentication method ID to update
 - `auth_type` (String) The authentication method type
 - `auth_value` (String) The authentication method value
 - `comment` (String) A comment for the authentication method
@@ -39,7 +39,7 @@ resource "idsec_pcloud_application_auth_method" "myapp_auth_method" {
 - `issuer` (Attributes List) The certificate issuer attributes (see [below for nested schema](#nestedatt--issuer))
 - `namespace` (String) The Kubernetes namespace
 - `subject` (Attributes List) The certificate subject attributes (see [below for nested schema](#nestedatt--subject))
-- `subject_alternate_name` (Attributes List) The certificate subject alternate name attributes (see [below for nested schema](#nestedatt--subject_alternate_name))
+- `subject_alternative_name` (Attributes List) The certificate subject alternative name attributes (see [below for nested schema](#nestedatt--subject_alternative_name))
 
 <a id="nestedatt--issuer"></a>
 ### Nested Schema for `issuer`
@@ -59,8 +59,8 @@ Optional:
 - `value` (String) The attribute value
 
 
-<a id="nestedatt--subject_alternate_name"></a>
-### Nested Schema for `subject_alternate_name`
+<a id="nestedatt--subject_alternative_name"></a>
+### Nested Schema for `subject_alternative_name`
 
 Optional:
 
