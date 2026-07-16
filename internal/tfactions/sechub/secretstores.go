@@ -87,7 +87,7 @@ func init() {
 						"id",
 					},
 					SensitiveAttributes: []string{
-						"data.password",
+						"password",
 					},
 					StateSchema: &secretstoresmodels.IdsecSecHubSecretStore{},
 				},

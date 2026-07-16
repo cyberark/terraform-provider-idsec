@@ -4,14 +4,14 @@
 package sca
 
 import (
-	"github.com/cyberark/idsec-sdk-golang/pkg/services/sca/actions"
-	scamodels "github.com/cyberark/idsec-sdk-golang/pkg/services/sca/models"
+	"github.com/cyberark/idsec-sdk-golang/pkg/services/sca/discovery/actions"
+	scamodels "github.com/cyberark/idsec-sdk-golang/pkg/services/sca/discovery/models"
 	tfactions "github.com/cyberark/terraform-provider-idsec/internal/actions"
 )
 
 func init() {
 	_ = tfactions.Register(tfactions.TerraformServiceConfig{
-		ServiceName: "sca",
+		ServiceName: "sca-discovery",
 		DataSources: []*tfactions.IdsecServiceTerraformDataSourceActionDefinition{
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{

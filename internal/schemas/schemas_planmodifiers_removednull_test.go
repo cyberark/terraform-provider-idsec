@@ -21,11 +21,11 @@ func withHistoryLoader(t *testing.T, history map[string]bool) {
 	t.Cleanup(func() { historyLoader = prev })
 }
 
-func mustRemovedToNullStringModifier(t *testing.T) removedToNullStringModifier {
+func mustRemovedToUnknownStringModifier(t *testing.T) removedToUnknownStringModifier {
 	t.Helper()
-	m, ok := RemovedToNullString().(removedToNullStringModifier)
+	m, ok := RemovedToUnknownString().(removedToUnknownStringModifier)
 	if !ok {
-		t.Fatalf("RemovedToNullString(): got %T", RemovedToNullString())
+		t.Fatalf("RemovedToUnknownString(): got %T", RemovedToUnknownString())
 	}
 	return m
 }
@@ -89,7 +89,7 @@ func TestShouldRemoveToNull(t *testing.T) {
 	}
 }
 
-func TestRemovedToNullStringModifier(t *testing.T) {
+func TestRemovedToUnknownStringModifier(t *testing.T) {
 	ctx := context.Background()
 	req := planmodifier.StringRequest{
 		Path:        path.Root("attr"),
@@ -98,26 +98,26 @@ func TestRemovedToNullStringModifier(t *testing.T) {
 		StateValue:  types.StringValue("prior"),
 	}
 
-	t.Run("nulls_when_in_history", func(t *testing.T) {
+	t.Run("unknown_when_in_history", func(t *testing.T) {
 		withHistoryLoader(t, map[string]bool{"attr": true})
 		resp := &planmodifier.StringResponse{PlanValue: types.StringValue("prior")}
-		mustRemovedToNullStringModifier(t).PlanModifyString(ctx, req, resp)
-		if !resp.PlanValue.IsNull() {
-			t.Errorf("expected null plan, got %v", resp.PlanValue)
+		mustRemovedToUnknownStringModifier(t).PlanModifyString(ctx, req, resp)
+		if !resp.PlanValue.IsUnknown() {
+			t.Errorf("expected unknown plan, got %v", resp.PlanValue)
 		}
 	})
 
 	t.Run("noop_without_history", func(t *testing.T) {
 		withHistoryLoader(t, map[string]bool{})
 		resp := &planmodifier.StringResponse{PlanValue: types.StringValue("prior")}
-		mustRemovedToNullStringModifier(t).PlanModifyString(ctx, req, resp)
-		if resp.PlanValue.IsNull() {
+		mustRemovedToUnknownStringModifier(t).PlanModifyString(ctx, req, resp)
+		if resp.PlanValue.IsUnknown() {
 			t.Error("expected plan preserved")
 		}
 	})
 }
 
-func TestApplyRemovedToNullModifiers(t *testing.T) {
+func TestApplyRemovedToUnknownModifiers(t *testing.T) {
 	t.Parallel()
 
 	t.Run("optional_computed_only", func(t *testing.T) {
@@ -127,7 +127,7 @@ func TestApplyRemovedToNullModifiers(t *testing.T) {
 			"required":          schema.StringAttribute{Required: true},
 			"computed_only":     schema.StringAttribute{Computed: true},
 		}
-		ApplyRemovedToNullModifiers(attrs)
+		ApplyRemovedToUnknownModifiers(attrs, nil, nil)
 
 		if n := stringPlanModifierCount(t, attrs, "optional_computed"); n != 2 {
 			t.Fatalf("optional_computed: got %d modifiers, want 2", n)
@@ -145,7 +145,7 @@ func TestApplyRemovedToNullModifiers(t *testing.T) {
 			"id":   schema.StringAttribute{Optional: true, Computed: true},
 			"name": schema.StringAttribute{Optional: true, Computed: true},
 		}
-		ApplyRemovedToNullModifiers(attrs, "id")
+		ApplyRemovedToUnknownModifiers(attrs, []string{"id"}, nil)
 
 		if n := stringPlanModifierCount(t, attrs, "id"); n != 0 {
 			t.Errorf("id: got %d modifiers, want 0", n)
@@ -154,6 +154,55 @@ func TestApplyRemovedToNullModifiers(t *testing.T) {
 			t.Errorf("name: got %d modifiers, want 2", n)
 		}
 	})
+
+	t.Run("immutable_keeps_use_state_only", func(t *testing.T) {
+		t.Parallel()
+		attrs := map[string]schema.Attribute{
+			"secret_type": schema.StringAttribute{Optional: true, Computed: true},
+			"name":        schema.StringAttribute{Optional: true, Computed: true},
+		}
+		ApplyRemovedToUnknownModifiers(attrs, nil, []string{"secret_type"})
+
+		// Immutable attribute gets UseStateForUnknown only (no removed-to-null), so omitting
+		// it from config keeps the prior value instead of planning it to null.
+		if n := stringPlanModifierCount(t, attrs, "secret_type"); n != 1 {
+			t.Errorf("secret_type: got %d modifiers, want 1 (UseStateForUnknown only)", n)
+		}
+		if n := stringPlanModifierCount(t, attrs, "name"); n != 2 {
+			t.Errorf("name: got %d modifiers, want 2", n)
+		}
+	})
+}
+
+func TestApplyRemovedToUnknownModifiersDynamic(t *testing.T) {
+	t.Parallel()
+
+	attrs := map[string]schema.Attribute{
+		"optional_computed": schema.DynamicAttribute{Optional: true, Computed: true},
+		"required":          schema.DynamicAttribute{Required: true},
+		"computed_only":     schema.DynamicAttribute{Computed: true},
+	}
+	ApplyRemovedToUnknownModifiers(attrs, nil, nil)
+
+	dynamicPlanModifierCount := func(name string) int {
+		t.Helper()
+		a, ok := attrs[name].(schema.DynamicAttribute)
+		if !ok {
+			t.Fatalf("%s: expected DynamicAttribute, got %T", name, attrs[name])
+		}
+		return len(a.PlanModifiers)
+	}
+
+	// Optional+Computed dynamic attributes get exactly one modifier (UseStateForUnknown); no
+	// removed-to-null modifier is attached for dynamic values.
+	if n := dynamicPlanModifierCount("optional_computed"); n != 1 {
+		t.Fatalf("optional_computed: got %d modifiers, want 1", n)
+	}
+	for _, name := range []string{"required", "computed_only"} {
+		if n := dynamicPlanModifierCount(name); n != 0 {
+			t.Errorf("%s: got %d modifiers, want 0", name, n)
+		}
+	}
 }
 
 func TestComputedOnlyAttributePaths(t *testing.T) {

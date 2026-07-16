@@ -143,7 +143,7 @@ func (s *IdsecResource) getImportID() string {
 // key (its ImportID). Only un-nested names are returned: a dotted key such as "metadata.policy_id"
 // addresses a nested attribute (a stable, server-owned id) that is handled elsewhere and should keep
 // its UseStateForUnknown pinning, whereas a top-level key such as "id" may mirror a mutable attribute
-// and must not be pinned. These names are passed to ApplyRemovedToNullModifiers to exclude them from
+// and must not be pinned. These names are passed to ApplyRemovedToUnknownModifiers to exclude them from
 // UseStateForUnknown so a renamed id refreshes from the operation response instead of staying stale.
 func (s *IdsecResource) readKeyTopLevelAttributes() []string {
 	importID := s.getImportID()
@@ -473,7 +473,7 @@ func (s *IdsecResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 		s.getComputedAttributes(),
 		s.getCaseInsensitiveAttributes(),
 	)
-	schemas.ApplyRemovedToNullModifiers(resp.Schema.Attributes, s.readKeyTopLevelAttributes()...)
+	schemas.ApplyRemovedToUnknownModifiers(resp.Schema.Attributes, s.readKeyTopLevelAttributes(), s.getImmutableAttributes())
 	resp.Schema.Description = s.actionDefinition.ActionDescription
 	if s.actionDefinition.ActionVersion != 0 {
 		resp.Schema.Version = s.actionDefinition.ActionVersion

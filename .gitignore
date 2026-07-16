@@ -50,3 +50,8 @@ go.local.sum
 
 # Local development folder
 /local/
+
+# Layer 1 schema-compat artifacts (generated/fetched at gate time; no committed baseline).
+internal/compat/candidate_schema.json
+internal/compat/compat_report.json
+internal/compat/baseline_schema.json

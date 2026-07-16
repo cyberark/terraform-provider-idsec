@@ -124,7 +124,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 		required := field.Tag.Get("required")
 		validate := field.Tag.Get("validate")
 		choices := field.Tag.Get("choices")
-		defaultValue := field.Tag.Get("default")
+		defaultValue, hasDefaultTag := field.Tag.Lookup("default")
 		minVal, maxVal := parseMinMaxLengthFromFieldTags(field.Tag.Get("minlength"), field.Tag.Get("maxlength"))
 		hasMinMaxLength := minVal != nil || maxVal != nil
 		fieldName := resolveFieldName(field)
@@ -165,7 +165,11 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 				strAttr.Required = false
 				strAttr.Computed = true
 			}
-			if defaultValue != "" {
+			// hasDefaultTag (not defaultValue != "") so an explicit empty-string default is honored:
+			// attributes like from_hour/to_hour reset to "" (full-day window) on removal, and giving
+			// them a Default makes them bypass the removed-to-unknown modifier so removal plans a crisp
+			// "" instead of (known after apply).
+			if hasDefaultTag {
 				strAttr.Default = StringDefault{Value: defaultValue}
 				strAttr.Required = false
 				strAttr.Optional = true

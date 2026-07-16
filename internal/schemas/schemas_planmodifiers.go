@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/dynamicplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
@@ -647,11 +648,12 @@ func (m ImmutableMapModifier) PlanModifyMap(ctx context.Context, req planmodifie
 	)
 }
 
-// removedToNullDescription documents the shared behavior of the removed-to-null plan modifiers.
-const removedToNullDescription = "Sets the planned value to null when an optional attribute is removed " +
-	"from configuration (null in config) but had a value in prior state, so the removal produces an " +
-	"explicit change to null (which is then actually removed on apply) instead of silently keeping the " +
-	"prior value."
+// removedToUnknownDescription documents the shared behavior of the removed-to-unknown plan modifiers.
+const removedToUnknownDescription = "Sets the planned value to unknown (known after apply) when an optional " +
+	"attribute is removed from configuration (null in config) but had a value in prior state, so the " +
+	"backend recomputes it on apply instead of the provider guessing a null the backend may never " +
+	"return. Unknown is consistent with any backend response, so removal can never produce an " +
+	"inconsistent-result error, while still surfacing the removal as a planned change."
 
 // valueIsAbsent reports whether a prior-state value carries no meaningful content, so that flipping it
 // to null would only be a cosmetic shadow change. A value is absent when it is nil, null, an empty
@@ -714,131 +716,131 @@ func shouldRemoveToNull(history map[string]bool, attrPath string, configVal, sta
 	return pathInUserSetHistory(history, attrPath)
 }
 
-// isHistoryGatedRemoval reports whether an attribute should be planned as removed-to-null. It loads
+// isHistoryGatedRemoval reports whether an attribute should be planned as removed-to-unknown. It loads
 // the user-set history from private state and delegates to shouldRemoveToNull. The history gate is
 // what distinguishes a real user removal from an Optional+Computed attribute the user never set but
 // the backend defaulted: the latter is absent from history, so it is preserved (via
-// UseStateForUnknown) instead of perpetually planning value -> null.
+// UseStateForUnknown) instead of perpetually planning value -> (known after apply).
 func isHistoryGatedRemoval(ctx context.Context, private privateStateReader, attrPath string, configVal, stateVal attr.Value) bool {
 	return shouldRemoveToNull(historyLoader(ctx, private), attrPath, configVal, stateVal)
 }
 
-// RemovedToNullString returns a plan modifier that nulls a removed optional+computed string attribute.
-func RemovedToNullString() planmodifier.String { return removedToNullStringModifier{} }
+// RemovedToUnknownString returns a plan modifier that nulls a removed optional+computed string attribute.
+func RemovedToUnknownString() planmodifier.String { return removedToUnknownStringModifier{} }
 
-type removedToNullStringModifier struct{}
+type removedToUnknownStringModifier struct{}
 
-func (m removedToNullStringModifier) Description(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownStringModifier) Description(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullStringModifier) MarkdownDescription(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownStringModifier) MarkdownDescription(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullStringModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+func (m removedToUnknownStringModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
 	if isHistoryGatedRemoval(ctx, req.Private, req.Path.String(), req.ConfigValue, req.StateValue) {
-		resp.PlanValue = types.StringNull()
+		resp.PlanValue = types.StringUnknown()
 	}
 }
 
-// RemovedToNullBool returns a plan modifier that nulls a removed optional+computed bool attribute.
-func RemovedToNullBool() planmodifier.Bool { return removedToNullBoolModifier{} }
+// RemovedToUnknownBool returns a plan modifier that nulls a removed optional+computed bool attribute.
+func RemovedToUnknownBool() planmodifier.Bool { return removedToUnknownBoolModifier{} }
 
-type removedToNullBoolModifier struct{}
+type removedToUnknownBoolModifier struct{}
 
-func (m removedToNullBoolModifier) Description(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownBoolModifier) Description(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullBoolModifier) MarkdownDescription(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownBoolModifier) MarkdownDescription(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullBoolModifier) PlanModifyBool(ctx context.Context, req planmodifier.BoolRequest, resp *planmodifier.BoolResponse) {
+func (m removedToUnknownBoolModifier) PlanModifyBool(ctx context.Context, req planmodifier.BoolRequest, resp *planmodifier.BoolResponse) {
 	if isHistoryGatedRemoval(ctx, req.Private, req.Path.String(), req.ConfigValue, req.StateValue) {
-		resp.PlanValue = types.BoolNull()
+		resp.PlanValue = types.BoolUnknown()
 	}
 }
 
-// RemovedToNullInt64 returns a plan modifier that nulls a removed optional+computed int64 attribute.
-func RemovedToNullInt64() planmodifier.Int64 { return removedToNullInt64Modifier{} }
+// RemovedToUnknownInt64 returns a plan modifier that nulls a removed optional+computed int64 attribute.
+func RemovedToUnknownInt64() planmodifier.Int64 { return removedToUnknownInt64Modifier{} }
 
-type removedToNullInt64Modifier struct{}
+type removedToUnknownInt64Modifier struct{}
 
-func (m removedToNullInt64Modifier) Description(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownInt64Modifier) Description(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullInt64Modifier) MarkdownDescription(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownInt64Modifier) MarkdownDescription(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullInt64Modifier) PlanModifyInt64(ctx context.Context, req planmodifier.Int64Request, resp *planmodifier.Int64Response) {
+func (m removedToUnknownInt64Modifier) PlanModifyInt64(ctx context.Context, req planmodifier.Int64Request, resp *planmodifier.Int64Response) {
 	if isHistoryGatedRemoval(ctx, req.Private, req.Path.String(), req.ConfigValue, req.StateValue) {
-		resp.PlanValue = types.Int64Null()
+		resp.PlanValue = types.Int64Unknown()
 	}
 }
 
-// RemovedToNullList returns a plan modifier that nulls a removed optional+computed list attribute.
-func RemovedToNullList() planmodifier.List { return removedToNullListModifier{} }
+// RemovedToUnknownList returns a plan modifier that nulls a removed optional+computed list attribute.
+func RemovedToUnknownList() planmodifier.List { return removedToUnknownListModifier{} }
 
-type removedToNullListModifier struct{}
+type removedToUnknownListModifier struct{}
 
-func (m removedToNullListModifier) Description(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownListModifier) Description(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullListModifier) MarkdownDescription(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownListModifier) MarkdownDescription(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullListModifier) PlanModifyList(ctx context.Context, req planmodifier.ListRequest, resp *planmodifier.ListResponse) {
+func (m removedToUnknownListModifier) PlanModifyList(ctx context.Context, req planmodifier.ListRequest, resp *planmodifier.ListResponse) {
 	if isHistoryGatedRemoval(ctx, req.Private, req.Path.String(), req.ConfigValue, req.StateValue) {
-		resp.PlanValue = types.ListNull(req.StateValue.ElementType(ctx))
+		resp.PlanValue = types.ListUnknown(req.StateValue.ElementType(ctx))
 	}
 }
 
-// RemovedToNullSet returns a plan modifier that nulls a removed optional+computed set attribute.
-func RemovedToNullSet() planmodifier.Set { return removedToNullSetModifier{} }
+// RemovedToUnknownSet returns a plan modifier that nulls a removed optional+computed set attribute.
+func RemovedToUnknownSet() planmodifier.Set { return removedToUnknownSetModifier{} }
 
-type removedToNullSetModifier struct{}
+type removedToUnknownSetModifier struct{}
 
-func (m removedToNullSetModifier) Description(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownSetModifier) Description(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullSetModifier) MarkdownDescription(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownSetModifier) MarkdownDescription(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullSetModifier) PlanModifySet(ctx context.Context, req planmodifier.SetRequest, resp *planmodifier.SetResponse) {
+func (m removedToUnknownSetModifier) PlanModifySet(ctx context.Context, req planmodifier.SetRequest, resp *planmodifier.SetResponse) {
 	if isHistoryGatedRemoval(ctx, req.Private, req.Path.String(), req.ConfigValue, req.StateValue) {
-		resp.PlanValue = types.SetNull(req.StateValue.ElementType(ctx))
+		resp.PlanValue = types.SetUnknown(req.StateValue.ElementType(ctx))
 	}
 }
 
-// RemovedToNullMap returns a plan modifier that nulls a removed optional+computed map attribute.
-func RemovedToNullMap() planmodifier.Map { return removedToNullMapModifier{} }
+// RemovedToUnknownMap returns a plan modifier that nulls a removed optional+computed map attribute.
+func RemovedToUnknownMap() planmodifier.Map { return removedToUnknownMapModifier{} }
 
-type removedToNullMapModifier struct{}
+type removedToUnknownMapModifier struct{}
 
-func (m removedToNullMapModifier) Description(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownMapModifier) Description(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullMapModifier) MarkdownDescription(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownMapModifier) MarkdownDescription(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullMapModifier) PlanModifyMap(ctx context.Context, req planmodifier.MapRequest, resp *planmodifier.MapResponse) {
+func (m removedToUnknownMapModifier) PlanModifyMap(ctx context.Context, req planmodifier.MapRequest, resp *planmodifier.MapResponse) {
 	if isHistoryGatedRemoval(ctx, req.Private, req.Path.String(), req.ConfigValue, req.StateValue) {
-		resp.PlanValue = types.MapNull(req.StateValue.ElementType(ctx))
+		resp.PlanValue = types.MapUnknown(req.StateValue.ElementType(ctx))
 	}
 }
 
-// RemovedToNullObject returns a plan modifier that nulls a removed optional+computed object attribute.
-func RemovedToNullObject() planmodifier.Object { return removedToNullObjectModifier{} }
+// RemovedToUnknownObject returns a plan modifier that nulls a removed optional+computed object attribute.
+func RemovedToUnknownObject() planmodifier.Object { return removedToUnknownObjectModifier{} }
 
-type removedToNullObjectModifier struct{}
+type removedToUnknownObjectModifier struct{}
 
-func (m removedToNullObjectModifier) Description(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownObjectModifier) Description(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullObjectModifier) MarkdownDescription(_ context.Context) string {
-	return removedToNullDescription
+func (m removedToUnknownObjectModifier) MarkdownDescription(_ context.Context) string {
+	return removedToUnknownDescription
 }
-func (m removedToNullObjectModifier) PlanModifyObject(ctx context.Context, req planmodifier.ObjectRequest, resp *planmodifier.ObjectResponse) {
+func (m removedToUnknownObjectModifier) PlanModifyObject(ctx context.Context, req planmodifier.ObjectRequest, resp *planmodifier.ObjectResponse) {
 	if isHistoryGatedRemoval(ctx, req.Private, req.Path.String(), req.ConfigValue, req.StateValue) {
-		resp.PlanValue = types.ObjectNull(req.StateValue.AttributeTypes(ctx))
+		resp.PlanValue = types.ObjectUnknown(req.StateValue.AttributeTypes(ctx))
 	}
 }
 
@@ -925,14 +927,18 @@ func collectComputedOnlyAttributePaths(attributes map[string]schema.Attribute, p
 	}
 }
 
-// ApplyRemovedToNullModifiers walks an attribute tree and, for every Optional+Computed attribute
-// (recursively into nested objects), appends two plan modifiers in order: UseStateForUnknown followed by
-// the matching removed-to-null modifier. It leaves required, default-bearing, and computed-only
-// (server-managed) attributes untouched, and does not descend into computed-only objects.
-func ApplyRemovedToNullModifiers(attributes map[string]schema.Attribute, skipAttrs ...string) {
+// ApplyRemovedToUnknownModifiers walks an attribute tree and, for every Optional+Computed attribute
+// (recursively into nested objects), appends UseStateForUnknown followed by the matching
+// removed-to-unknown modifier. It leaves required, default-bearing, and computed-only (server-managed)
+// attributes untouched, and does not descend into computed-only objects.
+func ApplyRemovedToUnknownModifiers(attributes map[string]schema.Attribute, skipAttrs []string, immutableAttrs []string) {
 	skip := make(map[string]bool, len(skipAttrs))
 	for _, name := range skipAttrs {
 		skip[name] = true
+	}
+	immutable := make(map[string]bool, len(immutableAttrs))
+	for _, name := range immutableAttrs {
+		immutable[name] = true
 	}
 	for name, attribute := range attributes {
 		if skip[name] {
@@ -941,32 +947,55 @@ func ApplyRemovedToNullModifiers(attributes map[string]schema.Attribute, skipAtt
 		switch a := attribute.(type) {
 		case schema.StringAttribute:
 			if a.Optional && a.Computed && a.Default == nil {
-				a.PlanModifiers = append(a.PlanModifiers, stringplanmodifier.UseStateForUnknown(), RemovedToNullString())
+				a.PlanModifiers = append(a.PlanModifiers, stringplanmodifier.UseStateForUnknown())
+				if !immutable[name] {
+					a.PlanModifiers = append(a.PlanModifiers, RemovedToUnknownString())
+				}
 				attributes[name] = a
 			}
 		case schema.BoolAttribute:
 			if a.Optional && a.Computed && a.Default == nil {
-				a.PlanModifiers = append(a.PlanModifiers, boolplanmodifier.UseStateForUnknown(), RemovedToNullBool())
+				a.PlanModifiers = append(a.PlanModifiers, boolplanmodifier.UseStateForUnknown())
+				if !immutable[name] {
+					a.PlanModifiers = append(a.PlanModifiers, RemovedToUnknownBool())
+				}
 				attributes[name] = a
 			}
 		case schema.Int64Attribute:
 			if a.Optional && a.Computed && a.Default == nil {
-				a.PlanModifiers = append(a.PlanModifiers, int64planmodifier.UseStateForUnknown(), RemovedToNullInt64())
+				a.PlanModifiers = append(a.PlanModifiers, int64planmodifier.UseStateForUnknown())
+				if !immutable[name] {
+					a.PlanModifiers = append(a.PlanModifiers, RemovedToUnknownInt64())
+				}
 				attributes[name] = a
 			}
 		case schema.ListAttribute:
 			if a.Optional && a.Computed && a.Default == nil {
-				a.PlanModifiers = append(a.PlanModifiers, listplanmodifier.UseStateForUnknown(), RemovedToNullList())
+				a.PlanModifiers = append(a.PlanModifiers, listplanmodifier.UseStateForUnknown())
+				if !immutable[name] {
+					a.PlanModifiers = append(a.PlanModifiers, RemovedToUnknownList())
+				}
 				attributes[name] = a
 			}
 		case schema.SetAttribute:
 			if a.Optional && a.Computed && a.Default == nil {
-				a.PlanModifiers = append(a.PlanModifiers, setplanmodifier.UseStateForUnknown(), RemovedToNullSet())
+				a.PlanModifiers = append(a.PlanModifiers, setplanmodifier.UseStateForUnknown())
+				if !immutable[name] {
+					a.PlanModifiers = append(a.PlanModifiers, RemovedToUnknownSet())
+				}
 				attributes[name] = a
 			}
 		case schema.MapAttribute:
 			if a.Optional && a.Computed && a.Default == nil {
-				a.PlanModifiers = append(a.PlanModifiers, mapplanmodifier.UseStateForUnknown(), RemovedToNullMap())
+				a.PlanModifiers = append(a.PlanModifiers, mapplanmodifier.UseStateForUnknown())
+				if !immutable[name] {
+					a.PlanModifiers = append(a.PlanModifiers, RemovedToUnknownMap())
+				}
+				attributes[name] = a
+			}
+		case schema.DynamicAttribute:
+			if a.Optional && a.Computed && a.Default == nil {
+				a.PlanModifiers = append(a.PlanModifiers, dynamicplanmodifier.UseStateForUnknown())
 				attributes[name] = a
 			}
 		case schema.SingleNestedAttribute:
@@ -974,36 +1003,48 @@ func ApplyRemovedToNullModifiers(attributes map[string]schema.Attribute, skipAtt
 				break
 			}
 			if a.Optional && a.Computed && a.Default == nil {
-				a.PlanModifiers = append(a.PlanModifiers, objectplanmodifier.UseStateForUnknown(), RemovedToNullObject())
+				a.PlanModifiers = append(a.PlanModifiers, objectplanmodifier.UseStateForUnknown())
+				if !immutable[name] {
+					a.PlanModifiers = append(a.PlanModifiers, RemovedToUnknownObject())
+				}
 			}
-			ApplyRemovedToNullModifiers(a.Attributes)
+			ApplyRemovedToUnknownModifiers(a.Attributes, nil, immutableAttrs)
 			attributes[name] = a
 		case schema.ListNestedAttribute:
 			if isComputedOnlyAttr(a.Optional, a.Required, a.Computed) {
 				break
 			}
 			if a.Optional && a.Computed && a.Default == nil {
-				a.PlanModifiers = append(a.PlanModifiers, listplanmodifier.UseStateForUnknown(), RemovedToNullList())
+				a.PlanModifiers = append(a.PlanModifiers, listplanmodifier.UseStateForUnknown())
+				if !immutable[name] {
+					a.PlanModifiers = append(a.PlanModifiers, RemovedToUnknownList())
+				}
 			}
-			ApplyRemovedToNullModifiers(a.NestedObject.Attributes)
+			ApplyRemovedToUnknownModifiers(a.NestedObject.Attributes, nil, immutableAttrs)
 			attributes[name] = a
 		case schema.SetNestedAttribute:
 			if isComputedOnlyAttr(a.Optional, a.Required, a.Computed) {
 				break
 			}
 			if a.Optional && a.Computed && a.Default == nil {
-				a.PlanModifiers = append(a.PlanModifiers, setplanmodifier.UseStateForUnknown(), RemovedToNullSet())
+				a.PlanModifiers = append(a.PlanModifiers, setplanmodifier.UseStateForUnknown())
+				if !immutable[name] {
+					a.PlanModifiers = append(a.PlanModifiers, RemovedToUnknownSet())
+				}
 			}
-			ApplyRemovedToNullModifiers(a.NestedObject.Attributes)
+			ApplyRemovedToUnknownModifiers(a.NestedObject.Attributes, nil, immutableAttrs)
 			attributes[name] = a
 		case schema.MapNestedAttribute:
 			if isComputedOnlyAttr(a.Optional, a.Required, a.Computed) {
 				break
 			}
 			if a.Optional && a.Computed && a.Default == nil {
-				a.PlanModifiers = append(a.PlanModifiers, mapplanmodifier.UseStateForUnknown(), RemovedToNullMap())
+				a.PlanModifiers = append(a.PlanModifiers, mapplanmodifier.UseStateForUnknown())
+				if !immutable[name] {
+					a.PlanModifiers = append(a.PlanModifiers, RemovedToUnknownMap())
+				}
 			}
-			ApplyRemovedToNullModifiers(a.NestedObject.Attributes)
+			ApplyRemovedToUnknownModifiers(a.NestedObject.Attributes, nil, immutableAttrs)
 			attributes[name] = a
 		}
 	}

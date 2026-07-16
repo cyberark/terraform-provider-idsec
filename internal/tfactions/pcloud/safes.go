@@ -42,6 +42,7 @@ func init() {
 					ComputedAttributes: []string{
 						"member_id",
 						"safe_number",
+						"safe_name",
 						"is_expired_membership_enabled",
 						"is_predefined_user",
 						"is_read_only",
@@ -50,6 +51,7 @@ func init() {
 						"search_in",
 						"member_name",
 						"member_type",
+						"safe_id",
 					},
 					StateSchema: &safesmodels.IdsecPCloudSafeMember{},
 				},
