@@ -3,8 +3,39 @@
 
 package actions
 
+import (
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	api "github.com/cyberark/idsec-sdk-golang/pkg"
+)
+
 // IdsecServiceActionOperation defines the operation type for an Idsec service action, such as create, read, update, delete, or state.
 type IdsecServiceActionOperation string
+
+// IdsecPlanValidator is the interface that plan-time API validators that are more complex than simple attribute checks.
+//
+// Implementors are registered on IdsecServiceTerraformResourceActionDefinition.PlanValidators
+// and invoked during ModifyPlan, after the provider has been configured and the IdsecAPI
+// client is ready. Add error diagnostics to resp to block the apply.
+//
+// Example implementation:
+//
+//	type safeMemberLimitValidator struct{}
+//
+//	func (v safeMemberLimitValidator) ValidatePlan(
+//	    ctx context.Context,
+//	    req resource.ModifyPlanRequest,
+//	    resp *resource.ModifyPlanResponse,
+//	    api *idsecapi.IdsecAPI,
+//	) {
+//	    // only block on create (state is null)
+//	    if !req.State.Raw.IsNull() { return }
+//	    // ... API call, count members, add error if over limit
+//	}
+type IdsecPlanValidator interface {
+	ValidatePlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse, api *api.IdsecAPI)
+}
 
 const (
 	CreateOperation IdsecServiceActionOperation = "create"
@@ -83,6 +114,7 @@ type IdsecServiceTerraformResourceActionDefinition struct {
 	SupportedOperations []IdsecServiceActionOperation
 	ActionsMappings     map[IdsecServiceActionOperation]string
 	ImportID            string
+	PlanValidators      []IdsecPlanValidator
 }
 
 // IdsecServiceTerraformDataSourceActionDefinition is a struct that defines the structure of a data source action in the Idsec Terraform provider.

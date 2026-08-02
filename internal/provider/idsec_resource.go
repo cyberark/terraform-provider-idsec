@@ -426,6 +426,22 @@ func (s *IdsecResource) Metadata(ctx context.Context, req resource.MetadataReque
 	resp.TypeName = fmt.Sprintf("%s_%s", req.ProviderTypeName, strings.ReplaceAll(s.actionDefinition.ActionName, "-", "_"))
 }
 
+// ModifyPlan implements resource.ResourceWithModifyPlan.
+func (s *IdsecResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if len(s.actionDefinition.PlanValidators) == 0 {
+		return
+	}
+	if s.idsecAPI == nil {
+		return
+	}
+	for _, v := range s.actionDefinition.PlanValidators {
+		v.ValidatePlan(ctx, req, resp, s.idsecAPI)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+}
+
 // ValidateConfig runs SDK struct-tag validation rules against the user's HCL config.
 func (s *IdsecResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
 	if req.Config.Raw.IsNull() || !req.Config.Raw.IsFullyKnown() {
