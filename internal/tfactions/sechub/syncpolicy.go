@@ -22,7 +22,6 @@ func init() {
 						ActionDescription: "Manage Sync Policy resource",
 						ActionVersion:     1,
 						Schemas:           actions.ActionToSchemaMap,
-						Enabled:           boolPtr(false),
 					},
 					ExtraRequiredAttributes: []string{},
 					ComputedAttributes: []string{
@@ -137,7 +136,6 @@ func init() {
 						ActionDescription: "Manage Sync Policy resource",
 						ActionVersion:     1,
 						Schemas:           actions.ActionToSchemaMap,
-						Enabled:           boolPtr(false),
 					},
 					ExtraRequiredAttributes: []string{
 						"id",

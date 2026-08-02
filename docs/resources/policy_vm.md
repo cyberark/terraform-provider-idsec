@@ -91,7 +91,7 @@ resource "idsec_policy_vm" "example_policy" {
 ### Optional
 
 - `behavior` (Attributes) The behavior of the VM access policy, including SSH and RDP profiles. (see [below for nested schema](#nestedatt--behavior))
-- `conditions` (Attributes) The time, session, and idle time conditions of the policy (see [below for nested schema](#nestedatt--conditions))
+- `conditions` (Attributes) The time, session, idle time, and dual control conditions of the policy (see [below for nested schema](#nestedatt--conditions))
 - `delegation_classification` (String) Indicates the user rights for the policy. Default: Unrestricted
 - `metadata` (Attributes) The policy metadata: ID, name, and additional information (see [below for nested schema](#nestedatt--metadata))
 - `principals` (Attributes List) The identity: user, group, role (see [below for nested schema](#nestedatt--principals))
@@ -147,9 +147,34 @@ Optional:
 
 Optional:
 
-- `access_window` (Attributes) The days and times when the user can connect to their target using this policy (see [below for nested schema](#nestedatt--conditions--access_window))
+- `access_approval` (Attributes) Determines whether additional approval (dual control) is required before access to a target for an eligible identity can be elevated. Supported for VM policies only, and not on all tenants -- if dual control isn't enabled for the tenant, the backend rejects the request with a clear error. Not supported for DB policies at all: setting required=true will cause DB policy creation or update to fail immediately. (see [below for nested schema](#nestedatt--conditions--access_approval))
+- `access_window` (Attributes) The days and times when the user can connect to their target using this policy, using 4-digit HH:MM hours (see [below for nested schema](#nestedatt--conditions--access_window))
 - `idle_time` (Number) The maximum idle time before the session ends, in minutes.
 - `max_session_duration` (Number) The maximum length of time (in hours) a user can remain connected in a single session. Default: 1
+
+<a id="nestedatt--conditions--access_approval"></a>
+### Nested Schema for `conditions.access_approval`
+
+Optional:
+
+- `approvers` (Attributes List) Up to 5 identities responsible for handling an access request. If empty, requests are sent to workspace delegates. (see [below for nested schema](#nestedatt--conditions--access_approval--approvers))
+- `required` (Boolean) Set to true if an identity requires additional approval to elevate access to a target defined in this policy; otherwise set to false.
+
+<a id="nestedatt--conditions--access_approval--approvers"></a>
+### Nested Schema for `conditions.access_approval.approvers`
+
+Required:
+
+- `id` (String) The unique identifier of the identity in Idira. An identity is a user, group, or role. maxLength: 40
+- `name` (String) The name of the principal. minLength: 1
+- `type` (String) The type of principal
+
+Optional:
+
+- `source_directory_id` (String) The unique identifier of the directory service. Required unless type is ROLE.
+- `source_directory_name` (String) The name of the directory service. Required unless type is ROLE. maxLength: 256.
+
+
 
 <a id="nestedatt--conditions--access_window"></a>
 ### Nested Schema for `conditions.access_window`
@@ -157,8 +182,8 @@ Optional:
 Optional:
 
 - `days_of_the_week` (Set of Number) The days of the week to include in the policy's access window, where Sunday=0, Monday=1,..., Saturday=6, comma-separated
-- `from_hour` (String) The start time of the policy's access window
-- `to_hour` (String) The end time of the policy's access window
+- `from_hour` (String) The start time of the policy's access window, in 4-digit HH:MM format
+- `to_hour` (String) The end time of the policy's access window, in 4-digit HH:MM format
 
 
 

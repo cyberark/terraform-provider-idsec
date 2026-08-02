@@ -34,8 +34,9 @@ const (
 // DocNote is a single custom documentation note injected into the generated
 // resource or data source documentation.
 type DocNote struct {
-	Severity DocNoteSeverity
-	Body     string
+	Severity       DocNoteSeverity
+	Body           string
+	BreakingChange bool
 }
 
 // IdsecServiceBaseActionDefinition is a struct that defines the base structure of a Terraform action definition.

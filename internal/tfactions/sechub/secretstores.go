@@ -20,7 +20,6 @@ func init() {
 						ActionDescription: "Manage Secrets Hub secret store resource that represent secret management systems, including their configuration and metadata",
 						ActionVersion:     1,
 						Schemas:           actions.ActionToSchemaMap,
-						Enabled:           boolPtr(false),
 					},
 					ExtraRequiredAttributes: []string{},
 					ComputedAttributes: []string{
@@ -81,7 +80,6 @@ func init() {
 						ActionDescription: "Secrets Hub secret store data source, reads secret store information and metadata, based on the Secret Store ID.",
 						ActionVersion:     1,
 						Schemas:           actions.ActionToSchemaMap,
-						Enabled:           boolPtr(false),
 					},
 					ExtraRequiredAttributes: []string{
 						"id",
@@ -95,8 +93,4 @@ func init() {
 			},
 		},
 	})
-}
-
-func boolPtr(b bool) *bool {
-	return &b
 }

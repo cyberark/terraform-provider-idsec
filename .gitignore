@@ -6,6 +6,10 @@ example.tf
 terraform.tfplan
 terraform.tfstate
 terraform-provider-idsec
+# Stray tool binaries if someone `go build`s a compat cmd instead of `go run`.
+/schemagate
+/schemaeffective
+/schemacompat
 dev.tfrc
 bin/
 dist/
@@ -55,3 +59,10 @@ go.local.sum
 internal/compat/candidate_schema.json
 internal/compat/compat_report.json
 internal/compat/baseline_schema.json
+internal/compat/compat_report_combined.txt
+
+# Layer 2 schema-effective artifacts (all generated at gate time; no committed golden).
+# effective_baseline.json is the "before" snapshot, rebuilt from the latest release tag by
+# schema-baseline-fetch (mirroring the Layer 1 baseline).
+internal/compat/effective_baseline.json
+internal/compat/effective_report.json

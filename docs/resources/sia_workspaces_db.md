@@ -40,26 +40,26 @@ resource "idsec_sia_workspaces_db" "example_db" {
 
 ### Optional
 
-- `account` (String) The account to be used for provider based databases such as Atlas.
-- `auth_database` (String) The authentication database used, most commonly used with MongoDB.
-- `certificate` (String) The certificate ID used for this database that resides in the certificates service.
-- `domain` (String) The domain where the database resides.
-- `domain_controller_enable_certificate_validation` (Boolean) Indicates whether to enforce certificate validation on TLS comm to the DC.
-- `domain_controller_ldaps_certificate` (String) The certificate ID to use for the domain controller TLS comm.
-- `domain_controller_name` (String) The domain controller name associated to this database.
-- `domain_controller_netbios` (String) The domain controller netbios associated to this database.
-- `domain_controller_use_ldaps` (Boolean) Indicates whether to work with secure LDAP.
-- `enable_certificate_validation` (Boolean) Indicates whether to enable and enforce certificate validation.
+- `account` (String) Account to be used for provider-managed databases. Not required for the currently supported database types.
+- `auth_database` (String) The authentication database used. Applies to MongoDB only.
+- `certificate` (String) The certificate ID used for this database that resides in the certificates service. Required when enableCertificateValidation is true (which is the default).
+- `domain` (String) The domain the DB resides in. Applies to Active Directory based authentication (MSSQL / DB2); required when configuredAuthMethodType is ad_ephemeral_user.
+- `domain_controller_enable_certificate_validation` (Boolean) Indicates whether to enforce certificate validation on TLS comm to the DC. Applies to Active Directory based authentication (MSSQL / DB2).
+- `domain_controller_ldaps_certificate` (String) The certificate ID to use for the domain controller TLS comm. Applies to Active Directory based authentication (MSSQL / DB2); required when both domainControllerUseLdaps and domainControllerEnableCertificateValidation are true.
+- `domain_controller_name` (String) The domain controller name associated to this database. Applies to Active Directory based authentication (MSSQL / DB2).
+- `domain_controller_netbios` (String) The domain controller netbios associated to this database. Applies to Active Directory based authentication (MSSQL / DB2).
+- `domain_controller_use_ldaps` (Boolean) Indicates whether to work with secure LDAP. Applies to Active Directory based authentication (MSSQL / DB2).
+- `enable_certificate_validation` (Boolean) Indicates whether to enable and enforce certificate validation. Defaults to true; when true, certificate is required.
 - `family` (String) The family of the database provider.
 - `id` (String) Database id to update
 - `new_name` (String) The new name for the database.
-- `platform` (String) The platform where the database resides, defaulted to on-premises
-- `port` (Number) The port of the database, if not given, the default will be used.
+- `platform` (String) The platform where the database resides, defaulted to on-premises. Supported values: AWS, AZURE, GCP, ON-PREMISE.
+- `port` (Number) The port of the database. Required for all supported database families; the family default is used when omitted.
 - `provider_engine` (String) The provider engine, will be later deduced to the identifier of the provider.
 - `read_only_endpoint` (String) The optional read-only endpoint of the database.
-- `region` (String) The region of the database, most commonly used with IAM authentication.
+- `region` (String) The region of the database. Applies to auto-discovered databases; required when configuredAuthMethodType is rds_iam_authentication.
 - `secret_id` (String) The secret identifier stored in the secret service related to this database.
-- `services` (List of String) The services related to the database, most commonly used with Oracle/SQL Server.
+- `services` (List of String) The services of the database. Applies to Oracle and MSSQL only; the item type differs per family (Oracle: SID/service-name strings, at least one required; MSSQL: service objects).
 
 
 

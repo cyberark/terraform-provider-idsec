@@ -152,7 +152,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.7"
+      version = ">= 0.8"
     }
     
     # For AWS modules - include this block
@@ -575,7 +575,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.7"
+      version = ">= 0.8"
     }
     aws = {
       source  = "hashicorp/aws"
