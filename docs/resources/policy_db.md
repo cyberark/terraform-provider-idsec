@@ -147,7 +147,7 @@ Optional:
 Required:
 
 - `location_type` (String) The location of the target: Cloud access: AWS, Azure, GCP; Infrastructure access: FQDN/IP
-- `target_category` (String) The category of the target: Cloud access: Cloud console, Groups; Infrastructure access: VM, DB
+- `target_category` (String) The category of the target: Cloud access: Cloud console, Groups; Infrastructure access: VM, DB; Kubernetes: Clusters
 
 Optional:
 

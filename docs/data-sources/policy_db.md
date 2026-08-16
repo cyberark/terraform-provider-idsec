@@ -107,7 +107,7 @@ Read-Only:
 
 - `location_type` (String) The location of the target: Cloud access: AWS, Azure, GCP; Infrastructure access: FQDN/IP
 - `policy_type` (String) Type of policy - recurring or on-demand
-- `target_category` (String) The category of the target: Cloud access: Cloud console, Groups; Infrastructure access: VM, DB
+- `target_category` (String) The category of the target: Cloud access: Cloud console, Groups; Infrastructure access: VM, DB; Kubernetes: Clusters
 
 
 <a id="nestedatt--metadata--status"></a>

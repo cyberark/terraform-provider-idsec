@@ -1,12 +1,12 @@
 ---
-page_title: "terraform-provider-idsec - idsec_policy_group_access"
+page_title: "terraform-provider-idsec - idsec_policy_k8s"
 subcategory: "Access Policy"
-description: Group Access Policy data source.
+description: Kubernetes cluster access policy data source.
 ---
 
-# idsec_policy_group_access (Data Source)
+# idsec_policy_k8s (Data Source)
 
-Group Access Policy data source.
+Kubernetes cluster access policy data source.
 <!-- BEGIN CUSTOM NOTES -->
 <!-- END CUSTOM NOTES -->
 
@@ -19,12 +19,12 @@ Group Access Policy data source.
 
 ### Read-Only
 
-- `conditions` (Attributes) The time and session conditions of the policy (see [below for nested schema](#nestedatt--conditions))
+- `conditions` (Attributes) The allowed session length, and the access window during which a session can be started. (see [below for nested schema](#nestedatt--conditions))
+- `connection_method` (String) The method used to connect to the cluster. A SIA connector for Kubernetes must be installed and configured, regardless of the connection method.
 - `delegation_classification` (String) Indicates the user rights for the policy. Default: Unrestricted
-- `invalid_resources` (Attributes) Invalid group resources encountered while evaluating the policy (see [below for nested schema](#nestedatt--invalid_resources))
 - `metadata` (Attributes) The policy metadata: ID, name, and additional information (see [below for nested schema](#nestedatt--metadata))
 - `principals` (Attributes List) The identity: user, group, role (see [below for nested schema](#nestedatt--principals))
-- `targets` (Attributes) Wrapper containing list of Entra group targets - mandatory. (see [below for nested schema](#nestedatt--targets))
+- `targets` (Attributes) Kubernetes cluster targets (see [below for nested schema](#nestedatt--targets))
 
 <a id="nestedatt--conditions"></a>
 ### Nested Schema for `conditions`
@@ -39,26 +39,9 @@ Read-Only:
 
 Read-Only:
 
-- `days_of_the_week` (List of Number) The days of the week to include in the policy's access window, where Sunday=0, Monday=1,..., Saturday=6, comma-separated
+- `days_of_the_week` (Set of Number) The days of the week to include in the policy's access window, where Sunday=0, Monday=1,..., Saturday=6, comma-separated
 - `from_hour` (String) The start time of the policy's access window
 - `to_hour` (String) The end time of the policy's access window
-
-
-
-<a id="nestedatt--invalid_resources"></a>
-### Nested Schema for `invalid_resources`
-
-Read-Only:
-
-- `groups` (Attributes List) List of invalid groups referenced by the policy (see [below for nested schema](#nestedatt--invalid_resources--groups))
-
-<a id="nestedatt--invalid_resources--groups"></a>
-### Nested Schema for `invalid_resources.groups`
-
-Read-Only:
-
-- `id` (String) Invalid group ID
-- `status` (String) Invalid group status (e.g., REMOVED, SUSPENDED)
 
 
 
@@ -142,20 +125,67 @@ Read-Only:
 <a id="nestedatt--targets"></a>
 ### Nested Schema for `targets`
 
-Read-Only:
+Optional:
 
-- `targets` (Attributes List) List of Entra group targets for group assignment policy - mandatory (see [below for nested schema](#nestedatt--targets--targets))
+- `aws_account_targets` (Attributes Set) AWS IAM K8s cluster target details (see [below for nested schema](#nestedatt--targets--aws_account_targets))
+- `aws_idc_targets` (Attributes Set) AWS Identity Center K8s cluster target details (see [below for nested schema](#nestedatt--targets--aws_idc_targets))
+- `azure_targets` (Attributes Set) Azure K8s cluster target details (see [below for nested schema](#nestedatt--targets--azure_targets))
 
-<a id="nestedatt--targets--targets"></a>
-### Nested Schema for `targets.targets`
+<a id="nestedatt--targets--aws_account_targets"></a>
+### Nested Schema for `targets.aws_account_targets`
 
-Read-Only:
+Optional:
 
-- `description` (String) Group description (read-only)
-- `directory_id` (String) Entra ID Directory ID (UUID)
-- `directory_name` (String) Entra ID Directory display name (read-only)
-- `group_id` (String) Entra Group ID (UUID)
-- `group_name` (String) Display name of the Entra group (read-only)
-- `group_type` (String) Type of the Entra group, e.g. security, microsoft365 (read-only)
+- `cluster_id` (String) The unique identifier of the cluster (cluster ARN).
+- `cluster_name` (String) The display name of the cluster.
+- `fqdn` (String) K8s cluster endpoint
+- `namespace_id` (String) The unique identifier of the Kubernetes namespace. Required only when scope is set to namespace.
+- `namespace_name` (String) The display name of the Kubernetes namespace. Required only when scope is set to namespace.
+- `region` (String) The AWS region where the EKS cluster is located.
+- `role_id` (String) The unique identifier assigned to the IAM role in AWS (IAM role ARN).
+- `role_name` (String) The display name of the IAM role.
+- `scope` (String) Indicates whether the role grants access to the entire cluster or to a specific namespace within the cluster.
+- `workspace_id` (String) The unique identifier created for the AWS account in Idira when it was connected.
+- `workspace_name` (String) The display name of the AWS account in Idira.
+
+
+<a id="nestedatt--targets--aws_idc_targets"></a>
+### Nested Schema for `targets.aws_idc_targets`
+
+Optional:
+
+- `cluster_id` (String) The unique identifier of the cluster (cluster ARN).
+- `cluster_name` (String) The display name of the cluster.
+- `fqdn` (String) K8s cluster endpoint
+- `namespace_id` (String) The unique identifier of the Kubernetes namespace. Required only when scope is set to namespace.
+- `namespace_name` (String) The display name of the Kubernetes namespace. Required only when scope is set to namespace.
+- `org_id` (String) Management account ID (required only for AWS IAM Identity Center).
+- `region` (String) The AWS region where the EKS cluster is located.
+- `role_id` (String) The unique identifier assigned to the IAM role in AWS (IAM role ARN).
+- `role_name` (String) The display name of the IAM role.
+- `scope` (String) Indicates whether the role grants access to the entire cluster or to a specific namespace within the cluster.
+- `workspace_id` (String) The unique identifier created for the AWS account in Idira when it was connected.
+- `workspace_name` (String) The display name of the AWS account in Idira.
+
+
+<a id="nestedatt--targets--azure_targets"></a>
+### Nested Schema for `targets.azure_targets`
+
+Optional:
+
+- `cluster_id` (String) The unique identifier of the cluster (cluster ARN).
+- `cluster_name` (String) The display name of the cluster.
+- `fqdn` (String) K8s cluster endpoint
+- `namespace_id` (String) The unique identifier of the Kubernetes namespace. Required only when scope is set to namespace.
+- `namespace_name` (String) The display name of the Kubernetes namespace. Required only when scope is set to namespace.
+- `org_id` (String) Azure directory ID (UUID).
+- `region` (String) The AWS region where the EKS cluster is located.
+- `role_id` (String) The unique identifier assigned to the IAM role in AWS (IAM role ARN).
+- `role_name` (String) The display name of the IAM role.
+- `role_type` (Number) Indicates whether the role is a built-in role ('0') or a custom role ('1')
+- `scope` (String) Indicates whether the role grants access to the entire cluster or to a specific namespace within the cluster.
+- `workspace_id` (String) The unique identifier created for the AWS account in Idira when it was connected.
+- `workspace_name` (String) The display name of the AWS account in Idira.
+- `workspace_type` (String) The scope level at which the Microsoft Entra tenant was connected to Idira. For AKS clusters access policies, this value must be set to resource
 
 

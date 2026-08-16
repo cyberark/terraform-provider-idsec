@@ -66,10 +66,12 @@ resource "idsec_sechub_secret_store" "example_hashi" {
   behaviors   = ["SECRETS_TARGET"]
 
   data = {
-    hashi_vault_url     = "https://vault.example.com"
-    mount_path          = "secret"
-    role_name           = "secrets-hub-role"
-    authentication_path = "auth/jwt/login"
+    hashi_vault_url = "https://vault.example.com"
+    # Mount path must include a trailing slash, following the HashiCorp Vault convention (e.g. "secret/", "kv/")
+    mount_path = "secret/"
+    role_name  = "secrets-hub-role"
+    # Authentication path must include a trailing slash, following the HashiCorp Vault convention (e.g. "auth/jwt/login/")
+    authentication_path = "auth/jwt/login/"
 
     connection_config = {
       connection_type   = "CONNECTOR"
