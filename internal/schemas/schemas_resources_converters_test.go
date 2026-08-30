@@ -5,9 +5,11 @@ package schemas
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
 
@@ -169,24 +171,46 @@ func TestGetNestedStructFieldNames(t *testing.T) {
 	}
 }
 
+// TestGenerateResourceSchemaFromStruct_ReturnsNoDiagnostics asserts that generating a schema from
+// an ordinary model leaves the returned diagnostics empty. No post-pass raises any yet, so this
+// pins the contract callers rely on: a non-empty result means a real schema-declaration problem
+// rather than routine noise they have to filter.
+func TestGenerateResourceSchemaFromStruct_ReturnsNoDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	type noDiagsNested struct {
+		Inner string `tfsdk:"inner"`
+	}
+	type noDiagsModel struct {
+		Name   string        `tfsdk:"name"`
+		Nested noDiagsNested `tfsdk:"nested"`
+	}
+
+	_, diags := GenerateResourceSchemaFromStruct(&noDiagsModel{}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+
+	if len(diags) != 0 {
+		t.Fatalf("expected zero diagnostics, got %d: %+v", len(diags), diags)
+	}
+}
+
 // TestGenerateResourceSchemaFromStruct tests the GenerateResourceSchemaFromStruct function.
 func TestGenerateResourceSchemaFromStruct(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                 string
-		createModel          interface{}
-		updateModel          interface{}
-		stateModel           interface{}
-		sensitiveAttrs       []string
-		extraRequiredAttrs   []string
-		computedAsSetAttrs   []string
-		immutableAttrs       []string
-		forceNewAttrs        []string
-		computedAttrs        []string
-		caseInsensitiveAttrs []string
-		validateFunc         func(t *testing.T, result schema.Schema)
-		expectedError        bool
+		name                  string
+		createModel           interface{}
+		updateModel           interface{}
+		stateModel            interface{}
+		sensitiveAttrs        []string
+		extraRequiredAttrs    []string
+		computedAsSetAttrs    []string
+		immutableAttrs        []string
+		forceNewAttrs         []string
+		computedAttrs         []string
+		semanticEqualityAttrs map[string]SemanticEqualityKind
+		validateFunc          func(t *testing.T, result schema.Schema)
+		expectedError         bool
 	}{
 		{
 			name:        "success_basic_models_without_nested_conflicts",
@@ -325,11 +349,11 @@ func TestGenerateResourceSchemaFromStruct(t *testing.T) {
 			},
 		},
 		{
-			name:                 "success_case_insensitive_attribute_gets_plan_modifier",
-			createModel:          &testCreateModel{},
-			updateModel:          &testUpdateModel{},
-			stateModel:           &testStateModel{},
-			caseInsensitiveAttrs: []string{"root_level_field"},
+			name:                  "success_case_insensitive_attribute_gets_plan_modifier",
+			createModel:           &testCreateModel{},
+			updateModel:           &testUpdateModel{},
+			stateModel:            &testStateModel{},
+			semanticEqualityAttrs: map[string]SemanticEqualityKind{"root_level_field": SemanticEqualityCaseInsensitive},
 			validateFunc: func(t *testing.T, result schema.Schema) {
 				attr, ok := result.Attributes["root_level_field"].(schema.StringAttribute)
 				if !ok {
@@ -412,7 +436,7 @@ func TestGenerateResourceSchemaFromStruct(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			result := GenerateResourceSchemaFromStruct(
+			result, _ := GenerateResourceSchemaFromStruct(
 				tt.createModel,
 				tt.updateModel,
 				tt.stateModel,
@@ -422,7 +446,8 @@ func TestGenerateResourceSchemaFromStruct(t *testing.T) {
 				tt.immutableAttrs,
 				tt.forceNewAttrs,
 				tt.computedAttrs,
-				tt.caseInsensitiveAttrs,
+				tt.semanticEqualityAttrs,
+				nil, // writeOnlyAttrs
 			)
 
 			// Validate result
@@ -486,7 +511,7 @@ func TestGenerateResourceSchemaFromStructNestedStructRemoval(t *testing.T) {
 		RootLevelField: "root",
 	}
 
-	result := GenerateResourceSchemaFromStruct(
+	result, _ := GenerateResourceSchemaFromStruct(
 		createModel,
 		updateModel,
 		stateModel,
@@ -496,7 +521,8 @@ func TestGenerateResourceSchemaFromStructNestedStructRemoval(t *testing.T) {
 		nil, // immutableAttrs
 		nil, // forceNewAttrs
 		nil, // computedAttrs
-		nil,
+		nil, // semanticEqualityAttrs
+		nil, // writeOnlyAttrs
 	)
 
 	// Verify nested structs exist
@@ -556,7 +582,7 @@ func TestGenerateResourceSchemaFromStructWithSquashedStateModel(t *testing.T) {
 		RegularField: "regular",
 	}
 
-	result := GenerateResourceSchemaFromStruct(
+	result, _ := GenerateResourceSchemaFromStruct(
 		createModel,
 		nil,
 		stateModel,
@@ -566,7 +592,8 @@ func TestGenerateResourceSchemaFromStructWithSquashedStateModel(t *testing.T) {
 		nil,
 		nil, // forceNewAttrs
 		nil, // computedAttrs
-		nil,
+		nil, // semanticEqualityAttrs
+		nil, // writeOnlyAttrs
 	)
 
 	// When state model has squashed fields, they should appear at root level
@@ -632,7 +659,7 @@ func TestGenerateResourceSchemaFromStructWithAttributeConflict(t *testing.T) {
 		},
 	}
 
-	result := GenerateResourceSchemaFromStruct(
+	result, _ := GenerateResourceSchemaFromStruct(
 		createModel,
 		updateModel,
 		stateModel,
@@ -642,7 +669,8 @@ func TestGenerateResourceSchemaFromStructWithAttributeConflict(t *testing.T) {
 		nil, // immutableAttrs
 		nil, // forceNewAttrs
 		nil, // computedAttrs
-		nil,
+		nil, // semanticEqualityAttrs
+		nil, // writeOnlyAttrs
 	)
 
 	// Verify that nested_struct exists
@@ -789,7 +817,7 @@ func int64Ptr(v int64) *int64 {
 func TestGenerateResourceSchemaFromStructMinMaxLengthTags(t *testing.T) {
 	t.Parallel()
 
-	result := GenerateResourceSchemaFromStruct(
+	result, _ := GenerateResourceSchemaFromStruct(
 		&testMinMaxCreateModel{},
 		nil,
 		nil,
@@ -799,7 +827,8 @@ func TestGenerateResourceSchemaFromStructMinMaxLengthTags(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		nil, // semanticEqualityAttrs
+		nil, // writeOnlyAttrs
 	)
 
 	tests := []struct {
@@ -1006,7 +1035,7 @@ type testMinMaxBoundsModel struct {
 func TestMinMaxLengthValidatorsAttachedHaveCorrectDescriptions(t *testing.T) {
 	t.Parallel()
 
-	result := GenerateResourceSchemaFromStruct(
+	result, _ := GenerateResourceSchemaFromStruct(
 		&testMinMaxBoundsModel{},
 		nil,
 		nil,
@@ -1016,7 +1045,8 @@ func TestMinMaxLengthValidatorsAttachedHaveCorrectDescriptions(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		nil, // semanticEqualityAttrs
+		nil, // writeOnlyAttrs
 	)
 
 	ctx := context.Background()
@@ -1092,4 +1122,132 @@ func TestMinMaxLengthValidatorsAttachedHaveCorrectDescriptions(t *testing.T) {
 			t.Error("expected non-empty markdown description")
 		}
 	})
+}
+
+// TestApplySemanticEqualityModifier verifies that applySemanticEqualityModifier attaches the
+// registered modifier for a tagged field's kind, prepending kinds that must run before
+// ImmutableString (e.g. SemanticEqualityTrailingSlash) and appending others (e.g.
+// SemanticEqualityCaseInsensitive), and leaves the list unchanged for untagged fields or
+// unknown kinds.
+func TestApplySemanticEqualityModifier(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                  string
+		existing              []planmodifier.String
+		fieldName             string
+		semanticEqualityAttrs map[string]SemanticEqualityKind
+		wantLen               int
+		wantFirst             bool // true = first modifier should be the registered kind's modifier
+		wantKind              SemanticEqualityKind
+	}{
+		{
+			name:                  "trailing_slash_kind_prepends_modifier",
+			existing:              []planmodifier.String{ImmutableString()},
+			fieldName:             "mount_path",
+			semanticEqualityAttrs: map[string]SemanticEqualityKind{"mount_path": SemanticEqualityTrailingSlash},
+			wantLen:               2,
+			wantFirst:             true,
+			wantKind:              SemanticEqualityTrailingSlash,
+		},
+		{
+			name:                  "case_insensitive_kind_prepends_modifier",
+			existing:              []planmodifier.String{ImmutableString()},
+			fieldName:             "username",
+			semanticEqualityAttrs: map[string]SemanticEqualityKind{"username": SemanticEqualityCaseInsensitive},
+			wantLen:               2,
+			wantFirst:             true,
+			wantKind:              SemanticEqualityCaseInsensitive,
+		},
+		{
+			name:                  "field_not_tagged_returns_unchanged",
+			existing:              []planmodifier.String{ImmutableString()},
+			fieldName:             "other_field",
+			semanticEqualityAttrs: map[string]SemanticEqualityKind{"mount_path": SemanticEqualityTrailingSlash},
+			wantLen:               1,
+			wantFirst:             false,
+		},
+		{
+			name:                  "unknown_kind_returns_unchanged",
+			existing:              []planmodifier.String{ImmutableString()},
+			fieldName:             "mount_path",
+			semanticEqualityAttrs: map[string]SemanticEqualityKind{"mount_path": SemanticEqualityKind("unknown")},
+			wantLen:               1,
+			wantFirst:             false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := applySemanticEqualityModifier(tt.existing, tt.fieldName, tt.semanticEqualityAttrs)
+
+			if len(result) != tt.wantLen {
+				t.Errorf("expected %d modifier(s), got %d", tt.wantLen, len(result))
+			}
+			if tt.wantFirst {
+				got := result[0]
+				want := semanticEqualityRegistry[tt.wantKind].modifier()
+				if fmt.Sprintf("%T", got) != fmt.Sprintf("%T", want) {
+					t.Errorf("expected first modifier to be %T, got %T", want, got)
+				}
+			}
+		})
+	}
+}
+
+// TestSemanticEqualityModifierPrecedesImmutableInGeneratedSchema verifies the prepend invariant
+// through the full schema-generation pipeline: a field tagged with both ImmutableAttributes and
+// SemanticEqualityTrailingSlash must have the trailing-slash modifier at position 0 and
+// ImmutableStringModifier at position 1 in the generated attribute's PlanModifiers list.
+// This guards against regressions where a reordering of the converter's modifier-assembly
+// statements would silently break the fix even though unit tests on the helper still pass.
+func TestSemanticEqualityModifierPrecedesImmutableInGeneratedSchema(t *testing.T) {
+	t.Parallel()
+
+	type mountModel struct {
+		MountPath string `mapstructure:"mount_path"`
+	}
+
+	result, diags := GenerateResourceSchemaFromStruct(
+		&mountModel{},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		[]string{"mount_path"},
+		nil,
+		nil,
+		map[string]SemanticEqualityKind{"mount_path": SemanticEqualityTrailingSlash},
+		nil,
+	)
+	if diags.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", diags)
+	}
+
+	attr, ok := result.Attributes["mount_path"]
+	if !ok {
+		t.Fatal("mount_path attribute not found in generated schema")
+	}
+	strAttr, ok := attr.(schema.StringAttribute)
+	if !ok {
+		t.Fatalf("mount_path is %T, expected schema.StringAttribute", attr)
+	}
+
+	mods := strAttr.PlanModifiers
+	if len(mods) < 2 {
+		t.Fatalf("expected at least 2 plan modifiers, got %d: %v", len(mods), mods)
+	}
+
+	wantFirst := fmt.Sprintf("%T", TrailingSlashEqualString())
+	wantSecond := fmt.Sprintf("%T", ImmutableString())
+
+	if gotFirst := fmt.Sprintf("%T", mods[0]); gotFirst != wantFirst {
+		t.Errorf("modifier[0] = %v, want %v (trailing-slash must precede immutable)", gotFirst, wantFirst)
+	}
+	if gotSecond := fmt.Sprintf("%T", mods[1]); gotSecond != wantSecond {
+		t.Errorf("modifier[1] = %v, want %v", gotSecond, wantSecond)
+	}
 }

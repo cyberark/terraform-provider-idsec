@@ -153,30 +153,29 @@ func (m ImmutableStringModifier) PlanModifyString(ctx context.Context, req planm
 	)
 }
 
-// CaseInsensitiveStringModifier compares planned and prior string values with strings.EqualFold.
-// When they match under case-folding but differ in exact spelling, the planned value is replaced
-// with the state value so Terraform does not show a cosmetic update. Semantic changes are left
-// unchanged and never produce diagnostics from this modifier.
-type CaseInsensitiveStringModifier struct{}
-
-// CaseInsensitiveString returns a plan modifier that normalizes case-only string differences
-// against the value in state. It does not block or validate updates.
-func CaseInsensitiveString() planmodifier.String {
-	return CaseInsensitiveStringModifier{}
+// semanticEqualStringModifier normalizes a planned string value back to the prior state's exact
+// form when the two are equal under a semantic-equality rule (e.g. case-folding, trailing slash),
+// so Terraform does not surface a cosmetic diff. Values that differ even after the rule is applied
+// are left untouched and never produce diagnostics from this modifier.
+type semanticEqualStringModifier struct {
+	// semanticEqual reports whether state and plan are equal under the modifier's rule.
+	semanticEqual       func(state, plan string) bool
+	description         string
+	markdownDescription string
 }
 
 // Description returns a human-readable description of the plan modifier.
-func (m CaseInsensitiveStringModifier) Description(_ context.Context) string {
-	return "When the planned value equals the state value ignoring letter case, the plan uses the state's spelling."
+func (m semanticEqualStringModifier) Description(_ context.Context) string {
+	return m.description
 }
 
 // MarkdownDescription returns a markdown-formatted description of the plan modifier.
-func (m CaseInsensitiveStringModifier) MarkdownDescription(_ context.Context) string {
-	return "If the planned value matches state under **case-insensitive** comparison (`EqualFold`), the plan is updated to match state's exact casing. Other changes are not altered."
+func (m semanticEqualStringModifier) MarkdownDescription(_ context.Context) string {
+	return m.markdownDescription
 }
 
-// PlanModifyString normalizes the plan when state and plan are equal under strings.EqualFold.
-func (m CaseInsensitiveStringModifier) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+// PlanModifyString normalizes the plan to the state value when both are equal under semanticEqual.
+func (m semanticEqualStringModifier) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
 	if req.State.Raw.IsNull() {
 		return
 	}
@@ -189,20 +188,79 @@ func (m CaseInsensitiveStringModifier) PlanModifyString(_ context.Context, req p
 	if req.Plan.Raw.IsNull() {
 		return
 	}
-
 	if req.StateValue.IsNull() || req.PlanValue.IsNull() {
 		return
 	}
-
 	if req.PlanValue.Equal(req.StateValue) {
 		return
 	}
-
-	stateStr := req.StateValue.ValueString()
-	planStr := req.PlanValue.ValueString()
-	if strings.EqualFold(stateStr, planStr) {
+	if m.semanticEqual(req.StateValue.ValueString(), req.PlanValue.ValueString()) {
 		resp.PlanValue = req.StateValue
 	}
+}
+
+// CaseInsensitiveStringModifier compares planned and prior string values with strings.EqualFold.
+// When they match under case-folding but differ in exact spelling, the planned value is replaced
+// with the state value so Terraform does not show a cosmetic update. Semantic changes are left
+// unchanged and never produce diagnostics from this modifier.
+type caseInsensitiveStringModifier struct {
+	semanticEqualStringModifier
+}
+
+// CaseInsensitiveString returns a plan modifier that normalizes case-only string differences
+// against the value in state. It does not block or validate updates.
+func CaseInsensitiveString() planmodifier.String {
+	return caseInsensitiveStringModifier{semanticEqualStringModifier{
+		semanticEqual:       strings.EqualFold,
+		description:         "When the planned value equals the state value ignoring letter case, the plan uses the state's spelling.",
+		markdownDescription: "If the planned value matches state under **case-insensitive** comparison (`EqualFold`), the plan is updated to match state's exact casing. Other changes are not altered.",
+	}}
+}
+
+// TrailingSlashEqualStringModifier treats a trailing slash as semantically insignificant.
+// When plan and state values are equal after stripping a trailing slash from both sides,
+// the plan is updated to match the state value exactly so Terraform sees no diff.
+// This reflects the API convention of silently appending a trailing slash to path-like fields.
+type trailingSlashEqualStringModifier struct {
+	semanticEqualStringModifier
+}
+
+// TrailingSlashEqualString returns a plan modifier that suppresses diffs caused solely
+// by a trailing slash on path-like string attributes.
+func TrailingSlashEqualString() planmodifier.String {
+	return trailingSlashEqualStringModifier{semanticEqualStringModifier{
+		semanticEqual: func(state, plan string) bool {
+			return strings.TrimSuffix(state, "/") == strings.TrimSuffix(plan, "/")
+		},
+		description:         "When the planned value equals the state value ignoring a trailing slash, the plan uses the state's exact form.",
+		markdownDescription: "If the planned value matches state after stripping a trailing `/` from both sides, the plan is updated to match state's exact form. Other changes are not altered.",
+	}}
+}
+
+// SemanticEqualityKind identifies a registered semantic-equality plan-modifier rule by name, for use
+// in resource action definitions that tag attributes by field name (see SemanticEqualityRegistry).
+type SemanticEqualityKind string
+
+const (
+	// SemanticEqualityCaseInsensitive normalizes plan-vs-state diffs that differ only in letter case.
+	SemanticEqualityCaseInsensitive SemanticEqualityKind = "case_insensitive"
+	// SemanticEqualityTrailingSlash normalizes plan-vs-state diffs that differ only in a trailing slash.
+	SemanticEqualityTrailingSlash SemanticEqualityKind = "trailing_slash"
+)
+
+// semanticEqualityEntry pairs a semantic-equality modifier constructor with whether it must run
+// before ImmutableString/RequiresReplace so the plan value is normalized before those checks see it.
+type semanticEqualityEntry struct {
+	modifier               func() planmodifier.String
+	runsBeforeImmutability bool
+}
+
+// semanticEqualityRegistry maps each SemanticEqualityKind to its plan modifier. Adding a new kind of
+// semantic equality (e.g. a new normalization rule) only requires a new entry here plus a new constant
+// above — resourceSchemaAttrsFromStruct's wiring is generic and needs no changes.
+var semanticEqualityRegistry = map[SemanticEqualityKind]semanticEqualityEntry{
+	SemanticEqualityCaseInsensitive: {modifier: CaseInsensitiveString, runsBeforeImmutability: true},
+	SemanticEqualityTrailingSlash:   {modifier: TrailingSlashEqualString, runsBeforeImmutability: true},
 }
 
 // SetNestedStableModifier suppresses spurious diffs for set-based nested attributes whose
@@ -923,6 +981,90 @@ func collectComputedOnlyAttributePaths(attributes map[string]schema.Attribute, p
 				continue
 			}
 			collectComputedOnlyAttributePaths(a.NestedObject.Attributes, path, paths)
+		}
+	}
+}
+
+// isDefaultBearingOptionalComputedAttr reports whether an attribute is Optional+Computed with a
+// non-nil Default — the same class ApplyRemovedToUnknownModifiers skips via its a.Default == nil
+// guard. Such fields must be skipped symmetrically at apply-time in ClearRemovedAttributes.
+func isDefaultBearingOptionalComputedAttr(optional, required, computed, hasDefault bool) bool {
+	return optional && computed && !required && hasDefault
+}
+
+// DefaultBearingOptionalComputedPaths returns dotted paths of attributes that are
+// Optional+Computed with a non-nil Default. These paths must be excluded from
+// ClearRemovedAttributes, mirroring the plan-time Default==nil guard in
+// ApplyRemovedToUnknownModifiers.
+func DefaultBearingOptionalComputedPaths(attributes map[string]schema.Attribute) []string {
+	if len(attributes) == 0 {
+		return nil
+	}
+	paths := map[string]bool{}
+	collectDefaultBearingOptionalComputedPaths(attributes, "", paths)
+	out := make([]string, 0, len(paths))
+	for path := range paths {
+		out = append(out, path)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func collectDefaultBearingOptionalComputedPaths(attributes map[string]schema.Attribute, prefix string, paths map[string]bool) {
+	for name, attribute := range attributes {
+		path := name
+		if prefix != "" {
+			path = prefix + "." + name
+		}
+		switch a := attribute.(type) {
+		case schema.StringAttribute:
+			if isDefaultBearingOptionalComputedAttr(a.Optional, a.Required, a.Computed, a.Default != nil) {
+				paths[path] = true
+			}
+		case schema.BoolAttribute:
+			if isDefaultBearingOptionalComputedAttr(a.Optional, a.Required, a.Computed, a.Default != nil) {
+				paths[path] = true
+			}
+		case schema.Int64Attribute:
+			if isDefaultBearingOptionalComputedAttr(a.Optional, a.Required, a.Computed, a.Default != nil) {
+				paths[path] = true
+			}
+		case schema.ListAttribute:
+			if isDefaultBearingOptionalComputedAttr(a.Optional, a.Required, a.Computed, a.Default != nil) {
+				paths[path] = true
+			}
+		case schema.SetAttribute:
+			if isDefaultBearingOptionalComputedAttr(a.Optional, a.Required, a.Computed, a.Default != nil) {
+				paths[path] = true
+			}
+		case schema.MapAttribute:
+			if isDefaultBearingOptionalComputedAttr(a.Optional, a.Required, a.Computed, a.Default != nil) {
+				paths[path] = true
+			}
+		case schema.SingleNestedAttribute:
+			if isDefaultBearingOptionalComputedAttr(a.Optional, a.Required, a.Computed, a.Default != nil) {
+				paths[path] = true
+				continue
+			}
+			collectDefaultBearingOptionalComputedPaths(a.Attributes, path, paths)
+		case schema.ListNestedAttribute:
+			if isDefaultBearingOptionalComputedAttr(a.Optional, a.Required, a.Computed, a.Default != nil) {
+				paths[path] = true
+				continue
+			}
+			collectDefaultBearingOptionalComputedPaths(a.NestedObject.Attributes, path, paths)
+		case schema.SetNestedAttribute:
+			if isDefaultBearingOptionalComputedAttr(a.Optional, a.Required, a.Computed, a.Default != nil) {
+				paths[path] = true
+				continue
+			}
+			collectDefaultBearingOptionalComputedPaths(a.NestedObject.Attributes, path, paths)
+		case schema.MapNestedAttribute:
+			if isDefaultBearingOptionalComputedAttr(a.Optional, a.Required, a.Computed, a.Default != nil) {
+				paths[path] = true
+				continue
+			}
+			collectDefaultBearingOptionalComputedPaths(a.NestedObject.Attributes, path, paths)
 		}
 	}
 }

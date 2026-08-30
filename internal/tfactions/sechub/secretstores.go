@@ -7,6 +7,7 @@ import (
 	"github.com/cyberark/idsec-sdk-golang/pkg/services/sechub/secretstores/actions"
 	secretstoresmodels "github.com/cyberark/idsec-sdk-golang/pkg/services/sechub/secretstores/models"
 	tfactions "github.com/cyberark/terraform-provider-idsec/internal/actions"
+	"github.com/cyberark/terraform-provider-idsec/internal/schemas"
 )
 
 func init() {
@@ -53,6 +54,10 @@ func init() {
 					},
 					SensitiveAttributes: []string{
 						"password",
+					},
+					SemanticEqualityAttributes: map[string]schemas.SemanticEqualityKind{
+						"mount_path":          schemas.SemanticEqualityTrailingSlash,
+						"authentication_path": schemas.SemanticEqualityTrailingSlash,
 					},
 					StateSchema: &secretstoresmodels.IdsecSecHubSecretStore{},
 				},

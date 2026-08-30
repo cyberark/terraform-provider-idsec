@@ -28,6 +28,7 @@ resource "idsec_pcloud_account" "example_account" {
 
 ### Required
 
+- `platform_id` (String) The platform assigned to this account
 - `safe_name` (String) The Safe where the account will be created
 
 ### Optional
@@ -38,7 +39,6 @@ resource "idsec_pcloud_account" "example_account" {
 - `manual_management_reason` (String) The reason for disabling automatic management
 - `name` (String) Name of the account
 - `platform_account_properties` (Dynamic) The object containing key-value pairs to associate with the account, as defined by the account platform. Optional properties that do not exist or internal properties are not returned
-- `platform_id` (String) The platform assigned to this account
 - `remote_machines` (List of String) List of remote machines that the account can access, separated by semicolons
 - `secret` (String, Sensitive) The secret value.
 - `secret_file` (String) The path to the secret file.

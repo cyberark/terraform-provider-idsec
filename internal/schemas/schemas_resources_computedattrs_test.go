@@ -62,7 +62,7 @@ func nestedIDAttr(t *testing.T, attrs map[string]schema.Attribute, parent string
 func TestGenerateResourceSchema_BareComputedNameIsTopLevelOnly(t *testing.T) {
 	t.Parallel()
 
-	s := GenerateResourceSchemaFromStruct(
+	s, _ := GenerateResourceSchemaFromStruct(
 		&computedAttrsModel{},
 		nil,
 		nil,
@@ -72,7 +72,8 @@ func TestGenerateResourceSchema_BareComputedNameIsTopLevelOnly(t *testing.T) {
 		nil,
 		nil,
 		[]string{"id"},
-		nil,
+		nil, // semanticEqualityAttrs
+		nil, // writeOnlyAttrs
 	)
 
 	if !attrIsReadOnly(s.Attributes["id"]) {
@@ -92,7 +93,7 @@ func TestGenerateResourceSchema_BareComputedNameIsTopLevelOnly(t *testing.T) {
 func TestGenerateResourceSchema_DottedComputedPathTargetsNestedOnly(t *testing.T) {
 	t.Parallel()
 
-	s := GenerateResourceSchemaFromStruct(
+	s, _ := GenerateResourceSchemaFromStruct(
 		&computedAttrsModel{},
 		nil,
 		nil,
@@ -102,7 +103,8 @@ func TestGenerateResourceSchema_DottedComputedPathTargetsNestedOnly(t *testing.T
 		nil,
 		nil,
 		[]string{"source.id"},
-		nil,
+		nil, // semanticEqualityAttrs
+		nil, // writeOnlyAttrs
 	)
 
 	if !attrIsSettable(s.Attributes["id"]) {

@@ -6,8 +6,10 @@ package provider
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -646,5 +648,89 @@ func TestIdsecResource_seedUserSetHistoryFromState(t *testing.T) {
 	got = schemas.ReadUserSetPaths(context.Background(), private)
 	if !reflect.DeepEqual(got, map[string]bool{"existing_path": true}) {
 		t.Fatalf("existing history should be preserved, got %v", got)
+	}
+}
+
+// TestIdsecResource_recordUserSetHistory_excludesWriteOnlyValueFromPrivateState asserts that
+// private state records attribute paths and never values. Private state is somewhere a secret
+// could leak unnoticed, since none of it is rendered to a practitioner the way state is.
+func TestIdsecResource_recordUserSetHistory_excludesWriteOnlyValueFromPrivateState(t *testing.T) {
+	t.Parallel()
+
+	const secretLiteral = "distinctive-super-secret-literal-42"
+	actionDef := &actions.IdsecServiceTerraformResourceActionDefinition{
+		WriteOnlyAttributes: map[string]string{"secret": "trigger"},
+	}
+	idsecRes := &IdsecResource{actionDefinition: actionDef}
+
+	config := &tfsdk.Config{
+		Schema: schema.Schema{Attributes: map[string]schema.Attribute{
+			"secret":  schema.StringAttribute{Optional: true, WriteOnly: true},
+			"trigger": schema.StringAttribute{Optional: true},
+		}},
+		Raw: stringObjectValue(map[string]tftypes.Value{
+			"secret":  knownString(secretLiteral),
+			"trigger": knownString("v1"),
+		}),
+	}
+
+	private := &testPrivateData{}
+	var diagnostics diag.Diagnostics
+	idsecRes.recordUserSetHistory(context.Background(), config, private, &diagnostics)
+	if diagnostics.HasError() {
+		t.Fatalf("unexpected diagnostics errors: %v", diagnostics.Errors())
+	}
+
+	blob := private.data[schemas.UserSetAttrsPrivateKey]
+	if len(blob) == 0 {
+		t.Fatalf("expected private state to be written")
+	}
+	if !strings.Contains(string(blob), "secret") {
+		t.Errorf("expected private-state blob to record the attribute path %q, got %s", "secret", blob)
+	}
+	if strings.Contains(string(blob), secretLiteral) {
+		t.Fatalf("private-state blob leaked the secret literal: %s", blob)
+	}
+}
+
+// TestIdsecResource_nullWriteOnlyAttributesInState exercises the defensive nulling for the case
+// it exists for: a state model that echoes the write-only value back.
+func TestIdsecResource_nullWriteOnlyAttributesInState(t *testing.T) {
+	t.Parallel()
+
+	const secretLiteral = "echoed-back-secret-literal-99"
+	actionDef := &actions.IdsecServiceTerraformResourceActionDefinition{
+		WriteOnlyAttributes: map[string]string{"secret": "trigger"},
+	}
+	idsecRes := &IdsecResource{actionDefinition: actionDef}
+
+	attrTypes := map[string]attr.Type{
+		"secret": types.StringType,
+		"name":   types.StringType,
+	}
+	obj, diags := types.ObjectValue(attrTypes, map[string]attr.Value{
+		"secret": types.StringValue(secretLiteral),
+		"name":   types.StringValue("resource-1"),
+	})
+	if diags.HasError() {
+		t.Fatalf("failed to build test object: %v", diags)
+	}
+
+	result := idsecRes.nullWriteOnlyAttributesInState(context.Background(), obj)
+
+	secretVal, ok := result.Attributes()["secret"]
+	if !ok {
+		t.Fatalf("expected secret attribute to be present in the result")
+	}
+	if !secretVal.IsNull() {
+		t.Errorf("expected secret attribute to be null, got %v", secretVal)
+	}
+	if strings.Contains(result.String(), secretLiteral) {
+		t.Fatalf("nulled state object still contains the secret literal: %s", result.String())
+	}
+
+	nameVal, ok := result.Attributes()["name"]
+	if !ok || nameVal.IsNull() {
+		t.Errorf("expected unrelated name attribute to be preserved, got %v", nameVal)
 	}
 }

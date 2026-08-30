@@ -7,6 +7,7 @@ import (
 	"github.com/cyberark/idsec-sdk-golang/pkg/services/identity/users/actions"
 	usersmodels "github.com/cyberark/idsec-sdk-golang/pkg/services/identity/users/models"
 	tfactions "github.com/cyberark/terraform-provider-idsec/internal/actions"
+	"github.com/cyberark/terraform-provider-idsec/internal/schemas"
 )
 
 func init() {
@@ -18,10 +19,12 @@ func init() {
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
 						ActionName: "identity-user", ActionDescription: "The Identity service user resource that is used to manage users.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
-					SensitiveAttributes:       []string{"password"},
-					ComputedAttributes:        []string{"user_attributes"},
-					StateSchema:               &usersmodels.IdsecIdentityUser{},
-					CaseInsensitiveAttributes: []string{"username"},
+					SensitiveAttributes: []string{"password"},
+					ComputedAttributes:  []string{"user_attributes"},
+					StateSchema:         &usersmodels.IdsecIdentityUser{},
+					SemanticEqualityAttributes: map[string]schemas.SemanticEqualityKind{
+						"username": schemas.SemanticEqualityCaseInsensitive,
+					},
 				},
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "create", tfactions.ReadOperation: "get", tfactions.UpdateOperation: "update", tfactions.DeleteOperation: "delete"},

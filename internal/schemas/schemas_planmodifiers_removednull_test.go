@@ -172,6 +172,32 @@ func TestApplyRemovedToUnknownModifiers(t *testing.T) {
 			t.Errorf("name: got %d modifiers, want 2", n)
 		}
 	})
+
+	// A write-only attribute and its synthesized trigger are kept away from every arm of
+	// ApplyRemovedToUnknownModifiers only by the Optional&&Computed guard. Relaxing that guard
+	// would give the write-only attribute a UseStateForUnknown pointed at a permanently null
+	// state value.
+	t.Run("edge_case_write_only_and_its_trigger_get_no_plan_modifiers", func(t *testing.T) {
+		t.Parallel()
+		type writeOnlyPlanModifierModel struct {
+			Secret string `tfsdk:"secret"`
+		}
+		s, diags := generateResourceSchema(resourceSchemaOptions{
+			CreateModel:         &writeOnlyPlanModifierModel{},
+			WriteOnlyAttributes: map[string]string{"secret": "secret_rotation_trigger"},
+		})
+		if diags.HasError() {
+			t.Fatalf("unexpected error diagnostics: %v", diags.Errors())
+		}
+
+		ApplyRemovedToUnknownModifiers(s.Attributes, nil, nil)
+
+		for _, name := range []string{"secret", "secret_rotation_trigger"} {
+			if n := stringPlanModifierCount(t, s.Attributes, name); n != 0 {
+				t.Errorf("%s: got %d plan modifiers, want 0", name, n)
+			}
+		}
+	})
 }
 
 func TestApplyRemovedToUnknownModifiersDynamic(t *testing.T) {

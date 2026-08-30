@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/mitchellh/mapstructure"
 	api "github.com/cyberark/idsec-sdk-golang/pkg"
@@ -118,12 +120,44 @@ func (s *IdsecResource) getComputedAttributes() []string {
 	return s.getStringSliceFromActionDefinition("ComputedAttributes")
 }
 
+// defaultBearingOptionalComputedPaths returns dotted paths of Optional+Computed+Default attributes
+// for this resource's schema. These paths must be excluded from ClearRemovedAttributes so that
+// default-bearing fields are never zeroed when the user omits them from config — the Default
+// mechanism handles them at plan time. Returns nil on schema resolution error (best-effort).
+func (s *IdsecResource) defaultBearingOptionalComputedPaths() []string {
+	createSchema, err := s.schemaForOperation(actions.CreateOperation)
+	if err != nil || createSchema == nil {
+		return nil
+	}
+	updateSchema, err := s.schemaForOperation(actions.UpdateOperation)
+	if err != nil || updateSchema == nil {
+		return nil
+	}
+	outputSchemaDef, schemaDiags := schemas.GenerateResourceSchemaFromStruct(
+		createSchema,
+		updateSchema,
+		s.actionDefinition.StateSchema,
+		s.actionDefinition.SensitiveAttributes,
+		s.actionDefinition.ExtraRequiredAttributes,
+		s.actionDefinition.ComputedAsSetAttributes,
+		s.getImmutableAttributes(),
+		s.getForceNewAttributes(),
+		s.getComputedAttributes(),
+		s.getSemanticEqualityAttributes(),
+		s.actionDefinition.WriteOnlyAttributes,
+	)
+	if schemaDiags.HasError() {
+		return nil
+	}
+	return schemas.DefaultBearingOptionalComputedPaths(outputSchemaDef.Attributes)
+}
+
 func (s *IdsecResource) getHistoryComputedAttributes() []string {
 	return s.getStringSliceFromActionDefinition("HistoryComputedAttributes")
 }
 
-func (s *IdsecResource) getCaseInsensitiveAttributes() []string {
-	return s.getStringSliceFromActionDefinition("CaseInsensitiveAttributes")
+func (s *IdsecResource) getSemanticEqualityAttributes() map[string]schemas.SemanticEqualityKind {
+	return s.actionDefinition.SemanticEqualityAttributes
 }
 
 func (s *IdsecResource) getImportID() string {
@@ -186,7 +220,7 @@ func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions
 			diagnostics.AddError("Schema Conversion Error", fmt.Sprintf("Failed to convert plan and state object to schema: %s", err.Error()))
 			return nil, err
 		}
-		if err = schemas.ClearRemovedAttributes(ctx, operationSchemaInput, config, state, s.getComputedAttributes(), userSetPaths); err != nil {
+		if err = schemas.ClearRemovedAttributes(ctx, operationSchemaInput, config, state, s.getComputedAttributes(), s.defaultBearingOptionalComputedPaths(), userSetPaths); err != nil {
 			tflog.Error(ctx, fmt.Sprintf("Failed to reconcile removed attributes: %s", err.Error()))
 			diagnostics.AddError("Schema Conversion Error", fmt.Sprintf("Failed to reconcile removed attributes: %s", err.Error()))
 			return nil, err
@@ -194,6 +228,12 @@ func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions
 		if err = schemas.ClearComputedAttributes(operationSchemaInput, s.getComputedAttributes(), s.readKeyAttributePaths()); err != nil {
 			tflog.Error(ctx, fmt.Sprintf("Failed to clear computed attributes: %s", err.Error()))
 			diagnostics.AddError("Schema Conversion Error", fmt.Sprintf("Failed to clear computed attributes: %s", err.Error()))
+			return nil, err
+		}
+		// Must run after both Clear* calls: either could zero a field this has just populated.
+		if err = s.applyWriteOnlyValues(ctx, operationSchemaInput, config, plan, state); err != nil {
+			tflog.Error(ctx, fmt.Sprintf("Failed to apply write-only values: %s", err.Error()))
+			diagnostics.AddError("Schema Conversion Error", fmt.Sprintf("Failed to apply write-only values: %s", err.Error()))
 			return nil, err
 		}
 	} else if plan != nil {
@@ -207,6 +247,12 @@ func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions
 		if err != nil {
 			tflog.Error(ctx, fmt.Sprintf("Failed to convert plan object to schema: %s", err.Error()))
 			diagnostics.AddError("Schema Conversion Error", fmt.Sprintf("Failed to convert plan object to schema: %s", err.Error()))
+			return nil, err
+		}
+		// Create path: a nil state always fires the trigger, so a supplied value is always sent.
+		if err = s.applyWriteOnlyValues(ctx, operationSchemaInput, config, nil, nil); err != nil {
+			tflog.Error(ctx, fmt.Sprintf("Failed to apply write-only values: %s", err.Error()))
+			diagnostics.AddError("Schema Conversion Error", fmt.Sprintf("Failed to apply write-only values: %s", err.Error()))
 			return nil, err
 		}
 	} else if state != nil {
@@ -251,6 +297,153 @@ func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions
 		return nil, fmt.Errorf("no state or plan provided for operation")
 	}
 	return operationSchemaInput, nil
+}
+
+// applyWriteOnlyValues injects each declared write-only attribute's configuration value into the
+// same-named field on the SDK request model target. The framework scrubs a write-only value from
+// both plan and prior state on every call, so the plan-based decode that populated target left
+// that field at its zero value; config is the only place the value exists.
+//
+// A nil target or config makes this a no-op, matching Read and Delete, which have no config view.
+// state is nil on create, where a supplied value is sent regardless of any trigger.
+//
+// Every failure is returned as an error rather than skipped: this is the last step before the
+// request is sent, and swallowing one would create or update a resource without its credential.
+func (s *IdsecResource) applyWriteOnlyValues(ctx context.Context, target interface{}, config *tfsdk.Config, plan *tfsdk.Plan, state *tfsdk.State) error {
+	if target == nil || config == nil || len(s.actionDefinition.WriteOnlyAttributes) == 0 {
+		return nil
+	}
+
+	for _, attrPath := range slices.Sorted(maps.Keys(s.actionDefinition.WriteOnlyAttributes)) {
+		triggerPath := s.actionDefinition.WriteOnlyAttributes[attrPath]
+
+		configPath := tftypes.NewAttributePath()
+		for _, part := range strings.Split(attrPath, ".") {
+			configPath = configPath.WithAttributeName(part)
+		}
+		result, _, err := tftypes.WalkAttributePath(config.Raw, configPath)
+		if err != nil {
+			return fmt.Errorf("write-only attribute %q could not be read from configuration: %w", attrPath, err)
+		}
+		rawVal, ok := result.(tftypes.Value)
+		if !ok {
+			return fmt.Errorf("write-only attribute %q did not resolve to a value in configuration", attrPath)
+		}
+		// Null means "not set": never send a zero value on the practitioner's behalf.
+		if rawVal.IsNull() || !rawVal.IsFullyKnown() {
+			continue
+		}
+
+		fired, err := s.triggerFired(ctx, attrPath, triggerPath, plan, state)
+		if err != nil {
+			return fmt.Errorf("write-only attribute %q: %w", attrPath, err)
+		}
+		if !fired {
+			tflog.Info(ctx, fmt.Sprintf("Write-only attribute %q is set in configuration but its trigger %q did not fire; not sending its value", attrPath, triggerPath))
+			continue
+		}
+
+		field, found := schemas.FieldByAttributePath(target, attrPath)
+		if !found || !field.CanSet() {
+			return fmt.Errorf("write-only attribute %q has no settable field on the request model at that path; check the WriteOnlyAttributes declaration against the request model's struct tags", attrPath)
+		}
+		if err := schemas.SetFieldFromRawValue(field, rawVal); err != nil {
+			return fmt.Errorf("write-only attribute %q: %w", attrPath, err)
+		}
+	}
+	return nil
+}
+
+// triggerFired reports whether a write-only attribute's trigger indicates its value should be
+// (re-)sent: true on create (a nil state, or one whose Raw is null), true if the trigger's planned
+// value differs from its prior-state value, and true if the planned value is unknown.
+//
+// A trigger that changes for reasons unrelated to the write-only value re-sends the credential,
+// and so rotates it in the backend, on applies that were never meant to touch it. Prefer a stable
+// attribute the practitioner edits deliberately.
+//
+// An unwalkable trigger path is an error rather than "unchanged", which would turn a validation
+// gap into a silently skipped credential rotation.
+func (s *IdsecResource) triggerFired(ctx context.Context, attrPath, triggerPath string, plan *tfsdk.Plan, state *tfsdk.State) (bool, error) {
+	if state == nil || state.Raw.IsNull() {
+		return true, nil
+	}
+	if plan == nil {
+		return false, fmt.Errorf("write-only attribute %q: cannot evaluate trigger %q against a prior state with a nil plan", attrPath, triggerPath)
+	}
+
+	triggerAttrPath := tftypes.NewAttributePath()
+	for _, part := range strings.Split(triggerPath, ".") {
+		triggerAttrPath = triggerAttrPath.WithAttributeName(part)
+	}
+
+	planResult, _, err := tftypes.WalkAttributePath(plan.Raw, triggerAttrPath)
+	if err != nil {
+		return false, fmt.Errorf("trigger %q could not be walked in plan: %w", triggerPath, err)
+	}
+	planVal, ok := planResult.(tftypes.Value)
+	if !ok {
+		return false, fmt.Errorf("trigger %q did not resolve to a value in plan", triggerPath)
+	}
+
+	stateResult, _, err := tftypes.WalkAttributePath(state.Raw, triggerAttrPath)
+	if err != nil {
+		return false, fmt.Errorf("trigger %q could not be walked in state: %w", triggerPath, err)
+	}
+	stateVal, ok := stateResult.(tftypes.Value)
+	if !ok {
+		return false, fmt.Errorf("trigger %q did not resolve to a value in state", triggerPath)
+	}
+
+	if !planVal.IsFullyKnown() {
+		// Unknown counts as changed: re-sending an unchanged credential is an idempotent vault
+		// write, whereas a rotation that silently does not happen is invisible until an incident.
+		tflog.Info(ctx, fmt.Sprintf("Write-only attribute %q trigger %q is unknown in plan; treating it as changed", attrPath, triggerPath))
+		return true, nil
+	}
+
+	return !planVal.Equal(stateVal), nil
+}
+
+// nullWriteOnlyAttributesInState returns obj with every top-level write-only attribute forced to
+// null. This is insurance rather than a leak fix; see the call site in triggerOperation.
+//
+// A dotted (nested) key is logged and left to the framework's own nullification: rebuilding a
+// nested container's value just to null one field inside it is not implemented.
+func (s *IdsecResource) nullWriteOnlyAttributesInState(ctx context.Context, obj types.Object) types.Object {
+	if len(s.actionDefinition.WriteOnlyAttributes) == 0 {
+		return obj
+	}
+
+	attrTypes := obj.AttributeTypes(ctx)
+	values := maps.Clone(obj.Attributes())
+	changed := false
+	for _, key := range slices.Sorted(maps.Keys(s.actionDefinition.WriteOnlyAttributes)) {
+		if strings.Contains(key, ".") {
+			tflog.Warn(ctx, fmt.Sprintf("Write-only attribute %q is nested; defensive state nulling only handles top-level attributes, relying on framework nullification for it", key))
+			continue
+		}
+		attrType, ok := attrTypes[key]
+		if !ok {
+			continue
+		}
+		nullVal, err := attrType.ValueFromTerraform(ctx, tftypes.NewValue(attrType.TerraformType(ctx), nil))
+		if err != nil {
+			tflog.Warn(ctx, fmt.Sprintf("Failed to build a null value for write-only attribute %q, leaving it as returned: %s", key, err.Error()))
+			continue
+		}
+		values[key] = nullVal
+		changed = true
+	}
+	if !changed {
+		return obj
+	}
+	newObj, diags := types.ObjectValue(attrTypes, values)
+	if diags.HasError() {
+		tflog.Warn(ctx, fmt.Sprintf("Failed to rebuild state object after nulling write-only attributes, leaving it as returned: %v", diags))
+		return obj
+	}
+	return newObj
 }
 
 func (s *IdsecResource) finalizeState(ctx context.Context, operation actions.IdsecServiceActionOperation, originalState basetypes.ObjectValue, respState *tfsdk.State, diagnostics *diag.Diagnostics) {
@@ -380,7 +573,7 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 			s.finalizeFailure(ctx, "Schema Error", fmt.Sprintf("No schema mapping found for operation: %s", actions.UpdateOperation), operation, originalState, respState, diagnostics)
 			return
 		}
-		outputSchemaDef := schemas.GenerateResourceSchemaFromStruct(
+		outputSchemaDef, schemaDiags := schemas.GenerateResourceSchemaFromStruct(
 			createSchema,
 			updateSchema,
 			s.actionDefinition.StateSchema,
@@ -390,8 +583,14 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 			s.getImmutableAttributes(),
 			s.getForceNewAttributes(),
 			s.getComputedAttributes(),
-			s.getCaseInsensitiveAttributes(),
+			s.getSemanticEqualityAttributes(),
+			s.actionDefinition.WriteOnlyAttributes,
 		)
+		diagnostics.Append(schemaDiags...)
+		if diagnostics.HasError() {
+			s.finalizeState(ctx, operation, originalState, respState, diagnostics)
+			return
+		}
 
 		schemaAttrs := schemas.ResourceSchemaToSchemaAttrTypes(outputSchemaDef)
 		stateResult, err := schemas.StructToStateObject(ctx, resultElem.Interface(), state, plan, schemaAttrs)
@@ -405,6 +604,12 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 				s.finalizeFailure(ctx, "State Merge Error", fmt.Sprintf("Failed to merge plan to state object: %s", err.Error()), operation, originalState, respState, diagnostics)
 				return
 			}
+		}
+		if len(s.actionDefinition.WriteOnlyAttributes) > 0 {
+			// Guards an API that echoes a credential back: the state model may carry the same
+			// field, which StructToStateObject would write into the write-only attribute and the
+			// framework would then reject as an inconsistent result after apply.
+			stateResult = s.nullWriteOnlyAttributesInState(ctx, stateResult)
 		}
 		tflog.Info(ctx, "Setting state result")
 		diags := respState.Set(ctx, stateResult)
@@ -477,7 +682,7 @@ func (s *IdsecResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 		resp.Diagnostics.AddError("Schema Error", fmt.Sprintf("No schema mapping found for operation: %s - %v", actions.UpdateOperation, err))
 		return
 	}
-	resp.Schema = schemas.GenerateResourceSchemaFromStruct(
+	generatedSchema, diags := schemas.GenerateResourceSchemaFromStruct(
 		createSchema,
 		updateSchema,
 		s.actionDefinition.StateSchema,
@@ -487,8 +692,14 @@ func (s *IdsecResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 		s.getImmutableAttributes(),
 		s.getForceNewAttributes(),
 		s.getComputedAttributes(),
-		s.getCaseInsensitiveAttributes(),
+		s.getSemanticEqualityAttributes(),
+		s.actionDefinition.WriteOnlyAttributes,
 	)
+	resp.Schema = generatedSchema
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	schemas.ApplyRemovedToUnknownModifiers(resp.Schema.Attributes, s.readKeyTopLevelAttributes(), s.getImmutableAttributes())
 	resp.Schema.Description = s.actionDefinition.ActionDescription
 	if s.actionDefinition.ActionVersion != 0 {
@@ -590,7 +801,7 @@ func (s *IdsecResource) seedUserSetHistoryFromState(ctx context.Context, state *
 		tflog.Warn(ctx, "Skipping synthetic user-set history seed: failed to resolve update schema")
 		return
 	}
-	outputSchemaDef := schemas.GenerateResourceSchemaFromStruct(
+	outputSchemaDef, schemaDiags := schemas.GenerateResourceSchemaFromStruct(
 		createSchema,
 		updateSchema,
 		s.actionDefinition.StateSchema,
@@ -600,11 +811,19 @@ func (s *IdsecResource) seedUserSetHistoryFromState(ctx context.Context, state *
 		s.getImmutableAttributes(),
 		s.getForceNewAttributes(),
 		s.getComputedAttributes(),
-		s.getCaseInsensitiveAttributes(),
+		s.getSemanticEqualityAttributes(),
+		s.actionDefinition.WriteOnlyAttributes,
 	)
+	if schemaDiags.HasError() {
+		// Best-effort seed: a schema-declaration error must not fail Read, and
+		// these diagnostics are not the caller's to surface, so log and bail.
+		tflog.Warn(ctx, "Skipping synthetic user-set history seed: schema generation reported errors")
+		return
+	}
 	computedPaths := append([]string{}, s.getComputedAttributes()...)
 	computedPaths = append(computedPaths, s.getHistoryComputedAttributes()...)
 	computedPaths = append(computedPaths, schemas.ComputedOnlyAttributePaths(outputSchemaDef.Attributes)...)
+	computedPaths = append(computedPaths, schemas.DefaultBearingOptionalComputedPaths(outputSchemaDef.Attributes)...)
 	reducedPaths := schemas.ReduceComputedPaths(paths, computedPaths, s.readKeyAttributePaths())
 	data, err := schemas.MarshalSyntheticUserSetHistory(reducedPaths, providerVersion)
 	if err != nil {
@@ -619,7 +838,7 @@ func (s *IdsecResource) Create(ctx context.Context, req resource.CreateRequest, 
 	s.setTerraformContext("Create")
 	defer s.clearTerraformContext()
 	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Create"))()
-	s.triggerOperation(ctx, actions.CreateOperation, &resp.Diagnostics, &req.Plan, nil, nil, &resp.State, nil)
+	s.triggerOperation(ctx, actions.CreateOperation, &resp.Diagnostics, &req.Plan, nil, &req.Config, &resp.State, nil)
 	if !resp.Diagnostics.HasError() {
 		s.recordUserSetHistory(ctx, &req.Config, resp.Private, &resp.Diagnostics)
 	}

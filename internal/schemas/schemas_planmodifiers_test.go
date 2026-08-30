@@ -5,11 +5,14 @@ package schemas
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
@@ -377,6 +380,135 @@ func TestCaseInsensitiveStringModifier(t *testing.T) {
 				t.Fatalf("expected no diagnostics, got %v", resp.Diagnostics.Errors())
 			}
 
+			if tt.validateFunc != nil {
+				tt.validateFunc(t, req, resp)
+			}
+		})
+	}
+}
+
+// TestTrailingSlashEqualStringModifier tests TrailingSlashEqualStringModifier.
+func TestTrailingSlashEqualStringModifier(t *testing.T) {
+	t.Parallel()
+
+	nullState := tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{}}, nil)
+	nonNullState := tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{}}, map[string]tftypes.Value{})
+	nonNullPlan := tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{}}, map[string]tftypes.Value{})
+
+	tests := []struct {
+		name         string
+		stateValue   types.String
+		planValue    types.String
+		configValue  types.String
+		state        tfsdk.State
+		plan         tfsdk.Plan
+		validateFunc func(t *testing.T, req planmodifier.StringRequest, resp *planmodifier.StringResponse)
+	}{
+		{
+			name:        "update_slash_only_diff_normalizes_plan_to_state",
+			stateValue:  types.StringValue("secret/"),
+			planValue:   types.StringValue("secret"),
+			configValue: types.StringValue("secret"),
+			state:       tfsdk.State{Raw: nonNullState, Schema: schema.Schema{}},
+			plan:        tfsdk.Plan{Raw: nonNullPlan, Schema: schema.Schema{}},
+			validateFunc: func(t *testing.T, _ planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+				if resp.PlanValue.ValueString() != "secret/" {
+					t.Errorf("expected plan normalized to state value 'secret/', got %q", resp.PlanValue.ValueString())
+				}
+			},
+		},
+		{
+			name:        "update_real_change_not_suppressed",
+			stateValue:  types.StringValue("secret/"),
+			planValue:   types.StringValue("other"),
+			configValue: types.StringValue("other"),
+			state:       tfsdk.State{Raw: nonNullState, Schema: schema.Schema{}},
+			plan:        tfsdk.Plan{Raw: nonNullPlan, Schema: schema.Schema{}},
+			validateFunc: func(t *testing.T, _ planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+				if resp.PlanValue.ValueString() != "other" {
+					t.Errorf("expected plan unchanged as 'other', got %q", resp.PlanValue.ValueString())
+				}
+			},
+		},
+		{
+			name:        "create_state_null_skips",
+			stateValue:  types.StringValue("secret/"),
+			planValue:   types.StringValue("secret"),
+			configValue: types.StringValue("secret"),
+			state:       tfsdk.State{Raw: nullState, Schema: schema.Schema{}},
+			plan:        tfsdk.Plan{Raw: nonNullPlan, Schema: schema.Schema{}},
+			validateFunc: func(t *testing.T, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+				if resp.PlanValue.ValueString() != req.PlanValue.ValueString() {
+					t.Errorf("expected plan unchanged during create, got %q", resp.PlanValue.ValueString())
+				}
+			},
+		},
+		{
+			name:        "already_equal_noop",
+			stateValue:  types.StringValue("secret/"),
+			planValue:   types.StringValue("secret/"),
+			configValue: types.StringValue("secret/"),
+			state:       tfsdk.State{Raw: nonNullState, Schema: schema.Schema{}},
+			plan:        tfsdk.Plan{Raw: nonNullPlan, Schema: schema.Schema{}},
+			validateFunc: func(t *testing.T, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+				if resp.PlanValue.ValueString() != "secret/" {
+					t.Errorf("expected no change when already equal, got %q", resp.PlanValue.ValueString())
+				}
+			},
+		},
+		{
+			// TrimSuffix strips exactly one slash; multiple trailing slashes are a real change.
+			name:        "multiple_trailing_slashes_not_suppressed",
+			stateValue:  types.StringValue("secret"),
+			planValue:   types.StringValue("secret///"),
+			configValue: types.StringValue("secret///"),
+			state:       tfsdk.State{Raw: nonNullState, Schema: schema.Schema{}},
+			plan:        tfsdk.Plan{Raw: nonNullPlan, Schema: schema.Schema{}},
+			validateFunc: func(t *testing.T, _ planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+				if resp.PlanValue.ValueString() != "secret///" {
+					t.Errorf("expected plan unchanged for multiple-slash diff, got %q", resp.PlanValue.ValueString())
+				}
+			},
+		},
+		{
+			// TrimSuffix("", "/") == TrimSuffix("/", "/") == "", so a lone slash is semantically
+			// equal to empty string and the plan is normalized to the state value.
+			name:        "slash_equal_to_empty_normalizes_plan_to_state",
+			stateValue:  types.StringValue(""),
+			planValue:   types.StringValue("/"),
+			configValue: types.StringValue("/"),
+			state:       tfsdk.State{Raw: nonNullState, Schema: schema.Schema{}},
+			plan:        tfsdk.Plan{Raw: nonNullPlan, Schema: schema.Schema{}},
+			validateFunc: func(t *testing.T, _ planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+				if resp.PlanValue.ValueString() != "" {
+					t.Errorf("expected plan normalized to empty state, got %q", resp.PlanValue.ValueString())
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			modifier := TrailingSlashEqualString()
+			req := planmodifier.StringRequest{
+				StateValue:  tt.stateValue,
+				PlanValue:   tt.planValue,
+				ConfigValue: tt.configValue,
+				State:       tt.state,
+				Plan:        tt.plan,
+				Path:        path.Root("test_attr"),
+			}
+			resp := &planmodifier.StringResponse{
+				PlanValue: tt.planValue,
+			}
+
+			modifier.PlanModifyString(context.Background(), req, resp)
+
+			if resp.Diagnostics.HasError() {
+				t.Fatalf("expected no diagnostics, got %v", resp.Diagnostics.Errors())
+			}
 			if tt.validateFunc != nil {
 				tt.validateFunc(t, req, resp)
 			}
@@ -920,5 +1052,47 @@ func TestImmutableStringModifier_Description(t *testing.T) {
 	markdownDescription := modifier.MarkdownDescription(context.Background())
 	if markdownDescription == "" {
 		t.Error("MarkdownDescription should not be empty")
+	}
+}
+
+// TestDefaultBearingOptionalComputedPaths verifies that only Optional+Computed attributes with a
+// non-nil Default are reported, mirroring the a.Default == nil guard in
+// ApplyRemovedToUnknownModifiers. Nested defaults are reported via the child's dotted path.
+func TestDefaultBearingOptionalComputedPaths(t *testing.T) {
+	t.Parallel()
+
+	attrs := map[string]schema.Attribute{
+		"state": schema.StringAttribute{
+			Optional: true,
+			Computed: true,
+			Default:  stringdefault.StaticString("ENABLED"),
+		},
+		"name": schema.StringAttribute{
+			Optional: true,
+			Computed: true,
+		},
+		"id": schema.StringAttribute{
+			Computed: true,
+		},
+		"metadata": schema.SingleNestedAttribute{
+			Optional: true,
+			Computed: true,
+			Attributes: map[string]schema.Attribute{
+				"status": schema.StringAttribute{
+					Optional: true,
+					Computed: true,
+					Default:  stringdefault.StaticString("ACTIVE"),
+				},
+			},
+		},
+	}
+
+	got := DefaultBearingOptionalComputedPaths(attrs)
+	want := []string{
+		"metadata.status",
+		"state",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("DefaultBearingOptionalComputedPaths = %v, want %v", got, want)
 	}
 }

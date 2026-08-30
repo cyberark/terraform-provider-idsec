@@ -35,7 +35,7 @@ type depStateModel struct {
 
 func TestGenerateResourceSchemaFromStruct_PropagatesDeprecation(t *testing.T) {
 	t.Parallel()
-	got := GenerateResourceSchemaFromStruct(depFixture{}, nil, depStateModel{}, nil, nil, nil, nil, nil, nil, nil)
+	got, _ := GenerateResourceSchemaFromStruct(depFixture{}, nil, depStateModel{}, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	want := map[string]string{
 		"old_name":     `Use "name" instead. use name`,

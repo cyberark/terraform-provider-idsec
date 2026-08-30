@@ -7,6 +7,7 @@ import (
 	"github.com/cyberark/idsec-sdk-golang/pkg/services/identity/roles/actions"
 	rolesmodels "github.com/cyberark/idsec-sdk-golang/pkg/services/identity/roles/models"
 	tfactions "github.com/cyberark/terraform-provider-idsec/internal/actions"
+	"github.com/cyberark/terraform-provider-idsec/internal/schemas"
 )
 
 func init() {
@@ -30,8 +31,10 @@ func init() {
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
 						ActionName: "identity-role-member", ActionDescription: "The Identity service role member resource that is used to manage role members.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
-					StateSchema:               &rolesmodels.IdsecIdentityRoleMember{},
-					CaseInsensitiveAttributes: []string{"member_name"},
+					StateSchema: &rolesmodels.IdsecIdentityRoleMember{},
+					SemanticEqualityAttributes: map[string]schemas.SemanticEqualityKind{
+						"member_name": schemas.SemanticEqualityCaseInsensitive,
+					},
 				},
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "add-member", tfactions.ReadOperation: "get-member", tfactions.DeleteOperation: "remove-member"},

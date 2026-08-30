@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	api "github.com/cyberark/idsec-sdk-golang/pkg"
+	"github.com/cyberark/terraform-provider-idsec/internal/schemas"
 )
 
 // IdsecServiceActionOperation defines the operation type for an Idsec service action, such as create, read, update, delete, or state.
@@ -100,9 +101,12 @@ type IdsecServiceBaseTerraformActionDefinition struct {
 	ImmutableAttributes       []string
 	ComputedAttributes        []string
 	HistoryComputedAttributes []string
-	CaseInsensitiveAttributes []string
-	PageNotes                 []DocNote
-	AttributeNotes            map[string][]DocNote
+	// SemanticEqualityAttributes maps an attribute's field name to the semantic-equality plan
+	// modifier kind that should be attached (e.g. schemas.SemanticEqualityCaseInsensitive,
+	// schemas.SemanticEqualityTrailingSlash). See schemas.SemanticEqualityKind.
+	SemanticEqualityAttributes map[string]schemas.SemanticEqualityKind
+	PageNotes                  []DocNote
+	AttributeNotes             map[string][]DocNote
 }
 
 // IdsecServiceTerraformResourceActionDefinition is a struct that defines the structure of a resource action in the Idsec Terraform provider.
@@ -115,6 +119,7 @@ type IdsecServiceTerraformResourceActionDefinition struct {
 	ActionsMappings     map[IdsecServiceActionOperation]string
 	ImportID            string
 	PlanValidators      []IdsecPlanValidator
+	WriteOnlyAttributes map[string]string
 }
 
 // IdsecServiceTerraformDataSourceActionDefinition is a struct that defines the structure of a data source action in the Idsec Terraform provider.

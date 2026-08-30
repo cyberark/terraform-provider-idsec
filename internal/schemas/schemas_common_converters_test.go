@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 func TestDeepCopy(t *testing.T) {
@@ -3079,12 +3080,45 @@ func TestClearRemovedAttributes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			target := tt.target
-			clearRemovedAttributes(reflect.ValueOf(&target), tt.config, tt.state, tt.computedAttrs, tt.userSetPaths, "")
+			clearRemovedAttributes(reflect.ValueOf(&target), tt.config, tt.state, tt.computedAttrs, nil, tt.userSetPaths, "")
 			if !reflect.DeepEqual(target, tt.want) {
 				t.Errorf("expected %+v, got %+v", tt.want, target)
 			}
 		})
 	}
+}
+
+// TestClearRemovedAttributes_SkipsDefaultBearingFields verifies that a field listed in
+// defaultAttrs is preserved (never zeroed) even though it is null in config over a meaningful
+// prior-state value and its path is recorded in userSetPaths — mirroring the plan-time
+// a.Default == nil guard in ApplyRemovedToUnknownModifiers. A companion sub-case with
+// defaultAttrs=nil confirms the same field would otherwise be cleared.
+func TestClearRemovedAttributes_SkipsDefaultBearingFields(t *testing.T) {
+	t.Parallel()
+
+	config := map[string]attr.Value{"access_approval": types.StringNull()}
+	state := map[string]attr.Value{"access_approval": types.StringValue("approval-1")}
+	userSetPaths := map[string]bool{"access_approval": true}
+
+	t.Run("default_bearing_field_is_preserved", func(t *testing.T) {
+		t.Parallel()
+		target := clearTestRequest{AccessApproval: "approval-1"}
+		clearRemovedAttributes(reflect.ValueOf(&target), config, state, nil, []string{"access_approval"}, userSetPaths, "")
+		want := clearTestRequest{AccessApproval: "approval-1"}
+		if !reflect.DeepEqual(target, want) {
+			t.Errorf("expected %+v, got %+v", want, target)
+		}
+	})
+
+	t.Run("without_defaultAttrs_field_is_cleared", func(t *testing.T) {
+		t.Parallel()
+		target := clearTestRequest{AccessApproval: "approval-1"}
+		clearRemovedAttributes(reflect.ValueOf(&target), config, state, nil, nil, userSetPaths, "")
+		want := clearTestRequest{}
+		if !reflect.DeepEqual(target, want) {
+			t.Errorf("expected %+v, got %+v", want, target)
+		}
+	})
 }
 
 func TestClearComputedAttributes(t *testing.T) {
@@ -3152,4 +3186,217 @@ func stringPtr(s string) *string {
 // Helper function for tests.
 func intPtr(i int) *int {
 	return &i
+}
+
+// These mirror the request-model shapes FieldByAttributePath has to resolve: a plain leaf, a
+// field promoted from a squashed embed, and a direct field shadowing an identically-named
+// embedded one (the shape of the Privilege Cloud account create model's Secret field).
+type fbapLeaf struct {
+	Password string `mapstructure:"password"`
+}
+
+type fbapEmbedded struct {
+	Token string `mapstructure:"token"`
+}
+
+type fbapSquashOnly struct {
+	fbapEmbedded `mapstructure:",squash"`
+}
+
+type fbapOuterShadow struct {
+	fbapEmbedded `mapstructure:",squash"`
+	Token        string `mapstructure:"token"`
+}
+
+type fbapNested struct {
+	Auth fbapLeaf `mapstructure:"auth"`
+}
+
+type fbapPointerNested struct {
+	Auth *fbapLeaf `mapstructure:"auth"`
+}
+
+type fbapTarget struct {
+	Secret string `mapstructure:"secret"`
+}
+
+// TestFieldByAttributePath covers the dotted-path walk, squashed-embed descent and shadowing, and
+// allocation of a nil intermediate pointer. Each resolved field is set to "set" and then verified
+// through the original target.
+func TestFieldByAttributePath(t *testing.T) {
+	t.Parallel()
+
+	topLevel := &fbapTarget{}
+	nested := &fbapNested{}
+	squashed := &fbapSquashOnly{}
+	shadowed := &fbapOuterShadow{fbapEmbedded: fbapEmbedded{Token: "embedded"}, Token: "outer"}
+	pointerNested := &fbapPointerNested{}
+	innerPtr := &fbapTarget{}
+
+	tests := []struct {
+		name   string
+		target interface{}
+		path   string
+		wantOk bool
+		verify func(t *testing.T)
+	}{
+		{
+			name: "success_top_level_field", target: topLevel, path: "secret", wantOk: true,
+			verify: func(t *testing.T) {
+				if topLevel.Secret != "set" {
+					t.Errorf("expected Secret to be set, got %q", topLevel.Secret)
+				}
+			},
+		},
+		{
+			name: "success_dotted_nested_path", target: nested, path: "auth.password", wantOk: true,
+			verify: func(t *testing.T) {
+				if nested.Auth.Password != "set" {
+					t.Errorf("expected Auth.Password to be set, got %q", nested.Auth.Password)
+				}
+			},
+		},
+		{
+			name: "success_field_in_squashed_embed", target: squashed, path: "token", wantOk: true,
+			verify: func(t *testing.T) {
+				if squashed.Token != "set" {
+					t.Errorf("expected the embedded Token to be set, got %q", squashed.Token)
+				}
+			},
+		},
+		{
+			name: "success_shallow_field_shadows_squashed_embed", target: shadowed, path: "token", wantOk: true,
+			verify: func(t *testing.T) {
+				if shadowed.Token != "set" {
+					t.Errorf("expected the direct Token to be set, got %q", shadowed.Token)
+				}
+				if shadowed.fbapEmbedded.Token != "embedded" {
+					t.Errorf("expected the embedded Token to stay untouched, got %q", shadowed.fbapEmbedded.Token)
+				}
+			},
+		},
+		{
+			name: "edge_case_pointer_to_pointer_target", target: &innerPtr, path: "secret", wantOk: true,
+			verify: func(t *testing.T) {
+				if innerPtr.Secret != "set" {
+					t.Errorf("expected Secret to be set through a pointer-to-pointer, got %q", innerPtr.Secret)
+				}
+			},
+		},
+		{
+			name: "edge_case_nil_intermediate_pointer_allocated", target: pointerNested, path: "auth.password", wantOk: true,
+			verify: func(t *testing.T) {
+				if pointerNested.Auth == nil {
+					t.Fatal("expected Auth to be allocated")
+				}
+				if pointerNested.Auth.Password != "set" {
+					t.Errorf("expected Auth.Password to be set, got %q", pointerNested.Auth.Password)
+				}
+			},
+		},
+		{name: "error_field_not_found", target: &fbapTarget{}, path: "does_not_exist"},
+		{name: "error_empty_path", target: &fbapTarget{}, path: ""},
+		{name: "error_non_struct_target", target: "not a struct", path: "secret"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			field, ok := FieldByAttributePath(tt.target, tt.path)
+			if ok != tt.wantOk {
+				t.Fatalf("expected found=%v, got %v", tt.wantOk, ok)
+			}
+			if !tt.wantOk {
+				return
+			}
+			if !field.CanSet() {
+				t.Fatal("expected the resolved field to be settable")
+			}
+			field.SetString("set")
+			tt.verify(t)
+		})
+	}
+}
+
+// sfrTarget exposes one addressable field per reflect.Kind exercised below.
+type sfrTarget struct {
+	S  string
+	B  bool
+	I  int64
+	PS *string
+	Sl []string
+}
+
+// TestSetFieldFromRawValue covers the destination-kind-driven conversion, pointer allocation, and
+// rejection of null, unknown, and mismatched raw values.
+func TestSetFieldFromRawValue(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		field   string
+		raw     tftypes.Value
+		wantErr bool
+		verify  func(t *testing.T, tgt *sfrTarget)
+	}{
+		{
+			name: "success_string", field: "S", raw: tftypes.NewValue(tftypes.String, "hello"),
+			verify: func(t *testing.T, tgt *sfrTarget) {
+				if tgt.S != "hello" {
+					t.Errorf("expected %q, got %q", "hello", tgt.S)
+				}
+			},
+		},
+		{
+			name: "success_bool", field: "B", raw: tftypes.NewValue(tftypes.Bool, true),
+			verify: func(t *testing.T, tgt *sfrTarget) {
+				if !tgt.B {
+					t.Error("expected true, got false")
+				}
+			},
+		},
+		{
+			name: "success_int64", field: "I", raw: tftypes.NewValue(tftypes.Number, int64(42)),
+			verify: func(t *testing.T, tgt *sfrTarget) {
+				if tgt.I != 42 {
+					t.Errorf("expected 42, got %d", tgt.I)
+				}
+			},
+		},
+		{
+			name: "success_pointer_allocated", field: "PS", raw: tftypes.NewValue(tftypes.String, "ptr-value"),
+			verify: func(t *testing.T, tgt *sfrTarget) {
+				if tgt.PS == nil {
+					t.Fatal("expected the pointer to be allocated")
+				}
+				if *tgt.PS != "ptr-value" {
+					t.Errorf("expected %q, got %q", "ptr-value", *tgt.PS)
+				}
+			},
+		},
+		{name: "error_null_value", field: "S", raw: tftypes.NewValue(tftypes.String, nil), wantErr: true},
+		{name: "error_unknown_value", field: "S", raw: tftypes.NewValue(tftypes.String, tftypes.UnknownValue), wantErr: true},
+		{name: "error_type_mismatch", field: "S", raw: tftypes.NewValue(tftypes.Bool, true), wantErr: true},
+		{name: "error_unsupported_kind", field: "Sl", raw: tftypes.NewValue(tftypes.String, "x"), wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tgt := &sfrTarget{}
+			err := SetFieldFromRawValue(reflect.ValueOf(tgt).Elem().FieldByName(tt.field), tt.raw)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected an error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			tt.verify(t, tgt)
+		})
+	}
 }

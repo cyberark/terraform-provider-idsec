@@ -13,7 +13,9 @@ Manage Secrets Hub secret store resource that represent secret management system
 ## Example Usage
 
 ```terraform
-# Example: AWS secret store
+# Example: AWS secret store — public access (no connector needed)
+# Use this when your AWS Secrets Manager is accessible over the public internet.
+# No connection_config block is required; public access is the default.
 resource "idsec_sechub_secret_store" "example_aws" {
   name        = "example-aws-secret-store"
   description = "An example Secrets Hub AWS secret store"
@@ -26,6 +28,32 @@ resource "idsec_sechub_secret_store" "example_aws" {
     region_id             = "us-east-1"
     role_name             = "SecretsHubRole"
     authentication_method = "GLOBAL_ROLE_EXTERNAL_ID"
+  }
+}
+
+# Example: AWS secret store — private access via connector
+# Use this when your AWS Secrets Manager is on a private network and is NOT accessible
+# over the public internet. Secrets Hub reaches it through a secure connector.
+resource "idsec_sechub_secret_store" "example_aws_connector" {
+  name        = "example-aws-secret-store-connector"
+  description = "An example Secrets Hub AWS secret store using a connector"
+  type        = "AWS_ASM"
+  behaviors   = ["SECRETS_TARGET"]
+
+  data = {
+    account_alias         = "example-aws-account"
+    account_id            = "123456789012"
+    region_id             = "us-east-1"
+    role_name             = "SecretsHubRole"
+    authentication_method = "GLOBAL_ROLE_EXTERNAL_ID"
+
+    # Required when your secret store is on a private network.
+    # connection_type must be set to "CONNECTOR".
+    # connector_pool_id is the UUID used to connect PAM Self-Hosted and Secrets Hub.
+    connection_config = {
+      connection_type   = "CONNECTOR"
+      connector_pool_id = "00000000-0000-0000-0000-000000000004"
+    }
   }
 }
 
@@ -45,6 +73,9 @@ resource "idsec_sechub_secret_store" "example_azure" {
     resource_group_name     = "example-resource-group"
     authentication_method   = "FEDERATED_IDENTITY"
 
+    # connection_config is required for Azure. Use connection_type = "CONNECTOR" for private
+    # network access (provide connector_pool_id). Use connection_type = "PUBLIC" for public
+    # internet access (omit connector_pool_id).
     connection_config = {
       connection_type   = "CONNECTOR"
       connector_pool_id = "00000000-0000-0000-0000-000000000004"
@@ -52,7 +83,9 @@ resource "idsec_sechub_secret_store" "example_azure" {
   }
 }
 
-# Example: GCP secret store
+# Example: GCP secret store — public access (no connector needed)
+# Use this when your GCP Secret Manager is accessible over the public internet.
+# No connection_config block is required; public access is the default.
 resource "idsec_sechub_secret_store" "example_gcp" {
   name        = "example-gcp-secret-store"
   description = "An example Secrets Hub GCP secret store"
@@ -73,7 +106,37 @@ resource "idsec_sechub_secret_store" "example_gcp" {
   }
 }
 
-# Example: HashiCorp Vault secret store (with connector)
+# Example: GCP secret store — private access via connector
+resource "idsec_sechub_secret_store" "example_gcp_connector" {
+  name        = "example-gcp-secret-store-connector"
+  description = "An example Secrets Hub GCP secret store using a connector"
+  type        = "GCP_GSM"
+  behaviors   = ["SECRETS_TARGET"]
+
+  data = {
+    gcp_project_name   = "example-project"
+    gcp_project_number = "123456789012"
+
+    gcp_authentication = {
+      gcp_project_number            = "123456789012"
+      gcp_workload_identity_pool_id = "example-pool-id"
+      gcp_pool_provider_id          = "example-provider-id"
+      service_account_email         = "example-sa@example-project.iam.gserviceaccount.com"
+      authentication_method         = "GLOBAL_ROLE_EXTERNAL_ID"
+    }
+
+    # Required when your secret store is on a private network.
+    # connection_type must be set to "CONNECTOR".
+    # connector_pool_id is the UUID used to connect PAM Self-Hosted and Secrets Hub
+    connection_config = {
+      connection_type   = "CONNECTOR"
+      connector_pool_id = "00000000-0000-0000-0000-000000000004"
+    }
+  }
+}
+
+# Example: HashiCorp Vault secret store — private access via connector (using connector_pool_id)
+# connector_pool_id and connector_id are mutually exclusive.
 resource "idsec_sechub_secret_store" "example_hashi" {
   name        = "example-hashi-secret-store"
   description = "An example Secrets Hub HashiCorp Vault secret store"
@@ -94,6 +157,48 @@ resource "idsec_sechub_secret_store" "example_hashi" {
     }
   }
 }
+
+# Example: HashiCorp Vault secret store — private access via connector (using connector_id)
+# connector_pool_id and connector_id are mutually exclusive.
+resource "idsec_sechub_secret_store" "example_hashi_connector_id" {
+  name        = "example-hashi-secret-store-cid"
+  description = "An example Secrets Hub HashiCorp Vault secret store using connector_id"
+  type        = "HASHICORP_VAULT"
+  behaviors   = ["SECRETS_TARGET"]
+
+  data = {
+    hashi_vault_url     = "https://vault.example.com"
+    mount_path          = "secret/"
+    role_name           = "secrets-hub-role"
+    authentication_path = "auth/jwt/login/"
+
+    connection_config = {
+      connection_type = "CONNECTOR"
+      connector_id    = "ManagementAgent_90c63827-7315-4284-8559-000000000001"
+    }
+  }
+}
+
+# Example: HashiCorp Vault secret store — public access
+# connection_config is required for HashiCorp Vault. Use connection_type = "PUBLIC" when
+# your Vault is accessible over the public internet (no connector needed).
+resource "idsec_sechub_secret_store" "example_hashi_public" {
+  name        = "example-hashi-secret-store-public"
+  description = "An example Secrets Hub HashiCorp Vault secret store with public access"
+  type        = "HASHICORP_VAULT"
+  behaviors   = ["SECRETS_TARGET"]
+
+  data = {
+    hashi_vault_url     = "https://vault.example.com"
+    mount_path          = "secret/"
+    role_name           = "secrets-hub-role"
+    authentication_path = "auth/jwt/login/"
+
+    connection_config = {
+      connection_type = "PUBLIC"
+    }
+  }
+}
 ```
 
 <!-- schema generated by tfplugindocs -->
@@ -102,7 +207,7 @@ resource "idsec_sechub_secret_store" "example_hashi" {
 ### Required
 
 - `name` (String) The secret store name.
-- `type` (String) The type for the secrets (AWS_ASM, AZURE_AKV,GCP_GSM,HASHICORP_VAULT,PAM_PCLOUD,PAM_SELF_HOSTED)
+- `type` (String) The type for the secrets (AWS_ASM,AZURE_AKV,GCP_GSM,HASHICORP_VAULT,HASHICORP_VAULT_ENT,PAM_PCLOUD,PAM_SELF_HOSTED)
 
 ### Optional
 
@@ -135,9 +240,9 @@ Optional:
 - `app_client_directory_id` (String) AZURE: The Azure Active Directory ID of the application that has access to the Azure Key Vault
 - `app_client_id` (String) AZURE: The Azure Active Directory application ID of the application that has access to the Azure Key Vault
 - `authentication_method` (String) Provider-specific authentication method to use
-- `authentication_path` (String) HASHI: The authentication path configured in HashiCorp Vault for Secrets Hub to authenticate and access secrets. Example: 'auth/secrets-hub/login' for an authentication path of 'secrets-hub'
-- `azure_vault_url` (String) AZURE: The URL of the Azure Key Vault where you store secrets. Example: https://myvault.vault.azure.net/
-- `connection_config` (Attributes) COMMON - AZURE, HASHI: The network access configuration set for your target (see [below for nested schema](#nestedatt--data--connection_config))
+- `authentication_path` (String) HASHI, HASHI ENT: The authentication path configured in HashiCorp Vault for Secrets Hub to authenticate and access secrets. Example: 'auth/secrets-hub/login' for an authentication path of 'secrets-hub'
+- `azure_vault_url` (String) AZURE: The URL of the Azure Key Vault where you store secrets. Example: https://myvault.vault.azure.net
+- `connection_config` (Attributes) The network access configuration set for your target (see [below for nested schema](#nestedatt--data--connection_config))
 - `connector_id` (String) SELF HOSTED: The connector unique identifier used to connect Secrets Hub and the Cloud Vendor.
 - `connector_pool_id` (String) SELF HOSTED: The connector pool unique identifier used to connect PAM Self-Hosted and Secrets Hub.
 - `gcp_authentication` (Attributes) GCP: The GCP authentication configuration for the secret store (see [below for nested schema](#nestedatt--data--gcp_authentication))
@@ -145,12 +250,13 @@ Optional:
 - `gcp_project_name` (String) GCP: The name of the GCP project where the GCP Secret Manager is stored
 - `gcp_project_number` (String) GCP: The number of the GCP project where the GCP Secret Manager is stored
 - `gcp_workload_identity_pool_id` (String) GCP: The GCP workload identity pool ID created for Secrets Hub to access the GCP Secret Manager
-- `hashi_vault_url` (String) HASHI: The URL of the HashiCorp Vault where you store secrets. Example: https://myvault.hashicorpcloud.com/
-- `mount_path` (String) HASHI: The mount path of the HashiCorp Vault where secrets are stored. Example: 'secret' for secrets stored in the 'secret' engine
+- `hashi_vault_url` (String) HASHI, HASHI ENT: The URL of the HashiCorp Vault where you store secrets. Example: https://myvault.com
+- `mount_path` (String) HASHI, HASHI ENT: The mount path of the HashiCorp Vault where secrets are stored. Example: 'secret' for secrets stored in the 'secret' engine
+- `namespace` (String) HASHI ENT: The namespace path within HashiCorp Vault used to isolate secrets. Example: root
 - `password` (String, Sensitive) SELF HOSTED: The password of the user in PAM 'SecretsHub'
 - `region_id` (String) AWS: The region ID for the AWS Secrets Manager
 - `resource_group_name` (String) AZURE: The name of the Azure resource group where the Azure Key Vault is stored
-- `role_name` (String) COMMON - AWS, HASHI: The role used for authentication. For AWS, this is the IAM role ARN. For HashiCorp, this is the role name created in HashiCorp Vault for Secrets Hub to authenticate and access secrets.
+- `role_name` (String) COMMON - AWS, HASHI, HASHI ENT: The role used for authentication. For AWS, this is the IAM role ARN. For HashiCorp, this is the role name created in HashiCorp Vault for Secrets Hub to authenticate and access secrets.
 - `service_account_email` (String) GCP: The service account email created for Secrets Hub to access the GCP Secret Manager
 - `subscription_id` (String) AZURE: The Azure subscription ID where the Azure Key Vault is stored
 - `subscription_name` (String) AZURE: The name of the Azure subscription where the Azure Key Vault is stored
@@ -167,9 +273,9 @@ Read-Only:
 
 Optional:
 
-- `connection_type` (String) COMMON - AKV, GCP: The type of connector (CONNECTOR,PUBLIC)
-- `connector_id` (String) AZURE: The connector unique identifier used to connect Secrets Hub and the Cloud Vendor.
-- `connector_pool_id` (String) AZURE: The connector pool unique identifier used to connect PAM Self-Hosted and Secrets Hub.
+- `connection_type` (String) The type of connector (CONNECTOR,PUBLIC)
+- `connector_id` (String) AZURE, HASHI, HASHI ENT: The connector unique identifier used to connect Secrets Hub and the Cloud Vendor.
+- `connector_pool_id` (String) The connector pool unique identifier used to connect PAM Self-Hosted and Secrets Hub.
 
 
 <a id="nestedatt--data--gcp_authentication"></a>

@@ -152,7 +152,7 @@ func TestClearRemovedAttributesHistoryGate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			tgt := target{SecretType: "password", HostName: "host-1"}
-			clearRemovedAttributes(reflect.ValueOf(&tgt), config, state, nil, tt.history, "")
+			clearRemovedAttributes(reflect.ValueOf(&tgt), config, state, nil, nil, tt.history, "")
 			if tgt != tt.want {
 				t.Errorf("got %+v, want %+v", tgt, tt.want)
 			}

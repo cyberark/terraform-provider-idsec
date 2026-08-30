@@ -29,7 +29,7 @@ func dataSourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool,
 		validate := field.Tag.Get("validate")
 		choices := field.Tag.Get("choices")
 		fieldName := resolveFieldName(field)
-		isRequired := strings.Contains(required, "true") || strings.Contains(validate, "required") || slices.Contains(extraRequiredAttrs, fieldName)
+		isRequired := strings.Contains(required, "true") || isRequiredTag(validate) || slices.Contains(extraRequiredAttrs, fieldName)
 		isSensitive := slices.Contains(sensitiveAttrs, fieldName)
 		if fieldType.Kind() == reflect.Pointer {
 			fieldType = fieldType.Elem()

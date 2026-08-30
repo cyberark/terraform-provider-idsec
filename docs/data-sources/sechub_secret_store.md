@@ -32,7 +32,7 @@ Secrets Hub secret store data source, reads secret store information and metadat
 - `store_status` (Attributes) (see [below for nested schema](#nestedatt--store_status))
 - `total_policies_count` (Number) The total amount of policies in the secret store
 - `total_secrets_count` (Number) The total amount of secrets in the secret store
-- `type` (String) The type of secret store (PAM_PCLOUD,PAM_SELF_HOSTED,AWS_ASM,AZURE_AKV,GCP_GSM,HASHICORP_VAULT)
+- `type` (String) The type of secret store (PAM_PCLOUD,PAM_SELF_HOSTED,AWS_ASM,AZURE_AKV,GCP_GSM,HASHICORP_VAULT,HASHICORP_VAULT_ENT)
 - `updated_at` (String) The last date the secret store was updated
 - `updated_by` (String) The last user to update the secret store.
 
@@ -46,9 +46,9 @@ Read-Only:
 - `app_client_directory_id` (String) AZURE: The Azure Active Directory ID of the application that has access to the Azure Key Vault
 - `app_client_id` (String) AZURE: The Azure Active Directory application ID of the application that has access to the Azure Key Vault
 - `authentication_method` (String) Provider-specific authentication method to use
-- `authentication_path` (String) HASHI: The authentication path configured in HashiCorp Vault for Secrets Hub to authenticate and access secrets. Example: 'auth/secrets-hub/login' for an authentication path of 'secrets-hub'
-- `azure_vault_url` (String) AZURE: The URL of the Azure Key Vault where you store secrets. Example: https://myvault.vault.azure.net/
-- `connection_config` (Attributes) COMMON - AZURE, HASHI: The network access configuration set for your target (see [below for nested schema](#nestedatt--data--connection_config))
+- `authentication_path` (String) HASHI, HASHI ENT: The authentication path configured in HashiCorp Vault for Secrets Hub to authenticate and access secrets. Example: 'auth/secrets-hub/login' for an authentication path of 'secrets-hub'
+- `azure_vault_url` (String) AZURE: The URL of the Azure Key Vault where you store secrets. Example: https://myvault.vault.azure.net
+- `connection_config` (Attributes) The network access configuration set for your target (see [below for nested schema](#nestedatt--data--connection_config))
 - `connector_id` (String) SELF HOSTED: The connector unique identifier used to connect Secrets Hub and the Cloud Vendor.
 - `connector_pool_id` (String) SELF HOSTED: The connector pool unique identifier used to connect PAM Self-Hosted and Secrets Hub.
 - `engine_api_version` (String) The API version of the engine in HashiCorp Vault. Valid values: 1, 2
@@ -58,12 +58,13 @@ Read-Only:
 - `gcp_project_name` (String) GCP: The name of the GCP project where the GCP Secret Manager is stored
 - `gcp_project_number` (String) GCP: The number of the GCP project where the GCP Secret Manager is stored
 - `gcp_workload_identity_pool_id` (String) GCP: The GCP workload identity pool ID created for Secrets Hub to access the GCP Secret Manager
-- `hashi_vault_url` (String) HASHI: The URL of the HashiCorp Vault where you store secrets. Example: https://myvault.hashicorpcloud.com/
-- `mount_path` (String) HASHI: The mount path of the HashiCorp Vault where secrets are stored. Example: 'secret' for secrets stored in the 'secret' engine
+- `hashi_vault_url` (String) HASHI, HASHI ENT: The URL of the HashiCorp Vault where you store secrets. Example: https://myvault.com
+- `mount_path` (String) HASHI, HASHI ENT: The mount path of the HashiCorp Vault where secrets are stored. Example: 'secret' for secrets stored in the 'secret' engine
+- `namespace` (String) HASHI ENT: The namespace path within HashiCorp Vault used to isolate secrets. Example: root
 - `password` (String, Sensitive) SELF HOSTED: The password of the user in PAM 'SecretsHub'
 - `region_id` (String) AWS: The region ID for the AWS Secrets Manager
 - `resource_group_name` (String) AZURE: The name of the Azure resource group where the Azure Key Vault is stored
-- `role_name` (String) COMMON - AWS, HASHI: The role used for authentication. For AWS, this is the IAM role ARN. For HashiCorp, this is the role name created in HashiCorp Vault for Secrets Hub to authenticate and access secrets.
+- `role_name` (String) COMMON - AWS, HASHI, HASHI ENT: The role used for authentication. For AWS, this is the IAM role ARN. For HashiCorp, this is the role name created in HashiCorp Vault for Secrets Hub to authenticate and access secrets.
 - `service_account_email` (String) GCP: The service account email created for Secrets Hub to access the GCP Secret Manager
 - `subscription_id` (String) AZURE: The Azure subscription ID where the Azure Key Vault is stored
 - `subscription_name` (String) AZURE: The name of the Azure subscription where the Azure Key Vault is stored
@@ -75,9 +76,9 @@ Read-Only:
 
 Read-Only:
 
-- `connection_type` (String) COMMON - AKV, GCP: The type of connector (CONNECTOR,PUBLIC)
-- `connector_id` (String) AZURE: The connector unique identifier used to connect Secrets Hub and the Cloud Vendor.
-- `connector_pool_id` (String) AZURE: The connector pool unique identifier used to connect PAM Self-Hosted and Secrets Hub.
+- `connection_type` (String) The type of connector (CONNECTOR,PUBLIC)
+- `connector_id` (String) AZURE, HASHI, HASHI ENT: The connector unique identifier used to connect Secrets Hub and the Cloud Vendor.
+- `connector_pool_id` (String) The connector pool unique identifier used to connect PAM Self-Hosted and Secrets Hub.
 
 
 <a id="nestedatt--data--gcp_authentication"></a>

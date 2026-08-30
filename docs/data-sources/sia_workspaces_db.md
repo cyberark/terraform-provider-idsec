@@ -28,23 +28,24 @@ data "idsec_sia_workspaces_db" "example_db" {
 
 ### Read-Only
 
-- `account` (String) Account to be used for provider based databases such as atlas
-- `auth_database` (String) Authentication database used, most commonly used with mongodb
-- `certificate` (String) The certificate ID used for this database that resides in the certificates service.
-- `configured_auth_method_type` (String) The target configured auth method type.
-- `domain` (String) The domain the DB resides in
-- `domain_controller_enable_certificate_validation` (Boolean) Whether to enforce certificate validation on TLS comm to the DC
-- `domain_controller_ldaps_certificate` (String) Certificate id to use for the domain controller TLS comm
-- `domain_controller_name` (String) Domain controller name associated to this database
-- `domain_controller_netbios` (String) Domain controller netbios associated to this database
-- `domain_controller_use_ldaps` (Boolean) Whether to work with LDAP secure or not
-- `enable_certificate_validation` (Boolean) Indicates whether to enable and enforce certificate validation.
-- `family` (String) The family of the database provider.
-- `platform` (String) The platform where the database resides.
-- `port` (Number) The port of the database, if not given, the default one will be used.
-- `provider_engine` (String) The provider engine, will be later deduced to the identifier of the provider.
+- `account` (String) The account to be used for provider-managed databases. Not required for the currently supported database types.
+- `auth_database` (String) The authentication database used. Applies to MongoDB only.
+- `certificate` (String) The certificate ID used for this database that resides in the certificates service. Required when enableCertificateValidation is true (which is the default).
+- `configured_auth_method_type` (String) The target configured auth method type. One of ad_ephemeral_user, local_ephemeral_user, rds_iam_authentication.
+- `domain` (String) The domain the DB resides in. Applies to Active Directory based authentication (MSSQL / DB2); required when configuredAuthMethodType is ad_ephemeral_user.
+- `domain_controller_enable_certificate_validation` (Boolean) Indicates whether to enforce certificate validation on TLS comm to the DC. Applies to Active Directory based authentication (MSSQL / DB2).
+- `domain_controller_ldaps_certificate` (String) The certificate ID to use for the domain controller TLS comm. Applies to Active Directory based authentication (MSSQL / DB2); required when both domainControllerUseLdaps and domainControllerEnableCertificateValidation are true.
+- `domain_controller_name` (String) The domain controller name associated to this database. Applies to Active Directory based authentication (MSSQL / DB2).
+- `domain_controller_netbios` (String) The domain controller netbios associated to this database. Applies to Active Directory based authentication (MSSQL / DB2).
+- `domain_controller_organizational_unit` (String) The Organizational Unit (OU) in which the ephemeral user will be created. Applies to Active Directory based authentication (MSSQL / DB2).
+- `domain_controller_use_ldaps` (Boolean) Indicates whether to work with secure LDAP. Applies to Active Directory based authentication (MSSQL / DB2).
+- `enable_certificate_validation` (Boolean) Indicates whether to enable and enforce certificate validation. Defaults to true; when true, certificate is required.
+- `family` (String) The family of the database provider. One of MySQL, MSSQL, Postgres, MariaDB, DB2, Oracle, Mongo.
+- `platform` (String) The platform where the database resides. One of AWS, AZURE, GCP, ON-PREMISE.
+- `port` (Number) The port of the database. Required for all supported database families; the family default is used when omitted.
+- `provider_engine` (String) The provider engine type for the database.
 - `read_only_endpoint` (String) The optional read-only endpoint of the database.
 - `read_write_endpoint` (String) The read/write endpoint of the database.
-- `region` (String) Region of the database, most commonly used with IAM authentication
+- `region` (String) The region of the database. Applies to auto-discovered databases; required when configuredAuthMethodType is rds_iam_authentication.
 - `secret_id` (String) The secret identifier stored in the secret service related to this database.
-- `services` (List of String) The services related to the database, most commonly used with Oracle/SQL Server.
+- `services` (List of String) The services of the database. Applies to Oracle only; SID/service-name strings, at least one required.

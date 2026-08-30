@@ -82,7 +82,7 @@ func init() {
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
 						ActionName: "cce-azure-entra", ActionDescription: "CCE Microsoft Entra tenant data source, reads Microsoft Entra tenant details based on the CCE Microsoft Entra tenant onboarding ID.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
-					ExtraRequiredAttributes: []string{},
+					ExtraRequiredAttributes: []string{"id"},
 					StateSchema:             &azuremodels.TfIdsecCCEAzureEntra{},
 				},
 				DataSourceAction: "tf-entra",
@@ -92,7 +92,7 @@ func init() {
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
 						ActionName: "cce-azure-management-group", ActionDescription: "CCE Azure management group data source, reads management group details based on the CCE management group onboarding ID.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
-					ExtraRequiredAttributes: []string{},
+					ExtraRequiredAttributes: []string{"id"},
 					StateSchema:             &azuremodels.TfIdsecCCEAzureManagementGroup{},
 				},
 				DataSourceAction: "tf-management-group",
@@ -102,7 +102,7 @@ func init() {
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
 						ActionName: "cce-azure-subscription", ActionDescription: "CCE Azure Subscription data source, reads subscription details based on the CCE subscription onboarding ID.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
-					ExtraRequiredAttributes: []string{},
+					ExtraRequiredAttributes: []string{"id"},
 					StateSchema:             &azuremodels.TfIdsecCCEAzureSubscription{},
 				},
 				DataSourceAction: "tf-subscription",

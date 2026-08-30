@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/dynamicplanmodifier"
@@ -80,12 +81,23 @@ func hasInterfaceInnerType(fieldType reflect.Type) bool {
 	return false
 }
 
-// appendCaseInsensitiveStringModifier appends CaseInsensitiveString when fieldName is listed in caseInsensitiveAttrs.
-func appendCaseInsensitiveStringModifier(existing []planmodifier.String, fieldName string, caseInsensitiveAttrs []string) []planmodifier.String {
-	if len(caseInsensitiveAttrs) == 0 || !slices.Contains(caseInsensitiveAttrs, fieldName) {
+// applySemanticEqualityModifier attaches the plan modifier registered for fieldName's semantic-equality
+// kind (see semanticEqualityRegistry), if fieldName is tagged in semanticEqualityAttrs. Kinds that must
+// run before immutability/force-new checks are prepended so the plan value is normalized before those
+// checks see it; others are appended.
+func applySemanticEqualityModifier(existing []planmodifier.String, fieldName string, semanticEqualityAttrs map[string]SemanticEqualityKind) []planmodifier.String {
+	kind, tagged := semanticEqualityAttrs[fieldName]
+	if !tagged {
 		return existing
 	}
-	return append(slices.Clone(existing), CaseInsensitiveString())
+	entry, known := semanticEqualityRegistry[kind]
+	if !known {
+		return existing
+	}
+	if entry.runsBeforeImmutability {
+		return append([]planmodifier.String{entry.modifier()}, existing...)
+	}
+	return append(slices.Clone(existing), entry.modifier())
 }
 
 // parseMinMaxLengthFromFieldTags parses standalone `minlength` and `maxlength` struct tags
@@ -109,7 +121,7 @@ func parseMinMaxLengthFromFieldTags(minlength, maxlength string) (*int64, *int64
 	return minVal, maxVal
 }
 
-func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string, forceNewAttrs []string, computedAttrs []string, caseInsensitiveAttrs []string, pathPrefix string) map[string]schema.Attribute {
+func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string, forceNewAttrs []string, computedAttrs []string, semanticEqualityAttrs map[string]SemanticEqualityKind, pathPrefix string) map[string]schema.Attribute {
 	modelType := reflect.TypeOf(inputModel)
 	if modelType.Kind() == reflect.Pointer {
 		modelType = modelType.Elem()
@@ -132,7 +144,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 		if pathPrefix != "" {
 			fieldPath = pathPrefix + "." + fieldName
 		}
-		isRequired := strings.Contains(required, "true") || strings.Contains(validate, "required") || slices.Contains(extraRequiredAttrs, fieldName)
+		isRequired := strings.Contains(required, "true") || isRequiredTag(validate) || slices.Contains(extraRequiredAttrs, fieldName)
 		isSensitive := slices.Contains(sensitiveAttrs, fieldName)
 		isImmutable := slices.Contains(immutableAttrs, fieldName)
 		isForceNew := slices.Contains(forceNewAttrs, fieldName)
@@ -149,7 +161,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Computed:    true,
 					Sensitive:   isSensitive,
 				}
-				strAttr.PlanModifiers = appendCaseInsensitiveStringModifier(strAttr.PlanModifiers, fieldName, caseInsensitiveAttrs)
+				strAttr.PlanModifiers = applySemanticEqualityModifier(strAttr.PlanModifiers, fieldName, semanticEqualityAttrs)
 				attributes[fieldName] = applyDeprecation(strAttr, depInfo)
 				continue
 			}
@@ -190,7 +202,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					stringplanmodifier.RequiresReplace(),
 				}
 			}
-			strAttr.PlanModifiers = appendCaseInsensitiveStringModifier(strAttr.PlanModifiers, fieldName, caseInsensitiveAttrs)
+			strAttr.PlanModifiers = applySemanticEqualityModifier(strAttr.PlanModifiers, fieldName, semanticEqualityAttrs)
 			attributes[fieldName] = applyDeprecation(strAttr, depInfo)
 		case reflect.Bool:
 			if setAsComputed || isComputedOnly {
@@ -486,7 +498,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			}
 			if fieldType.Elem().Kind() == reflect.Struct {
 				// Handle nested structs by recursively generating their schema
-				nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs, fieldPath)
+				nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, semanticEqualityAttrs, fieldPath)
 				if setAsComputed {
 					attributes[fieldName] = applyDeprecation(schema.ListNestedAttribute{
 						NestedObject: schema.NestedAttributeObject{
@@ -590,7 +602,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 					Sensitive:   isSensitive,
 				}, depInfo)
 			} else if fieldType.Elem().Kind() == reflect.Struct {
-				nestedAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs, fieldPath)
+				nestedAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType.Elem()).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, semanticEqualityAttrs, fieldPath)
 				if setAsComputed {
 					complexMapAttr := schema.MapNestedAttribute{
 						NestedObject: schema.NestedAttributeObject{
@@ -621,7 +633,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			}
 		case reflect.Struct:
 			// Handle nested structs by recursively generating their schema
-			nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs, fieldPath)
+			nestedSchemaAttrs := resourceSchemaAttrsFromStruct(reflect.New(fieldType).Elem().Interface(), setAsComputed, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, semanticEqualityAttrs, fieldPath)
 			if setAsComputed || isComputedOnly {
 				attributes[fieldName] = applyDeprecation(schema.SingleNestedAttribute{
 					Attributes:  nestedSchemaAttrs,
@@ -838,16 +850,60 @@ func getNestedStructFieldNames(stateModel interface{}) map[string]bool {
 }
 
 // GenerateResourceSchemaFromStruct generates a Terraform schema from a Go struct.
-// caseInsensitiveAttrs lists top-level string attribute names that get CaseInsensitiveString plan modifiers.
-func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel interface{}, stateModel interface{}, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string, forceNewAttrs []string, computedAttrs []string, caseInsensitiveAttrs []string) schema.Schema {
-	schemaAttrs := resourceSchemaAttrsFromStruct(createModel, false, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs, "")
+// semanticEqualityAttrs maps top-level string attribute names to the SemanticEqualityKind whose
+// plan modifier should be attached (e.g. SemanticEqualityCaseInsensitive, SemanticEqualityTrailingSlash).
+// writeOnlyAttrs maps the dotted path of each attribute to make write-only to the name of its
+// trigger attribute; see applyWriteOnlyAttributes for the rules.
+//
+// The returned diagnostics report a schema-declaration error and must be surfaced by the caller,
+// since a wrong schema has to fail the operation rather than be used.
+func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel interface{}, stateModel interface{}, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string, forceNewAttrs []string, computedAttrs []string, semanticEqualityAttrs map[string]SemanticEqualityKind, writeOnlyAttrs map[string]string) (schema.Schema, diag.Diagnostics) {
+	return generateResourceSchema(resourceSchemaOptions{
+		CreateModel:                createModel,
+		UpdateModel:                updateModel,
+		StateModel:                 stateModel,
+		SensitiveAttributes:        sensitiveAttrs,
+		ExtraRequiredAttributes:    extraRequiredAttrs,
+		ComputedAsSetAttributes:    computedAsSetAttrs,
+		ImmutableAttributes:        immutableAttrs,
+		ForceNewAttributes:         forceNewAttrs,
+		ComputedAttributes:         computedAttrs,
+		SemanticEqualityAttributes: semanticEqualityAttrs,
+		WriteOnlyAttributes:        writeOnlyAttrs,
+	})
+}
+
+// resourceSchemaOptions is the internal, named form of the arguments to
+// GenerateResourceSchemaFromStruct, so that the write-only pass can be threaded a single argument
+// instead of six positional ones, several of which are interchangeable []string attribute lists.
+// It stays unexported: the positional function is the package's only public entry point.
+type resourceSchemaOptions struct {
+	CreateModel                interface{}
+	UpdateModel                interface{}
+	StateModel                 interface{}
+	SensitiveAttributes        []string
+	ExtraRequiredAttributes    []string
+	ComputedAsSetAttributes    []string
+	ImmutableAttributes        []string
+	ForceNewAttributes         []string
+	ComputedAttributes         []string
+	SemanticEqualityAttributes map[string]SemanticEqualityKind
+	WriteOnlyAttributes        map[string]string
+}
+
+// generateResourceSchema is the implementation behind
+// GenerateResourceSchemaFromStruct.
+func generateResourceSchema(opts resourceSchemaOptions) (schema.Schema, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	schemaAttrs := resourceSchemaAttrsFromStruct(opts.CreateModel, false, opts.SensitiveAttributes, opts.ExtraRequiredAttributes, opts.ComputedAsSetAttributes, opts.ImmutableAttributes, opts.ForceNewAttributes, opts.ComputedAttributes, opts.SemanticEqualityAttributes, "")
 
 	// Get field names that belong to nested structs in the state model
 	// These should not appear as flattened fields in the final schema
-	nestedStructFieldNames := getNestedStructFieldNames(stateModel)
+	nestedStructFieldNames := getNestedStructFieldNames(opts.StateModel)
 
-	if updateModel != nil {
-		updateModelAttrs := resourceSchemaAttrsFromStruct(updateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs, "")
+	if opts.UpdateModel != nil {
+		updateModelAttrs := resourceSchemaAttrsFromStruct(opts.UpdateModel, true, opts.SensitiveAttributes, opts.ExtraRequiredAttributes, opts.ComputedAsSetAttributes, opts.ImmutableAttributes, opts.ForceNewAttributes, opts.ComputedAttributes, opts.SemanticEqualityAttributes, "")
 		for key, updateAttr := range updateModelAttrs {
 			// Skip flattened fields that belong to nested structs in the state model
 			if nestedStructFieldNames[key] {
@@ -866,8 +922,8 @@ func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel inter
 		}
 	}
 
-	if stateModel != nil {
-		outputModelAttrs := resourceSchemaAttrsFromStruct(stateModel, true, sensitiveAttrs, extraRequiredAttrs, computedAsSetAttrs, immutableAttrs, forceNewAttrs, computedAttrs, caseInsensitiveAttrs, "")
+	if opts.StateModel != nil {
+		outputModelAttrs := resourceSchemaAttrsFromStruct(opts.StateModel, true, opts.SensitiveAttributes, opts.ExtraRequiredAttributes, opts.ComputedAsSetAttributes, opts.ImmutableAttributes, opts.ForceNewAttributes, opts.ComputedAttributes, opts.SemanticEqualityAttributes, "")
 		for key, outputAttr := range outputModelAttrs {
 			if _, exists := schemaAttrs[key]; !exists {
 				schemaAttrs[key] = outputAttr
@@ -877,11 +933,17 @@ func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel inter
 
 	// Force computed-only attributes to be read-only (Optional=false, Required=false, Computed=true)
 	// This processes both top-level and nested attributes recursively
-	forceComputedAttributesReadOnly(schemaAttrs, computedAttrs)
+	forceComputedAttributesReadOnly(schemaAttrs, opts.ComputedAttributes)
+
+	// Must run last, so its eligibility checks see the final computed-only flags. Keeping it
+	// reachable only from here means every schema-generation call site picks up a synthesized
+	// trigger; one that missed it would build a state object narrower than the schema and fail
+	// respState.Set at runtime.
+	diags.Append(applyWriteOnlyAttributes(schemaAttrs, opts)...)
 
 	return schema.Schema{
 		Attributes: schemaAttrs,
-	}
+	}, diags
 }
 
 // ResourceSchemaToSchemaAttrTypes converts a Terraform schema to a map of attribute types.

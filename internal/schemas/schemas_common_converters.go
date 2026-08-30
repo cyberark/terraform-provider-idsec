@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"math/big"
 	"reflect"
 	"slices"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/iancoleman/strcase"
 	"github.com/mitchellh/mapstructure"
@@ -82,6 +84,10 @@ func resolveFieldName(field reflect.StructField) string {
 		return strcase.ToSnake(fieldName)
 	}
 	return strcase.ToSnake(field.Name)
+}
+
+func isRequiredTag(validate string) bool {
+	return slices.Contains(strings.Split(validate, ","), "required")
 }
 
 func isType[T any](t attr.Type) bool {
@@ -891,7 +897,7 @@ func StructFromPlanAndStateObject(ctx context.Context, plan *tfsdk.Plan, state *
 
 // ClearRemovedAttributes zeroes request-struct fields for attributes the user explicitly removed
 // from configuration, so they are not resurrected from prior state on update.
-func ClearRemovedAttributes(ctx context.Context, target interface{}, config *tfsdk.Config, state *tfsdk.State, computedAttrs []string, userSetPaths map[string]bool) error {
+func ClearRemovedAttributes(ctx context.Context, target interface{}, config *tfsdk.Config, state *tfsdk.State, computedAttrs []string, defaultAttrs []string, userSetPaths map[string]bool) error {
 	if target == nil || config == nil || state == nil {
 		return nil
 	}
@@ -909,14 +915,14 @@ func ClearRemovedAttributes(ctx context.Context, target interface{}, config *tfs
 	if stateObj.IsNull() || stateObj.IsUnknown() {
 		return nil
 	}
-	clearRemovedAttributes(reflect.ValueOf(target), configObj.Attributes(), stateObj.Attributes(), computedAttrs, userSetPaths, "")
+	clearRemovedAttributes(reflect.ValueOf(target), configObj.Attributes(), stateObj.Attributes(), computedAttrs, defaultAttrs, userSetPaths, "")
 	return nil
 }
 
 // clearRemovedAttributes recursively walks the configuration and state attribute maps in parallel
 // with the request struct, zeroing fields the user removed (isUserRemoval: config null over a
 // meaningful prior-state value) AND that were previously recorded as user-set in history.
-func clearRemovedAttributes(structVal reflect.Value, configAttrs map[string]attr.Value, stateAttrs map[string]attr.Value, computedAttrs []string, userSetPaths map[string]bool, pathPrefix string) {
+func clearRemovedAttributes(structVal reflect.Value, configAttrs map[string]attr.Value, stateAttrs map[string]attr.Value, computedAttrs []string, defaultAttrs []string, userSetPaths map[string]bool, pathPrefix string) {
 	for structVal.Kind() == reflect.Pointer {
 		if structVal.IsNil() {
 			return
@@ -932,6 +938,10 @@ func clearRemovedAttributes(structVal reflect.Value, configAttrs map[string]attr
 			path = pathPrefix + "." + key
 		}
 		if slices.Contains(computedAttrs, key) || slices.Contains(computedAttrs, path) {
+			continue
+		}
+		// Skip default-bearing Optional+Computed attrs symmetrically with ApplyRemovedToUnknownModifiers:
+		if slices.Contains(defaultAttrs, key) || slices.Contains(defaultAttrs, path) {
 			continue
 		}
 		fieldVal, ok := findStructFieldByName(structVal, key)
@@ -953,7 +963,7 @@ func clearRemovedAttributes(structVal reflect.Value, configAttrs map[string]attr
 			if nestedStateObj, ok := stateVal.(types.Object); ok && !nestedStateObj.IsNull() && !nestedStateObj.IsUnknown() {
 				nestedStateAttrs = nestedStateObj.Attributes()
 			}
-			clearRemovedAttributes(fieldVal, nestedConfigObj.Attributes(), nestedStateAttrs, computedAttrs, userSetPaths, path)
+			clearRemovedAttributes(fieldVal, nestedConfigObj.Attributes(), nestedStateAttrs, computedAttrs, defaultAttrs, userSetPaths, path)
 		}
 	}
 }
@@ -1060,6 +1070,123 @@ func findStructFieldByName(structVal reflect.Value, name string) (reflect.Value,
 		}
 	}
 	return reflect.Value{}, false
+}
+
+// FieldByAttributePath walks a dotted attribute path (for example "authentication.password") to
+// the corresponding settable reflect.Value on an SDK request model.
+//
+// It delegates each segment to findStructFieldByName so that it inherits that function's
+// squashed-embed descent, where a field declared directly on the struct shadows a same-named
+// field promoted from a squashed embed.
+//
+// A nil intermediate pointer is allocated via reflect.New if settable, rather than treated as a
+// miss: a create request naturally has every not-yet-populated nested pointer at nil, and a
+// write-only value still has to be injectable into it.
+//
+// Returns a zero Value and false if attrPath is empty, target does not dereference to a struct, a
+// nil intermediate pointer cannot be set, or a segment does not resolve to a field.
+func FieldByAttributePath(target interface{}, attrPath string) (reflect.Value, bool) {
+	if attrPath == "" {
+		return reflect.Value{}, false
+	}
+	current := reflect.ValueOf(target)
+	for _, part := range strings.Split(attrPath, ".") {
+		container, ok := dereferenceAllocating(current)
+		if !ok {
+			return reflect.Value{}, false
+		}
+		field, found := findStructFieldByName(container, part)
+		if !found {
+			return reflect.Value{}, false
+		}
+		current = field
+	}
+	return current, true
+}
+
+// dereferenceAllocating dereferences v through any number of pointer layers, allocating a zero
+// value for each settable nil pointer. Returns false if v is not a struct once dereferenced, or a
+// nil pointer along the way cannot be set.
+func dereferenceAllocating(v reflect.Value) (reflect.Value, bool) {
+	for v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			if !v.CanSet() {
+				return reflect.Value{}, false
+			}
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return reflect.Value{}, false
+	}
+	return v, true
+}
+
+// SetFieldFromRawValue converts a dynamically-typed tftypes.Value into field's Go kind and
+// assigns it. The conversion switches on the destination kind rather than raw's tftypes.Type, so
+// supporting a new kind is one more case in the same switch.
+//
+// A null or not-fully-known raw is an error rather than a silent zero-write: afterwards there is
+// no way to tell a deliberate zero value from a secret the practitioner never supplied. Callers
+// skip such values before calling.
+func SetFieldFromRawValue(field reflect.Value, raw tftypes.Value) error {
+	if !field.IsValid() || !field.CanSet() {
+		return fmt.Errorf("cannot assign to an unsettable field of kind %s", field.Kind())
+	}
+	if raw.IsNull() {
+		return fmt.Errorf("cannot assign a null value to a field of kind %s", field.Kind())
+	}
+	if !raw.IsFullyKnown() {
+		return fmt.Errorf("cannot assign a value that is not fully known to a field of kind %s", field.Kind())
+	}
+
+	if field.Kind() == reflect.Pointer {
+		elem := reflect.New(field.Type().Elem())
+		if err := SetFieldFromRawValue(elem.Elem(), raw); err != nil {
+			return err
+		}
+		field.Set(elem)
+		return nil
+	}
+
+	switch field.Kind() {
+	case reflect.String:
+		var s string
+		if err := raw.As(&s); err != nil {
+			return fmt.Errorf("failed to read value as string: %w", err)
+		}
+		field.SetString(s)
+		return nil
+	case reflect.Bool:
+		var b bool
+		if err := raw.As(&b); err != nil {
+			return fmt.Errorf("failed to read value as bool: %w", err)
+		}
+		field.SetBool(b)
+		return nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		n := big.NewFloat(0)
+		if err := raw.As(n); err != nil {
+			return fmt.Errorf("failed to read value as number: %w", err)
+		}
+		i, _ := n.Int64()
+		field.SetInt(i)
+		return nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		n := big.NewFloat(0)
+		if err := raw.As(n); err != nil {
+			return fmt.Errorf("failed to read value as number: %w", err)
+		}
+		i, _ := n.Int64()
+		if i < 0 {
+			return fmt.Errorf("cannot assign negative number %d to an unsigned field", i)
+		}
+		field.SetUint(uint64(i))
+		return nil
+	default:
+		return fmt.Errorf("unsupported destination field kind %s", field.Kind())
+	}
 }
 
 // StructToStateObject converts a Go struct to a Terraform state object.

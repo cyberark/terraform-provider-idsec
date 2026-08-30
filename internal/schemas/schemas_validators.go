@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/defaults"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 // StringDefault is a default value for string attributes.
@@ -464,6 +465,73 @@ func (v MapSizeValidator) ValidateMap(ctx context.Context, req validator.MapRequ
 		)
 		return
 	}
+}
+
+// WriteOnlyTriggerValidator warns when a write-only attribute is set in configuration but its
+// trigger is not, leaving the practitioner no lever to cause the value to be re-sent on a later
+// apply.
+//
+// It only warns, never errors: a designated trigger is often Optional+Computed, so its value
+// legitimately lives in state rather than configuration.
+//
+// It attaches only to a StringAttribute, since the framework's validator interfaces are per-type
+// and nine near-identical implementations are not worth a warning. TriggerPath is walked in raw
+// configuration rather than via a path.Expression so that a trigger of any attribute type can be
+// read without knowing which.
+type WriteOnlyTriggerValidator struct {
+	// TriggerPath is the dotted path of the trigger attribute to check for in configuration.
+	TriggerPath string
+}
+
+// Description returns a description of the validator.
+func (v WriteOnlyTriggerValidator) Description(ctx context.Context) string {
+	return fmt.Sprintf("Warns if this write-only value is set without also setting %q, since only a change to %q causes the value to be re-sent.", v.TriggerPath, v.TriggerPath)
+}
+
+// MarkdownDescription returns a markdown description of the validator.
+func (v WriteOnlyTriggerValidator) MarkdownDescription(ctx context.Context) string {
+	return fmt.Sprintf("Warns if this write-only value is set without also setting `%s`, since only a change to `%s` causes the value to be re-sent.", v.TriggerPath, v.TriggerPath)
+}
+
+// ValidateString warns when the write-only value is set but TriggerPath is null in the same
+// configuration. It stays silent if the write-only value is itself null or unknown, or if
+// TriggerPath cannot be walked. Silence on a null value is also what keeps it quiet on Terraform
+// clients older than 1.11, where the framework raises its own error first.
+func (v WriteOnlyTriggerValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if req.Config.Raw.IsNull() {
+		return
+	}
+
+	triggerPath := tftypes.NewAttributePath()
+	for _, part := range strings.Split(v.TriggerPath, ".") {
+		triggerPath = triggerPath.WithAttributeName(part)
+	}
+
+	result, _, err := tftypes.WalkAttributePath(req.Config.Raw, triggerPath)
+	if err != nil {
+		return
+	}
+	triggerValue, ok := result.(tftypes.Value)
+	if !ok {
+		return
+	}
+	if !triggerValue.IsNull() {
+		return
+	}
+
+	resp.Diagnostics.AddAttributeWarning(
+		req.Path,
+		"Write-Only Value Set Without Trigger",
+		fmt.Sprintf(
+			"This write-only attribute is set in configuration, but its trigger attribute %q is not. "+
+				"Terraform cannot detect that a write-only value changed, so without a value for %q it "+
+				"will be sent on create and never again, leaving no way to rotate it.",
+			v.TriggerPath, v.TriggerPath,
+		),
+	)
 }
 
 // SliceInSetValidator ensures all strings in a slice are in the allowed choices.
