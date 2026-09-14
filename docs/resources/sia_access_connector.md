@@ -41,18 +41,34 @@ resource "idsec_sia_access_connector" "example_connector" {
 ### Required
 
 - `connector_pool_id` (String) The connector pool that the connector will be part of. If not provided, the connector is assigned to the default pool.
-- `target_machine` (String) The target machine on which to install the connector.
-- `username` (String) The username used to connect to the target machine.
+- `target_machine` (String) The target machine on which to install the connector. Required unless connector_os is k8s-ephemeral.
+- `username` (String) The username used to connect to the target machine. Required unless connector_os is k8s-ephemeral.
 
 ### Optional
 
-- `connector_id` (String) The connector ID to be uninstalled.
-- `connector_os` (String) The type of the operating system on which to install the connector (Linux, windows).
+- `connector_id` (String) The connector ID to be uninstalled. Required unless connector_os is k8s-ephemeral, where a helm release may back multiple replica connectors with no single ID.
+- `connector_os` (String) The type of the operating system on which to install the connector (Linux, windows, k8s-ephemeral).
 - `connector_type` (String) The type of the platform on which to install the connector (ON-PREMISE, AWS, AZURE, GCP).
-- `force_delete` (Boolean) When true, forces deletion of the connector even if it is active.
+- `force_delete` (Boolean) When true, forces deletion of the connector even if it is active. Not applicable when connector_os is k8s-ephemeral, since no platform-side connector record is deleted in that case.
+- `k_8_s_details` (Attributes) Kubernetes configuration used when connector_os is k8s-ephemeral. Forwarded to the setup-script API so the returned script is pre-configured with these values; the script is then run locally instead of over a target machine connection. (see [below for nested schema](#nestedatt--k_8_s_details))
+- `k_8_s_namespace` (String) The Kubernetes namespace the connector was installed into. Required when connector_os is k8s-ephemeral; the connector is uninstalled by running 'helm uninstall sia-connector --namespace <k8s-namespace>' locally.
 - `password` (String, Sensitive) The password used to connect to the target machine.
 - `private_key_contents` (String, Sensitive) The private key contents used to connect to the target machine via SSH.
 - `private_key_path` (String) The private key file path used to connect to the target machine via SSH.
 - `retry_count` (Number) The number of times to retry to connect to the connector, if it fails.
 - `retry_delay` (Number) The number of seconds to wait between retries.
 - `winrm_protocol` (String) The protocol to use for WinRM connections (HTTP, HTTPS).
+
+<a id="nestedatt--k_8_s_details"></a>
+### Nested Schema for `k_8_s_details`
+
+Optional:
+
+- `k_8_s_image_pull_secret` (String) Name of an existing Kubernetes pull-secret in the connector namespace. When supplied, skips the interactive prompt.
+- `k_8_s_image_uri` (String) Full URI of the connector image (registry/repo:tag). When supplied, skips the interactive image-URI prompt.
+- `k_8_s_namespace` (String) Kubernetes namespace to install into. When supplied, skips the interactive namespace prompt.
+- `k_8_s_password` (String) Service user password for the K8s connector. When supplied, skips the interactive password prompt.
+- `k_8_s_replicas` (Number) Number of connector replicas (1-10). When supplied, skips the interactive replicas prompt.
+- `k_8_s_username` (String) Service user username for the K8s connector. When supplied, skips the interactive username prompt.
+- `upgrade` (Boolean) When true, passes --upgrade to the K8s setup script to upgrade an existing installation.
+

@@ -120,6 +120,14 @@ type IdsecServiceTerraformResourceActionDefinition struct {
 	ImportID            string
 	PlanValidators      []IdsecPlanValidator
 	WriteOnlyAttributes map[string]string
+	// WriteOnlyHashedAttributes lists top-level scalar attribute paths that desugar into
+	// write-only mode with an automatically synthesized "<attr>_write_only_hash" trigger, instead
+	// of a manually declared one: the schema generator marks the attribute write-only and adds the
+	// hash sibling itself, so no entry for it belongs in WriteOnlyAttributes as well.
+	WriteOnlyHashedAttributes []string
+	// DeprecationMessage is shown as a Terraform warning whenever this resource
+	// appears in a plan. Leave empty for non-deprecated resources.
+	DeprecationMessage string
 }
 
 // IdsecServiceTerraformDataSourceActionDefinition is a struct that defines the structure of a data source action in the Idsec Terraform provider.

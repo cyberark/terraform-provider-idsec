@@ -60,7 +60,7 @@ func TestGenerateResourceSchemaFromStruct_RequiredFromValidateTag(t *testing.T) 
 	t.Parallel()
 
 	model := &validateTagFixture{}
-	schema, diags := GenerateResourceSchemaFromStruct(model, model, model, nil, nil, nil, nil, nil, nil, nil, nil)
+	schema, diags := GenerateResourceSchemaFromStruct(model, model, model, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if diags.HasError() {
 		t.Fatalf("unexpected diagnostics: %v", diags)
 	}

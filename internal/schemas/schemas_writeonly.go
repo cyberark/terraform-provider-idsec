@@ -591,22 +591,33 @@ func markWriteOnlyAtPath(attrs map[string]schema.Attribute, parts []string, trig
 		return diags
 	}
 
-	marked, markDiags := markAttributeWriteOnly(a, triggerName)
+	marked, markDiags := markAttributeWriteOnly(a, triggerName, writeOnlyAttributeDescriptionSuffix(triggerName), true)
 	diags.Append(markDiags...)
 	attrs[name] = marked
 	return diags
 }
 
-// markAttributeWriteOnly rewrites the attribute named by a write-only key, extending its
-// description to name the trigger.
-func markAttributeWriteOnly(a schema.Attribute, triggerName string) (schema.Attribute, diag.Diagnostics) {
+// markAttributeWriteOnly rewrites the attribute named by a write-only key, appending suffix to its
+// description. attachTriggerValidator controls whether a WriteOnlyTriggerValidator naming
+// triggerName is appended: manual trigger mode wants it, so a practitioner who sets the value
+// without also setting the trigger is warned. Hash mode passes false, since its trigger is a
+// Computed sibling that is never present in configuration, and the validator would otherwise warn
+// on every plan where the practitioner sets the secret. The validator can only attach to a
+// StringAttribute, mirroring the type restriction setWriteOnly used to enforce itself.
+func markAttributeWriteOnly(a schema.Attribute, triggerName, suffix string, attachTriggerValidator bool) (schema.Attribute, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	marked, ok := setWriteOnly(a, writeOnlyAttributeDescriptionSuffix(triggerName), triggerName)
+	marked, ok := setWriteOnly(a, suffix)
 	if !ok {
 		diags.AddError(errWriteOnlySummary, fmt.Sprintf(
 			"internal error: cannot mark attribute type %T write-only; validateWriteOnlyKey should "+
 				"have rejected this schema before mutation began.", a))
 		return a, diags
+	}
+	if attachTriggerValidator {
+		if strAttr, isString := marked.(schema.StringAttribute); isString {
+			strAttr.Validators = append(slices.Clone(strAttr.Validators), WriteOnlyTriggerValidator{TriggerPath: triggerName})
+			marked = strAttr
+		}
 	}
 	return marked, diags
 }
@@ -616,7 +627,7 @@ func markAttributeWriteOnly(a schema.Attribute, triggerName string) (schema.Attr
 // that cannot be marked is left alone, which validateNoIneligibleDescendant has already ruled out.
 func markDescendantsWriteOnly(attrs map[string]schema.Attribute) {
 	for name, a := range attrs {
-		if marked, ok := setWriteOnly(a, "", ""); ok {
+		if marked, ok := setWriteOnly(a, ""); ok {
 			attrs[name] = marked
 		}
 	}
@@ -624,15 +635,15 @@ func markDescendantsWriteOnly(attrs map[string]schema.Attribute) {
 
 // setWriteOnly returns a with WriteOnly=true, Computed=false and plan modifiers cleared,
 // recursing into the children of a nested container. A non-empty suffix is appended to the
-// description and, for a string, attaches WriteOnlyTriggerValidator (the only attribute type that
-// can carry it). Reports false for a type with no WriteOnly field, which includes both set types.
-func setWriteOnly(a schema.Attribute, suffix, triggerName string) (schema.Attribute, bool) {
+// description. Attaching a WriteOnlyTriggerValidator is the caller's decision, not this function's
+// -- see markAttributeWriteOnly. Reports false for a type with no WriteOnly field, which includes
+// both set types.
+func setWriteOnly(a schema.Attribute, suffix string) (schema.Attribute, bool) {
 	switch t := a.(type) {
 	case schema.StringAttribute:
 		t.Computed, t.WriteOnly, t.PlanModifiers = false, true, nil
 		if suffix != "" {
 			t.Description = appendDescription(t.Description, suffix)
-			t.Validators = append(slices.Clone(t.Validators), WriteOnlyTriggerValidator{TriggerPath: triggerName})
 		}
 		return t, true
 	case schema.BoolAttribute:

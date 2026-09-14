@@ -23,6 +23,9 @@ import (
 type IdsecServiceHelper struct {
 	serviceConfig *services.IdsecServiceConfig
 	service       services.IdsecService
+	// configureServiceFn overrides configureService when set; used in tests to inject
+	// a stub without requiring real credentials or network access.
+	configureServiceFn func(*api.IdsecAPI) error
 }
 
 // getServiceNameTitled converts the service name to TitleCase format for reflection.
@@ -40,6 +43,9 @@ func (h *IdsecServiceHelper) getServiceNameTitled() string {
 // This should be called once during Configure() to set up the service.
 // Returns an error if the service cannot be retrieved.
 func (h *IdsecServiceHelper) configureService(idsecAPI *api.IdsecAPI) error {
+	if h.configureServiceFn != nil {
+		return h.configureServiceFn(idsecAPI)
+	}
 	if idsecAPI == nil {
 		return fmt.Errorf("idsecAPI is nil")
 	}

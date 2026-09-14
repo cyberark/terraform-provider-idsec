@@ -10,10 +10,12 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -21,7 +23,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/mitchellh/mapstructure"
 	api "github.com/cyberark/idsec-sdk-golang/pkg"
-	"github.com/cyberark/idsec-sdk-golang/pkg/auth"
 	sdkcommon "github.com/cyberark/idsec-sdk-golang/pkg/common"
 	modelsactions "github.com/cyberark/idsec-sdk-golang/pkg/models/actions"
 	"github.com/cyberark/idsec-sdk-golang/pkg/services"
@@ -94,6 +95,26 @@ func (s *IdsecResource) schemaForOperation(operation actions.IdsecServiceActionO
 	return schemas.DeepCopy(unwrappedSchema), nil
 }
 
+// buildSchema generates this resource's schema from its action definition. Every call site must
+// route through here: one that assembled the arguments itself would silently miss a later-added
+// option and build a state object narrower than the schema.
+func (s *IdsecResource) buildSchema(createSchema, updateSchema interface{}) (schema.Schema, diag.Diagnostics) {
+	return schemas.GenerateResourceSchemaFromStruct(
+		createSchema,
+		updateSchema,
+		s.actionDefinition.StateSchema,
+		s.actionDefinition.SensitiveAttributes,
+		s.actionDefinition.ExtraRequiredAttributes,
+		s.actionDefinition.ComputedAsSetAttributes,
+		s.getImmutableAttributes(),
+		s.getForceNewAttributes(),
+		s.getComputedAttributes(),
+		s.getSemanticEqualityAttributes(),
+		s.actionDefinition.WriteOnlyAttributes,
+		s.actionDefinition.WriteOnlyHashedAttributes,
+	)
+}
+
 // getStringSliceFromActionDefinition uses reflection to safely read a []string field from
 // IdsecServiceBaseTerraformActionDefinition. Provides backward compatibility with SDK
 // versions that don't have the field yet.
@@ -133,19 +154,7 @@ func (s *IdsecResource) defaultBearingOptionalComputedPaths() []string {
 	if err != nil || updateSchema == nil {
 		return nil
 	}
-	outputSchemaDef, schemaDiags := schemas.GenerateResourceSchemaFromStruct(
-		createSchema,
-		updateSchema,
-		s.actionDefinition.StateSchema,
-		s.actionDefinition.SensitiveAttributes,
-		s.actionDefinition.ExtraRequiredAttributes,
-		s.actionDefinition.ComputedAsSetAttributes,
-		s.getImmutableAttributes(),
-		s.getForceNewAttributes(),
-		s.getComputedAttributes(),
-		s.getSemanticEqualityAttributes(),
-		s.actionDefinition.WriteOnlyAttributes,
-	)
+	outputSchemaDef, schemaDiags := s.buildSchema(createSchema, updateSchema)
 	if schemaDiags.HasError() {
 		return nil
 	}
@@ -299,6 +308,24 @@ func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions
 	return operationSchemaInput, nil
 }
 
+// effectiveWriteOnlyTriggers returns the write-only attribute paths mapped to their trigger
+// attribute names, desugaring hash mode into the same shape as a manually declared trigger so that
+// every apply-side consumer works unchanged. When no hashed attribute is declared it returns
+// WriteOnlyAttributes directly rather than a copy, so a resource that declares no write-only
+// attribute at all still sees the same nil/empty map it always has.
+func (s *IdsecResource) effectiveWriteOnlyTriggers() map[string]string {
+	hashed := s.actionDefinition.WriteOnlyHashedAttributes
+	if len(hashed) == 0 {
+		return s.actionDefinition.WriteOnlyAttributes
+	}
+	out := make(map[string]string, len(s.actionDefinition.WriteOnlyAttributes)+len(hashed))
+	maps.Copy(out, s.actionDefinition.WriteOnlyAttributes)
+	for _, attrPath := range hashed {
+		out[attrPath] = schemas.WriteOnlyHashAttributeName(attrPath)
+	}
+	return out
+}
+
 // applyWriteOnlyValues injects each declared write-only attribute's configuration value into the
 // same-named field on the SDK request model target. The framework scrubs a write-only value from
 // both plan and prior state on every call, so the plan-based decode that populated target left
@@ -310,12 +337,13 @@ func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions
 // Every failure is returned as an error rather than skipped: this is the last step before the
 // request is sent, and swallowing one would create or update a resource without its credential.
 func (s *IdsecResource) applyWriteOnlyValues(ctx context.Context, target interface{}, config *tfsdk.Config, plan *tfsdk.Plan, state *tfsdk.State) error {
-	if target == nil || config == nil || len(s.actionDefinition.WriteOnlyAttributes) == 0 {
+	triggers := s.effectiveWriteOnlyTriggers()
+	if target == nil || config == nil || len(triggers) == 0 {
 		return nil
 	}
 
-	for _, attrPath := range slices.Sorted(maps.Keys(s.actionDefinition.WriteOnlyAttributes)) {
-		triggerPath := s.actionDefinition.WriteOnlyAttributes[attrPath]
+	for _, attrPath := range slices.Sorted(maps.Keys(triggers)) {
+		triggerPath := triggers[attrPath]
 
 		configPath := tftypes.NewAttributePath()
 		for _, part := range strings.Split(attrPath, ".") {
@@ -411,14 +439,15 @@ func (s *IdsecResource) triggerFired(ctx context.Context, attrPath, triggerPath 
 // A dotted (nested) key is logged and left to the framework's own nullification: rebuilding a
 // nested container's value just to null one field inside it is not implemented.
 func (s *IdsecResource) nullWriteOnlyAttributesInState(ctx context.Context, obj types.Object) types.Object {
-	if len(s.actionDefinition.WriteOnlyAttributes) == 0 {
+	triggers := s.effectiveWriteOnlyTriggers()
+	if len(triggers) == 0 {
 		return obj
 	}
 
 	attrTypes := obj.AttributeTypes(ctx)
 	values := maps.Clone(obj.Attributes())
 	changed := false
-	for _, key := range slices.Sorted(maps.Keys(s.actionDefinition.WriteOnlyAttributes)) {
+	for _, key := range slices.Sorted(maps.Keys(triggers)) {
 		if strings.Contains(key, ".") {
 			tflog.Warn(ctx, fmt.Sprintf("Write-only attribute %q is nested; defensive state nulling only handles top-level attributes, relying on framework nullification for it", key))
 			continue
@@ -488,6 +517,28 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 		}
 		return
 	}
+
+	// Resolved before the API call so a derivation failure aborts the operation rather than
+	// orphaning a created resource with a null hash in state. Placed immediately after the
+	// parse-error check, ahead of every later early-return path (action mapping, service lookup,
+	// method lookup, struct validation) and the actual API call at actionMethod.Call below. It
+	// does not need to precede applyWriteOnlyValues (called inside parsePlanAndState above), even
+	// though that call's triggerFired DOES read the hash sibling in hash mode (triggerPath is the
+	// sibling name, per effectiveWriteOnlyTriggers): ResolveWriteOnlyHashTags is pure with respect
+	// to plan.Raw -- it returns a map and never mutates plan.Raw -- so triggerFired's read of the
+	// sibling out of plan.Raw is unaffected by call order either way. This purity is load-bearing:
+	// if a future change had this function (or a caller) write the resolved tag back into
+	// plan.Raw before applyWriteOnlyValues ran, triggerFired would see a sibling that already
+	// matches its "new" value and conclude the trigger never fired, silently breaking rotation
+	// detection.
+	plannedHashTags, hashDiags := schemas.ResolveWriteOnlyHashTags(
+		ctx, s.actionDefinition.WriteOnlyHashedAttributes, plan, state, config)
+	diagnostics.Append(hashDiags...)
+	if diagnostics.HasError() {
+		s.finalizeState(ctx, operation, originalState, respState, diagnostics)
+		return
+	}
+
 	actionName, ok := s.actionDefinition.ActionsMappings[operation]
 	if !ok {
 		s.finalizeFailure(ctx, "Action Mapping Error", fmt.Sprintf("No action mapping found for operation: %s", operation), operation, originalState, respState, diagnostics)
@@ -573,19 +624,7 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 			s.finalizeFailure(ctx, "Schema Error", fmt.Sprintf("No schema mapping found for operation: %s", actions.UpdateOperation), operation, originalState, respState, diagnostics)
 			return
 		}
-		outputSchemaDef, schemaDiags := schemas.GenerateResourceSchemaFromStruct(
-			createSchema,
-			updateSchema,
-			s.actionDefinition.StateSchema,
-			s.actionDefinition.SensitiveAttributes,
-			s.actionDefinition.ExtraRequiredAttributes,
-			s.actionDefinition.ComputedAsSetAttributes,
-			s.getImmutableAttributes(),
-			s.getForceNewAttributes(),
-			s.getComputedAttributes(),
-			s.getSemanticEqualityAttributes(),
-			s.actionDefinition.WriteOnlyAttributes,
-		)
+		outputSchemaDef, schemaDiags := s.buildSchema(createSchema, updateSchema)
 		diagnostics.Append(schemaDiags...)
 		if diagnostics.HasError() {
 			s.finalizeState(ctx, operation, originalState, respState, diagnostics)
@@ -605,12 +644,17 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 				return
 			}
 		}
-		if len(s.actionDefinition.WriteOnlyAttributes) > 0 {
+		if len(s.effectiveWriteOnlyTriggers()) > 0 {
 			// Guards an API that echoes a credential back: the state model may carry the same
 			// field, which StructToStateObject would write into the write-only attribute and the
 			// framework would then reject as an inconsistent result after apply.
 			stateResult = s.nullWriteOnlyAttributesInState(ctx, stateResult)
 		}
+		// Must run after nullWriteOnlyAttributesInState (which nulls the SOURCE attribute, e.g.
+		// "password") and after MergePlanToStateObject (which demotes an unknown planned hash
+		// sibling to null): this sets the SIBLING, e.g. "password_write_only_hash", to its
+		// apply-time resolved tag, so it must be the last write to either attribute.
+		stateResult = s.setWriteOnlyHashTagsInState(ctx, stateResult, plannedHashTags)
 		tflog.Info(ctx, "Setting state result")
 		diags := respState.Set(ctx, stateResult)
 		if diags.HasError() {
@@ -682,19 +726,7 @@ func (s *IdsecResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 		resp.Diagnostics.AddError("Schema Error", fmt.Sprintf("No schema mapping found for operation: %s - %v", actions.UpdateOperation, err))
 		return
 	}
-	generatedSchema, diags := schemas.GenerateResourceSchemaFromStruct(
-		createSchema,
-		updateSchema,
-		s.actionDefinition.StateSchema,
-		s.actionDefinition.SensitiveAttributes,
-		s.actionDefinition.ExtraRequiredAttributes,
-		s.actionDefinition.ComputedAsSetAttributes,
-		s.getImmutableAttributes(),
-		s.getForceNewAttributes(),
-		s.getComputedAttributes(),
-		s.getSemanticEqualityAttributes(),
-		s.actionDefinition.WriteOnlyAttributes,
-	)
+	generatedSchema, diags := s.buildSchema(createSchema, updateSchema)
 	resp.Schema = generatedSchema
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -702,6 +734,7 @@ func (s *IdsecResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 	}
 	schemas.ApplyRemovedToUnknownModifiers(resp.Schema.Attributes, s.readKeyTopLevelAttributes(), s.getImmutableAttributes())
 	resp.Schema.Description = s.actionDefinition.ActionDescription
+	resp.Schema.DeprecationMessage = s.actionDefinition.DeprecationMessage
 	if s.actionDefinition.ActionVersion != 0 {
 		resp.Schema.Version = s.actionDefinition.ActionVersion
 	}
@@ -712,31 +745,36 @@ func (s *IdsecResource) Configure(ctx context.Context, req resource.ConfigureReq
 	if req.ProviderData == nil {
 		return
 	}
-	ispAuth, ok := req.ProviderData.(*auth.IdsecISPAuth)
+	idsecAPI, ok := req.ProviderData.(*api.IdsecAPI)
 	if !ok {
-		// Try PVWA auth
-		pvwaAuth, ok := req.ProviderData.(*auth.IdsecPVWAAuth)
-		if !ok {
-			resp.Diagnostics.AddError("Authentication Error", "Unable to authenticate with the provided credentials.")
-			return
-		}
-		var err error
-		s.idsecAPI, err = api.NewIdsecAPI([]auth.IdsecAuth{pvwaAuth}, nil)
-		if err != nil {
-			resp.Diagnostics.AddError("Service Initialization Error", fmt.Sprintf("Unable to create API: %s", err.Error()))
-			return
-		}
-	} else {
-		var err error
-		s.idsecAPI, err = api.NewIdsecAPI([]auth.IdsecAuth{ispAuth}, nil)
-		if err != nil {
-			resp.Diagnostics.AddError("Service Initialization Error", fmt.Sprintf("Unable to create API: %s", err.Error()))
-			return
-		}
+		resp.Diagnostics.AddError("Unexpected Provider Data", fmt.Sprintf("Expected *api.IdsecAPI, got %T", req.ProviderData))
+		return
 	}
+	s.idsecAPI = idsecAPI
 
-	// Configure the service instance using the helper
-	err := s.configureService(s.idsecAPI)
+	// Configure the service instance using the helper, retrying on transient ISP errors.
+	const configureRetries = 5
+	attempt := 0
+	var configureErr error
+	_ = sdkcommon.RetryCall(
+		func() error {
+			attempt++
+			configureErr = s.configureService(s.idsecAPI)
+			if configureErr != nil && !strings.Contains(configureErr.Error(), "unexpected end of JSON input") {
+				return nil // non-retryable: stop RetryCall, configureErr holds the real error
+			}
+			return configureErr
+		},
+		configureRetries,
+		1,
+		nil,
+		2,
+		[2]int{0, 2},
+		func(retryErr error, delay int) {
+			tflog.Warn(ctx, fmt.Sprintf("Service configuration failed with transient ISP error (attempt %d/%d), retrying in %ds: %s", attempt, configureRetries, delay, retryErr))
+		},
+	)
+	err := configureErr
 	if err != nil {
 		resp.Diagnostics.AddError("Service Configuration Error", fmt.Sprintf("Unable to configure service: %s", err.Error()))
 		return
@@ -801,19 +839,7 @@ func (s *IdsecResource) seedUserSetHistoryFromState(ctx context.Context, state *
 		tflog.Warn(ctx, "Skipping synthetic user-set history seed: failed to resolve update schema")
 		return
 	}
-	outputSchemaDef, schemaDiags := schemas.GenerateResourceSchemaFromStruct(
-		createSchema,
-		updateSchema,
-		s.actionDefinition.StateSchema,
-		s.actionDefinition.SensitiveAttributes,
-		s.actionDefinition.ExtraRequiredAttributes,
-		s.actionDefinition.ComputedAsSetAttributes,
-		s.getImmutableAttributes(),
-		s.getForceNewAttributes(),
-		s.getComputedAttributes(),
-		s.getSemanticEqualityAttributes(),
-		s.actionDefinition.WriteOnlyAttributes,
-	)
+	outputSchemaDef, schemaDiags := s.buildSchema(createSchema, updateSchema)
 	if schemaDiags.HasError() {
 		// Best-effort seed: a schema-declaration error must not fail Read, and
 		// these diagnostics are not the caller's to surface, so log and bail.
@@ -924,6 +950,7 @@ func (s *IdsecResource) ImportState(ctx context.Context, req resource.ImportStat
 		return
 	}
 
+	values := []string{req.ID}
 	if len(attributes) > 1 {
 		if !strings.Contains(req.ID, ":") {
 			resp.Diagnostics.AddError(
@@ -932,7 +959,7 @@ func (s *IdsecResource) ImportState(ctx context.Context, req resource.ImportStat
 			)
 			return
 		}
-		values := strings.Split(req.ID, ":")
+		values = strings.Split(req.ID, ":")
 		if len(attributes) != len(values) {
 			resp.Diagnostics.AddError(
 				"Invalid Import ID",
@@ -940,24 +967,38 @@ func (s *IdsecResource) ImportState(ctx context.Context, req resource.ImportStat
 			)
 			return
 		}
-		for i, attr := range attributes {
-			attrPath, err := schemas.ParseImportAttributePath(attr)
-			if err != nil {
-				resp.Diagnostics.AddError("Invalid Import ID Attribute", err.Error())
-				return
-			}
-			resp.Diagnostics.Append(resp.State.SetAttribute(ctx, attrPath, types.StringValue(values[i]))...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-		}
-		return
 	}
 
-	attrPath, err := schemas.ParseImportAttributePath(attributes[0])
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid Import ID Attribute", err.Error())
-		return
+	for i, attr := range attributes {
+		attrPath, err := schemas.ParseImportAttributePath(attr)
+		if err != nil {
+			resp.Diagnostics.AddError("Invalid Import ID Attribute", err.Error())
+			return
+		}
+		// SetAttribute converts a plain Go value into the framework value the schema declares.
+		// Import IDs always arrive as strings, but a resource may key on a numeric ID
+		// (pcloud_user.user_id and pcloud_target_platform.id are Int64 attributes), which
+		// SetAttribute rejects when handed a string, so hand it an int64 for those instead.
+		var val any = values[i]
+		attrType, typeDiags := resp.State.Schema.TypeAtPath(ctx, attrPath)
+		resp.Diagnostics.Append(typeDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if attrType.Equal(types.Int64Type) {
+			parsed, err := strconv.ParseInt(values[i], 10, 64)
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Invalid Import ID",
+					fmt.Sprintf("Attribute %q expects an integer import ID, got %q.", attrPath, values[i]),
+				)
+				return
+			}
+			val = parsed
+		}
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, attrPath, val)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, attrPath, types.StringValue(req.ID))...)
 }

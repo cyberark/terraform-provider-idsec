@@ -21,6 +21,14 @@ func init() {
 					},
 					StateSchema:             &rolesmodels.IdsecIdentityRole{},
 					ComputedAsSetAttributes: []string{"admin_rights"},
+					ComputedAttributes:      []string{"role_attributes"},
+					AttributeNotes: map[string][]tfactions.DocNote{
+						"role_attributes": {{
+							Severity:       tfactions.DocNoteWarning,
+							BreakingChange: true,
+							Body:           "`role_attributes` is now read-only. Any value set on `idsec_identity_role` was silently discarded by the API; manage role attributes exclusively via the `idsec_identity_role_attributes` resource and remove `role_attributes` from your `idsec_identity_role` configuration.",
+						}},
+					},
 				},
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "create", tfactions.ReadOperation: "get", tfactions.UpdateOperation: "update", tfactions.DeleteOperation: "delete"},

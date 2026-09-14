@@ -224,16 +224,21 @@ func operationSupported(operations []actions.IdsecServiceActionOperation, operat
 	return false
 }
 
-// generateSchemaForResource replicates the arguments internal/provider passes at its three
+// generateSchemaForResource replicates the arguments internal/provider passes at its
 // schemas.GenerateResourceSchemaFromStruct call sites, so this package's tests see the same
 // generator inputs a real apply would, without importing internal/provider (an import cycle).
 //
 // ForceNewAttributes is passed as nil because the field does not exist on the action definition
 // today; see IdsecResource.getForceNewAttributes.
 //
+// writeOnlyOverride and writeOnlyHashedOverride let a caller substitute the schema-generation
+// inputs under test in place of the resource's own declarations (or nil to use neither), which
+// TestAllWriteOnlyAttributesAreValid needs to exercise WriteOnlyAttributes and
+// WriteOnlyHashedAttributes together so their cross-field mutual-exclusion rule is reachable.
+//
 // The error reports a malformed resource registration, which is distinct from the diagnostics:
 // those report that the generated schema itself is invalid.
-func generateSchemaForResource(resourceDef *actions.IdsecServiceTerraformResourceActionDefinition, writeOnlyOverride map[string]string) (rschema.Schema, diag.Diagnostics, error) {
+func generateSchemaForResource(resourceDef *actions.IdsecServiceTerraformResourceActionDefinition, writeOnlyOverride map[string]string, writeOnlyHashedOverride []string) (rschema.Schema, diag.Diagnostics, error) {
 	createActionName, hasCreate := resourceDef.ActionsMappings[actions.CreateOperation]
 	if !hasCreate {
 		return rschema.Schema{}, nil, fmt.Errorf("resource %q has no Create operation mapping", resourceDef.ActionName)
@@ -263,14 +268,21 @@ func generateSchemaForResource(resourceDef *actions.IdsecServiceTerraformResourc
 		resourceDef.ComputedAttributes,
 		resourceDef.SemanticEqualityAttributes,
 		writeOnlyOverride,
+		writeOnlyHashedOverride,
 	)
 	return generated, diags, nil
 }
 
 // TestAllWriteOnlyAttributesAreValid fails if any registered resource declares a
-// WriteOnlyAttributes entry that the schema generator rejects. It passes trivially today because
-// no resource declares one yet; it is armed for the first that does, so the eligibility and
-// trigger rules become a CI gate rather than documentation a reviewer might miss.
+// WriteOnlyAttributes or WriteOnlyHashedAttributes entry that the schema generator rejects. It
+// passes trivially today because no resource declares either yet; it is armed for the first that
+// does, so the eligibility and trigger rules become a CI gate rather than documentation a
+// reviewer might miss.
+//
+// Both fields are generated together in a single call per resource, rather than in two separate
+// calls, because mutual exclusion between them is a cross-field rule: an attribute declared in
+// both maps/slices must be rejected, and generating each field in isolation would never exercise
+// that check.
 func TestAllWriteOnlyAttributesAreValid(t *testing.T) {
 	allConfigs := actions.AllTerraformConfigs()
 
@@ -280,18 +292,25 @@ func TestAllWriteOnlyAttributesAreValid(t *testing.T) {
 
 	for _, config := range allConfigs {
 		for _, resourceDef := range config.Resources {
-			if len(resourceDef.WriteOnlyAttributes) == 0 {
+			if len(resourceDef.WriteOnlyAttributes) == 0 && len(resourceDef.WriteOnlyHashedAttributes) == 0 {
 				continue
 			}
 
 			t.Run(config.ServiceName+"/"+resourceDef.ActionName, func(t *testing.T) {
-				_, diags, err := generateSchemaForResource(resourceDef, resourceDef.WriteOnlyAttributes)
+				_, diags, err := generateSchemaForResource(resourceDef, resourceDef.WriteOnlyAttributes, resourceDef.WriteOnlyHashedAttributes)
 				if err != nil {
 					t.Fatalf("could not generate schema: %v", err)
 				}
 				if diags.HasError() {
-					t.Errorf("resource %q in service %q declares an invalid WriteOnlyAttributes entry:\n%s",
-						resourceDef.ActionName, config.ServiceName, diags.Errors())
+					declared := make([]string, 0, 2)
+					if len(resourceDef.WriteOnlyAttributes) > 0 {
+						declared = append(declared, "WriteOnlyAttributes")
+					}
+					if len(resourceDef.WriteOnlyHashedAttributes) > 0 {
+						declared = append(declared, "WriteOnlyHashedAttributes")
+					}
+					t.Errorf("resource %q in service %q declares an invalid %s entry:\n%s",
+						resourceDef.ActionName, config.ServiceName, strings.Join(declared, "/"), diags.Errors())
 				}
 			})
 		}

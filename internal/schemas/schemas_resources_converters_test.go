@@ -186,7 +186,7 @@ func TestGenerateResourceSchemaFromStruct_ReturnsNoDiagnostics(t *testing.T) {
 		Nested noDiagsNested `tfsdk:"nested"`
 	}
 
-	_, diags := GenerateResourceSchemaFromStruct(&noDiagsModel{}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	_, diags := GenerateResourceSchemaFromStruct(&noDiagsModel{}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	if len(diags) != 0 {
 		t.Fatalf("expected zero diagnostics, got %d: %+v", len(diags), diags)
@@ -448,6 +448,7 @@ func TestGenerateResourceSchemaFromStruct(t *testing.T) {
 				tt.computedAttrs,
 				tt.semanticEqualityAttrs,
 				nil, // writeOnlyAttrs
+				nil, // writeOnlyHashedAttrs
 			)
 
 			// Validate result
@@ -523,6 +524,7 @@ func TestGenerateResourceSchemaFromStructNestedStructRemoval(t *testing.T) {
 		nil, // computedAttrs
 		nil, // semanticEqualityAttrs
 		nil, // writeOnlyAttrs
+		nil, // writeOnlyHashedAttrs
 	)
 
 	// Verify nested structs exist
@@ -594,6 +596,7 @@ func TestGenerateResourceSchemaFromStructWithSquashedStateModel(t *testing.T) {
 		nil, // computedAttrs
 		nil, // semanticEqualityAttrs
 		nil, // writeOnlyAttrs
+		nil, // writeOnlyHashedAttrs
 	)
 
 	// When state model has squashed fields, they should appear at root level
@@ -671,6 +674,7 @@ func TestGenerateResourceSchemaFromStructWithAttributeConflict(t *testing.T) {
 		nil, // computedAttrs
 		nil, // semanticEqualityAttrs
 		nil, // writeOnlyAttrs
+		nil, // writeOnlyHashedAttrs
 	)
 
 	// Verify that nested_struct exists
@@ -829,6 +833,7 @@ func TestGenerateResourceSchemaFromStructMinMaxLengthTags(t *testing.T) {
 		nil,
 		nil, // semanticEqualityAttrs
 		nil, // writeOnlyAttrs
+		nil, // writeOnlyHashedAttrs
 	)
 
 	tests := []struct {
@@ -1047,6 +1052,7 @@ func TestMinMaxLengthValidatorsAttachedHaveCorrectDescriptions(t *testing.T) {
 		nil,
 		nil, // semanticEqualityAttrs
 		nil, // writeOnlyAttrs
+		nil, // writeOnlyHashedAttrs
 	)
 
 	ctx := context.Background()
@@ -1221,6 +1227,7 @@ func TestSemanticEqualityModifierPrecedesImmutableInGeneratedSchema(t *testing.T
 		nil,
 		nil,
 		map[string]SemanticEqualityKind{"mount_path": SemanticEqualityTrailingSlash},
+		nil,
 		nil,
 	)
 	if diags.HasError() {

@@ -26,7 +26,7 @@ resource "idsec_cce_azure_entra" "example" {
 
 ### Required
 
-- `cce_resources` (Dynamic) CCE resources.
+- `cce_resources` (Dynamic) CCE resources. Must contain 'appId' (string, UUID) — the Azure application ID.
 - `entra_id` (String) Microsoft Entra tenant ID (UUID format).
 - `services` (Dynamic) List of services to add (SIA, SCA, SecretsHub, CDS) and their associated resources.
 

@@ -50,6 +50,21 @@ func init() {
 						"targets.aws_idc_targets.fqdn",
 						"targets.aws_idc_targets.region",
 					},
+					PageNotes: []tfactions.DocNote{
+						{Severity: tfactions.DocNoteInfo, Body: "Use this resource to create and manage policies that control access to Kubernetes clusters (EKS and AKS). Supports standalone AWS accounts, AWS IAM Identity Center, and Azure."},
+						{Severity: tfactions.DocNoteWarning, BreakingChange: true, Body: "The `targets.azure_targets.region` attribute has been removed from Azure AKS targets. Remove it from your Terraform configuration."},
+					},
+					AttributeNotes: map[string][]tfactions.DocNote{
+						"metadata.policy_entitlement.target_category": {
+							{Severity: tfactions.DocNoteWarning, Body: "Must be set to `Clusters` for Kubernetes access policies."},
+						},
+						"metadata.policy_id": {
+							{Severity: tfactions.DocNoteInfo, Body: "Assigned by the platform after creation and used as the import ID for existing policies."},
+						},
+						"targets.azure_targets.cluster_id": {
+							{Severity: tfactions.DocNoteInfo, Body: "Provide the full Azure Resource Manager resource ID of the AKS cluster."},
+						},
+					},
 				},
 				ReadSchemaPath:      "metadata",
 				DeleteSchemaPath:    "metadata",
@@ -66,6 +81,10 @@ func init() {
 					},
 					StateSchema:             &policyk8smodels.IdsecPolicyK8sPolicy{},
 					ComputedAsSetAttributes: []string{"days_of_the_week", "aws_account_targets", "aws_idc_targets", "azure_targets"},
+					PageNotes: []tfactions.DocNote{
+						{Severity: tfactions.DocNoteInfo, Body: "Returns the full details of a specific Kubernetes cluster access policy by its `policy_id`. Policy IDs can be obtained from the `idsec_policy_k8s_list` data source."},
+						{Severity: tfactions.DocNoteWarning, BreakingChange: true, Body: "The `targets.azure_targets.region` attribute has been removed from Azure AKS targets. Remove it from your Terraform configuration."},
+					},
 				},
 				DataSourceAction: "policy",
 			},

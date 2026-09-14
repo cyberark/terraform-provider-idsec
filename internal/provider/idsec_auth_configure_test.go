@@ -5,104 +5,127 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	api "github.com/cyberark/idsec-sdk-golang/pkg"
 	"github.com/cyberark/idsec-sdk-golang/pkg/auth"
+	models "github.com/cyberark/idsec-sdk-golang/pkg/models"
+	authmodels "github.com/cyberark/idsec-sdk-golang/pkg/models/auth"
 	"github.com/cyberark/idsec-sdk-golang/pkg/services"
 	"github.com/cyberark/terraform-provider-idsec/internal/actions"
 )
 
-// createTestResourceForAuth creates a test resource for authentication testing.
-func createTestResourceForAuth() *IdsecResource {
-	serviceConfig := &services.IdsecServiceConfig{
-		ServiceName: "test-service",
+// fakeAuthenticator is a test double for IdsecAuthenticator that returns a
+// scripted sequence of errors, then nil on subsequent calls.
+type fakeAuthenticator struct {
+	errors []error // errors to return in order; after exhaustion returns nil
+	calls  int
+}
+
+func (f *fakeAuthenticator) Authenticate(_ *models.IdsecProfile, _ *authmodels.IdsecAuthProfile, _ *authmodels.IdsecSecret, _, _ bool) (*authmodels.IdsecToken, error) {
+	if f.calls < len(f.errors) {
+		err := f.errors[f.calls]
+		f.calls++
+		return nil, err
 	}
+	f.calls++
+	return &authmodels.IdsecToken{}, nil
+}
+
+// createTestResource creates a test resource with an optional configureService stub.
+func createTestResource(configureServiceFn func(*api.IdsecAPI) error) *IdsecResource {
+	serviceConfig := &services.IdsecServiceConfig{ServiceName: "test-service"}
 	actionDefinition := &actions.IdsecServiceTerraformResourceActionDefinition{
 		IdsecServiceBaseTerraformActionDefinition: actions.IdsecServiceBaseTerraformActionDefinition{
 			IdsecServiceBaseActionDefinition: actions.IdsecServiceBaseActionDefinition{
-				ActionName:        "test-resource",
-				ActionDescription: "Test resource for auth testing",
+				ActionName: "test-resource",
 			},
 		},
 	}
 	return &IdsecResource{
 		IdsecServiceHelper: IdsecServiceHelper{
-			serviceConfig: serviceConfig,
+			serviceConfig:      serviceConfig,
+			configureServiceFn: configureServiceFn,
 		},
 		serviceConfig:    serviceConfig,
 		actionDefinition: actionDefinition,
 	}
 }
 
-// createTestDataSourceForAuth creates a test data source for authentication testing.
-func createTestDataSourceForAuth() *IdsecDataSource {
-	serviceConfig := &services.IdsecServiceConfig{
-		ServiceName: "test-service",
-	}
+// createTestDataSource creates a test data source with an optional configureService stub.
+func createTestDataSource(configureServiceFn func(*api.IdsecAPI) error) *IdsecDataSource {
+	serviceConfig := &services.IdsecServiceConfig{ServiceName: "test-service"}
 	actionDefinition := &actions.IdsecServiceTerraformDataSourceActionDefinition{
 		IdsecServiceBaseTerraformActionDefinition: actions.IdsecServiceBaseTerraformActionDefinition{
 			IdsecServiceBaseActionDefinition: actions.IdsecServiceBaseActionDefinition{
-				ActionName:        "test-datasource",
-				ActionDescription: "Test data source for auth testing",
+				ActionName: "test-datasource",
 			},
 		},
 	}
 	return &IdsecDataSource{
 		IdsecServiceHelper: IdsecServiceHelper{
-			serviceConfig: serviceConfig,
+			serviceConfig:      serviceConfig,
+			configureServiceFn: configureServiceFn,
 		},
 		serviceConfig:    serviceConfig,
 		actionDefinition: actionDefinition,
 	}
 }
 
-// TestIdsecResource_Configure_ISPAuth tests that ISP authentication continues to work
-// with resources after the interface-based authentication fix.
-//
-// This is a regression test to verify that the existing ISP authentication flow
-// (identity, identity_service_user) is not broken by the interface change.
-func TestIdsecResource_Configure_ISPAuth(t *testing.T) {
+// createTestResourceForAuth creates a test resource without a configureService stub.
+// Use createTestResource(nil) or createTestResource(fn) for new tests.
+func createTestResourceForAuth() *IdsecResource { return createTestResource(nil) }
+
+// createTestDataSourceForAuth creates a test data source without a configureService stub.
+func createTestDataSourceForAuth() *IdsecDataSource { return createTestDataSource(nil) }
+
+// successfulConfigureService is a configureService stub that always succeeds.
+func successfulConfigureService(_ *api.IdsecAPI) error { return nil }
+
+// TestIdsecResource_Configure tests the type-assertion gate in resource Configure.
+func TestIdsecResource_Configure(t *testing.T) {
 	tests := []struct {
 		name          string
 		providerData  interface{}
 		expectError   bool
 		errorContains string
-		description   string
 	}{
 		{
-			name:         "success_isp_auth_pointer_accepted",
-			providerData: auth.NewIdsecISPAuth(false),
-			expectError:  false,
-			description:  "ISP authentication should be accepted by resource Configure",
-		},
-		{
-			name:         "success_nil_provider_data",
+			name:         "nil_provider_data_returns_early",
 			providerData: nil,
-			expectError:  false, // nil provider data returns early, no error
-			description:  "Nil provider data should return early without error",
+			expectError:  false,
 		},
 		{
-			name:          "error_invalid_auth_type_string",
-			providerData:  "invalid_auth",
+			name:          "isp_auth_rejected",
+			providerData:  auth.NewIdsecISPAuth(false),
 			expectError:   true,
-			errorContains: "Authentication Error",
-			description:   "Invalid auth type (string) should produce authentication error",
+			errorContains: "Unexpected Provider Data",
 		},
 		{
-			name:          "error_invalid_auth_type_int",
+			name:          "pvwa_auth_rejected",
+			providerData:  auth.NewIdsecPVWAAuth(false),
+			expectError:   true,
+			errorContains: "Unexpected Provider Data",
+		},
+		{
+			name:          "string_rejected",
+			providerData:  "invalid",
+			expectError:   true,
+			errorContains: "Unexpected Provider Data",
+		},
+		{
+			name:          "int_rejected",
 			providerData:  12345,
 			expectError:   true,
-			errorContains: "Authentication Error",
-			description:   "Invalid auth type (int) should produce authentication error",
+			errorContains: "Unexpected Provider Data",
 		},
 		{
-			name:          "error_invalid_auth_type_struct",
-			providerData:  struct{ Name string }{"invalid"},
-			expectError:   true,
-			errorContains: "Authentication Error",
-			description:   "Invalid auth type (struct) should produce authentication error",
+			name:         "idsec_api_accepted_and_assigned",
+			providerData: &api.IdsecAPI{},
+			expectError:  false, // configureService stub succeeds
 		},
 	}
 
@@ -111,46 +134,32 @@ func TestIdsecResource_Configure_ISPAuth(t *testing.T) {
 			t.Parallel()
 
 			ctx := context.Background()
-			idsecResource := createTestResourceForAuth()
-
-			req := resource.ConfigureRequest{
-				ProviderData: tt.providerData,
-			}
+			// Use a successful stub so the accepted case doesn't error on service init.
+			r := createTestResource(successfulConfigureService)
+			req := resource.ConfigureRequest{ProviderData: tt.providerData}
 			resp := &resource.ConfigureResponse{}
 
-			idsecResource.Configure(ctx, req, resp)
+			r.Configure(ctx, req, resp)
 
 			if tt.expectError {
 				if !resp.Diagnostics.HasError() {
-					t.Errorf("Expected error containing '%s', but no error was returned", tt.errorContains)
+					t.Errorf("Expected error '%s' but got none", tt.errorContains)
 					return
 				}
-				errorFound := false
 				for _, diag := range resp.Diagnostics.Errors() {
 					if diag.Summary() == tt.errorContains {
-						errorFound = true
-						break
+						return
 					}
 				}
-				if !errorFound {
-					t.Errorf("Expected error containing '%s', but got: %v", tt.errorContains, resp.Diagnostics.Errors())
-				}
+				t.Errorf("Expected error '%s', got: %v", tt.errorContains, resp.Diagnostics.Errors())
 			} else {
 				if resp.Diagnostics.HasError() {
-					// Only check for unexpected errors if providerData is not nil
-					// (nil providerData returns early, non-nil but invalid types may error)
-					if tt.providerData != nil {
-						// Check if error is due to API/service initialization (expected, no real auth or service)
-						hasExpectedError := false
-						for _, diag := range resp.Diagnostics.Errors() {
-							if diag.Summary() == "Service Initialization Error" || diag.Summary() == "Service Configuration Error" {
-								hasExpectedError = true
-								break
-							}
-						}
-						if !hasExpectedError {
-							t.Errorf("Expected no errors (or Service Initialization/Configuration Error), but got: %v", resp.Diagnostics.Errors())
-						}
+					t.Errorf("Expected no error, got: %v", resp.Diagnostics.Errors())
+				}
+				// For the success case with a real IdsecAPI, verify assignment happened.
+				if tt.providerData != nil {
+					if r.idsecAPI == nil {
+						t.Errorf("Expected idsecAPI to be assigned after successful Configure")
 					}
 				}
 			}
@@ -158,113 +167,47 @@ func TestIdsecResource_Configure_ISPAuth(t *testing.T) {
 	}
 }
 
-// TestIdsecResource_Configure_PVWAAuth tests that PVWA authentication passes the
-// provider layer correctly.
-//
-// This test verifies that PVWA authentication is properly accepted by resources
-// using the interface-based type assertion.
-func TestIdsecResource_Configure_PVWAAuth(t *testing.T) {
+// TestIdsecDataSource_Configure tests the type-assertion gate in data source Configure.
+func TestIdsecDataSource_Configure(t *testing.T) {
 	tests := []struct {
 		name          string
 		providerData  interface{}
 		expectError   bool
 		errorContains string
-		description   string
 	}{
 		{
-			name:         "success_pvwa_auth_pointer_accepted",
-			providerData: auth.NewIdsecPVWAAuth(false),
-			expectError:  false,
-			description:  "PVWA authentication should be accepted by resource Configure",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			ctx := context.Background()
-			idsecResource := createTestResourceForAuth()
-
-			req := resource.ConfigureRequest{
-				ProviderData: tt.providerData,
-			}
-			resp := &resource.ConfigureResponse{}
-
-			idsecResource.Configure(ctx, req, resp)
-
-			if tt.expectError {
-				if !resp.Diagnostics.HasError() {
-					t.Errorf("Expected error containing '%s', but no error was returned", tt.errorContains)
-					return
-				}
-				errorFound := false
-				for _, diag := range resp.Diagnostics.Errors() {
-					if diag.Summary() == tt.errorContains {
-						errorFound = true
-						break
-					}
-				}
-				if !errorFound {
-					t.Errorf("Expected error containing '%s', but got: %v", tt.errorContains, resp.Diagnostics.Errors())
-				}
-			} else {
-				if resp.Diagnostics.HasError() {
-					// Check if error is due to API/service initialization (expected, no real auth or service)
-					hasExpectedError := false
-					for _, diag := range resp.Diagnostics.Errors() {
-						if diag.Summary() == "Service Initialization Error" || diag.Summary() == "Service Configuration Error" {
-							hasExpectedError = true
-							break
-						}
-					}
-					if !hasExpectedError {
-						t.Errorf("Expected no errors (or Service Initialization/Configuration Error), but got: %v", resp.Diagnostics.Errors())
-					}
-				}
-			}
-		})
-	}
-}
-
-// TestIdsecDataSource_Configure_ISPAuth tests that ISP authentication continues to work
-// with data sources after the interface-based authentication fix.
-//
-// This is a regression test to verify that the existing ISP authentication flow
-// is not broken by the interface change for data sources.
-func TestIdsecDataSource_Configure_ISPAuth(t *testing.T) {
-	tests := []struct {
-		name          string
-		providerData  interface{}
-		expectError   bool
-		errorContains string
-		description   string
-	}{
-		{
-			name:         "success_isp_auth_pointer_accepted",
-			providerData: auth.NewIdsecISPAuth(false),
-			expectError:  false,
-			description:  "ISP authentication should be accepted by data source Configure",
-		},
-		{
-			name:         "success_nil_provider_data",
+			name:         "nil_provider_data_returns_early",
 			providerData: nil,
-			expectError:  false, // nil provider data returns early, no error
-			description:  "Nil provider data should return early without error",
+			expectError:  false,
 		},
 		{
-			name:          "error_invalid_auth_type_string",
-			providerData:  "invalid_auth",
+			name:          "isp_auth_rejected",
+			providerData:  auth.NewIdsecISPAuth(false),
 			expectError:   true,
-			errorContains: "Authentication Error",
-			description:   "Invalid auth type (string) should produce authentication error",
+			errorContains: "Unexpected Provider Data",
 		},
 		{
-			name:          "error_invalid_auth_type_int",
+			name:          "pvwa_auth_rejected",
+			providerData:  auth.NewIdsecPVWAAuth(false),
+			expectError:   true,
+			errorContains: "Unexpected Provider Data",
+		},
+		{
+			name:          "string_rejected",
+			providerData:  "invalid",
+			expectError:   true,
+			errorContains: "Unexpected Provider Data",
+		},
+		{
+			name:          "int_rejected",
 			providerData:  12345,
 			expectError:   true,
-			errorContains: "Authentication Error",
-			description:   "Invalid auth type (int) should produce authentication error",
+			errorContains: "Unexpected Provider Data",
+		},
+		{
+			name:         "idsec_api_accepted_and_assigned",
+			providerData: &api.IdsecAPI{},
+			expectError:  false,
 		},
 	}
 
@@ -273,44 +216,30 @@ func TestIdsecDataSource_Configure_ISPAuth(t *testing.T) {
 			t.Parallel()
 
 			ctx := context.Background()
-			idsecDataSource := createTestDataSourceForAuth()
-
-			req := datasource.ConfigureRequest{
-				ProviderData: tt.providerData,
-			}
+			ds := createTestDataSource(successfulConfigureService)
+			req := datasource.ConfigureRequest{ProviderData: tt.providerData}
 			resp := &datasource.ConfigureResponse{}
 
-			idsecDataSource.Configure(ctx, req, resp)
+			ds.Configure(ctx, req, resp)
 
 			if tt.expectError {
 				if !resp.Diagnostics.HasError() {
-					t.Errorf("Expected error containing '%s', but no error was returned", tt.errorContains)
+					t.Errorf("Expected error '%s' but got none", tt.errorContains)
 					return
 				}
-				errorFound := false
 				for _, diag := range resp.Diagnostics.Errors() {
 					if diag.Summary() == tt.errorContains {
-						errorFound = true
-						break
+						return
 					}
 				}
-				if !errorFound {
-					t.Errorf("Expected error containing '%s', but got: %v", tt.errorContains, resp.Diagnostics.Errors())
-				}
+				t.Errorf("Expected error '%s', got: %v", tt.errorContains, resp.Diagnostics.Errors())
 			} else {
 				if resp.Diagnostics.HasError() {
-					if tt.providerData != nil {
-						// Check if error is due to API/service initialization (expected, no real auth or service)
-						hasExpectedError := false
-						for _, diag := range resp.Diagnostics.Errors() {
-							if diag.Summary() == "Service Initialization Error" || diag.Summary() == "Service Configuration Error" {
-								hasExpectedError = true
-								break
-							}
-						}
-						if !hasExpectedError {
-							t.Errorf("Expected no errors (or Service Initialization/Configuration Error), but got: %v", resp.Diagnostics.Errors())
-						}
+					t.Errorf("Expected no error, got: %v", resp.Diagnostics.Errors())
+				}
+				if tt.providerData != nil {
+					if ds.idsecAPI == nil {
+						t.Errorf("Expected idsecAPI to be assigned after successful Configure")
 					}
 				}
 			}
@@ -318,24 +247,46 @@ func TestIdsecDataSource_Configure_ISPAuth(t *testing.T) {
 	}
 }
 
-// TestIdsecDataSource_Configure_PVWAAuth tests that PVWA authentication passes the
-// provider layer correctly for data sources.
-//
-// This test verifies that PVWA authentication is properly accepted by data sources
-// using the interface-based type assertion.
-func TestIdsecDataSource_Configure_PVWAAuth(t *testing.T) {
+// TestIdsecResource_Configure_RetryBehavior tests the retry inversion in resource Configure:
+// - non-retryable errors stop immediately and surface as "Service Configuration Error".
+// - "unexpected end of JSON input" retries until exhausted, then surfaces as "Service Configuration Error".
+// - a transient error that clears on retry results in success.
+func TestIdsecResource_Configure_RetryBehavior(t *testing.T) {
 	tests := []struct {
-		name          string
-		providerData  interface{}
-		expectError   bool
-		errorContains string
-		description   string
+		name            string
+		configureErrs   []error // sequence returned by stub; nil entry = success
+		expectError     bool
+		expectedSummary string
+		expectedCalls   int
 	}{
 		{
-			name:         "success_pvwa_auth_pointer_accepted",
-			providerData: auth.NewIdsecPVWAAuth(false),
-			expectError:  false,
-			description:  "PVWA authentication should be accepted by data source Configure",
+			name:            "non_retryable_error_stops_after_one_attempt",
+			configureErrs:   []error{fmt.Errorf("connection refused")},
+			expectError:     true,
+			expectedSummary: "Service Configuration Error",
+			expectedCalls:   1,
+		},
+		{
+			name: "retryable_json_error_exhausts_all_attempts",
+			configureErrs: []error{
+				fmt.Errorf("unexpected end of JSON input"),
+				fmt.Errorf("unexpected end of JSON input"),
+				fmt.Errorf("unexpected end of JSON input"),
+				fmt.Errorf("unexpected end of JSON input"),
+				fmt.Errorf("unexpected end of JSON input"),
+			},
+			expectError:     true,
+			expectedSummary: "Service Configuration Error",
+			expectedCalls:   5,
+		},
+		{
+			name: "transient_json_error_clears_on_retry",
+			configureErrs: []error{
+				fmt.Errorf("unexpected end of JSON input"),
+				nil, // succeeds on second attempt
+			},
+			expectError:   false,
+			expectedCalls: 2,
 		},
 	}
 
@@ -343,73 +294,66 @@ func TestIdsecDataSource_Configure_PVWAAuth(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			idsecDataSource := createTestDataSourceForAuth()
-
-			req := datasource.ConfigureRequest{
-				ProviderData: tt.providerData,
+			calls := 0
+			errs := tt.configureErrs
+			stub := func(_ *api.IdsecAPI) error {
+				var err error
+				if calls < len(errs) {
+					err = errs[calls]
+				}
+				calls++
+				return err
 			}
-			resp := &datasource.ConfigureResponse{}
 
-			idsecDataSource.Configure(ctx, req, resp)
+			ctx := context.Background()
+			r := createTestResource(stub)
+			req := resource.ConfigureRequest{ProviderData: &api.IdsecAPI{}}
+			resp := &resource.ConfigureResponse{}
+
+			r.Configure(ctx, req, resp)
 
 			if tt.expectError {
 				if !resp.Diagnostics.HasError() {
-					t.Errorf("Expected error containing '%s', but no error was returned", tt.errorContains)
-					return
-				}
-				errorFound := false
-				for _, diag := range resp.Diagnostics.Errors() {
-					if diag.Summary() == tt.errorContains {
-						errorFound = true
-						break
+					t.Errorf("Expected '%s' error but got none", tt.expectedSummary)
+				} else {
+					found := false
+					for _, diag := range resp.Diagnostics.Errors() {
+						if diag.Summary() == tt.expectedSummary {
+							found = true
+						}
 					}
-				}
-				if !errorFound {
-					t.Errorf("Expected error containing '%s', but got: %v", tt.errorContains, resp.Diagnostics.Errors())
+					if !found {
+						t.Errorf("Expected error summary '%s', got: %v", tt.expectedSummary, resp.Diagnostics.Errors())
+					}
 				}
 			} else {
 				if resp.Diagnostics.HasError() {
-					// Check if error is due to API/service initialization (expected, no real auth or service)
-					hasExpectedError := false
-					for _, diag := range resp.Diagnostics.Errors() {
-						if diag.Summary() == "Service Initialization Error" || diag.Summary() == "Service Configuration Error" {
-							hasExpectedError = true
-							break
-						}
-					}
-					if !hasExpectedError {
-						t.Errorf("Expected no errors (or Service Initialization/Configuration Error), but got: %v", resp.Diagnostics.Errors())
-					}
+					t.Errorf("Expected no error, got: %v", resp.Diagnostics.Errors())
 				}
+			}
+			if calls != tt.expectedCalls {
+				t.Errorf("Expected %d configureService calls, got %d", tt.expectedCalls, calls)
 			}
 		})
 	}
 }
 
-// TestAuthInterfaceTypeAssertion tests that both ISP and PVWA auth types
-// correctly implement the auth.IdsecAuth interface and can be used interchangeably.
-//
-// This test validates the core assumption of the fix: that interface-based type
-// assertion allows both auth types to pass through the provider layer.
+// TestAuthInterfaceTypeAssertion tests that both ISP and PVWA auth types implement auth.IdsecAuth.
 func TestAuthInterfaceTypeAssertion(t *testing.T) {
 	tests := []struct {
 		name         string
 		authProvider auth.IdsecAuth
 		expectedName string
-		description  string
 	}{
 		{
-			name:         "success_isp_auth_implements_interface",
+			name:         "isp_auth_implements_interface",
 			authProvider: auth.NewIdsecISPAuth(false),
 			expectedName: "isp",
-			description:  "IdsecISPAuth should implement auth.IdsecAuth interface",
 		},
 		{
-			name:         "success_pvwa_auth_implements_interface",
+			name:         "pvwa_auth_implements_interface",
 			authProvider: auth.NewIdsecPVWAAuth(false),
 			expectedName: "pvwa",
-			description:  "IdsecPVWAAuth should implement auth.IdsecAuth interface",
 		},
 	}
 
@@ -417,89 +361,204 @@ func TestAuthInterfaceTypeAssertion(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			// Verify the auth provider is not nil
 			if tt.authProvider == nil {
-				t.Errorf("Expected auth provider to be non-nil")
-				return
+				t.Fatalf("Expected auth provider to be non-nil")
 			}
-
-			// Verify the authenticator name matches expected
-			authName := tt.authProvider.AuthenticatorName()
-			if authName != tt.expectedName {
-				t.Errorf("Expected authenticator name '%s', got '%s'", tt.expectedName, authName)
+			if tt.authProvider.AuthenticatorName() != tt.expectedName {
+				t.Errorf("Expected authenticator name '%s', got '%s'", tt.expectedName, tt.authProvider.AuthenticatorName())
 			}
-
-			// Verify interface type assertion works
-			_, ok := interface{}(tt.authProvider).(auth.IdsecAuth)
-			if !ok {
+			if _, ok := interface{}(tt.authProvider).(auth.IdsecAuth); !ok {
 				t.Errorf("Expected auth provider to implement auth.IdsecAuth interface")
 			}
 		})
 	}
 }
 
-// TestBothAuthTypesPassProviderLayer verifies that both ISP and PVWA authentication
-// types can be passed through the provider layer to resources and data sources.
-//
-// This is the key integration test that validates the fix works correctly
-// for both authentication methods.
-func TestBothAuthTypesPassProviderLayer(t *testing.T) {
-	authTypes := []struct {
-		name         string
-		authProvider auth.IdsecAuth
+// TestIdsecAPI_ProviderData verifies that *api.IdsecAPI is accepted by Configure
+// and that the error is "Service Configuration Error" (type assertion succeeded),
+// not "Unexpected Provider Data" (type assertion failed).
+func TestIdsecAPI_ProviderData(t *testing.T) {
+	idsecAPI := &api.IdsecAPI{}
+
+	t.Run("resource_accepts_idsec_api_type", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		r := createTestResourceForAuth() // no stub — real configureService, expected to fail
+		req := resource.ConfigureRequest{ProviderData: idsecAPI}
+		resp := &resource.ConfigureResponse{}
+
+		r.Configure(ctx, req, resp)
+
+		for _, diag := range resp.Diagnostics.Errors() {
+			if diag.Summary() == "Unexpected Provider Data" {
+				t.Errorf("Got 'Unexpected Provider Data' for *api.IdsecAPI: %s", diag.Detail())
+			}
+		}
+		hasServiceError := false
+		for _, diag := range resp.Diagnostics.Errors() {
+			if diag.Summary() == "Service Configuration Error" {
+				hasServiceError = true
+			}
+		}
+		if !hasServiceError {
+			t.Errorf("Expected 'Service Configuration Error' for zero-value IdsecAPI, got: %v", resp.Diagnostics.Errors())
+		}
+	})
+
+	t.Run("datasource_accepts_idsec_api_type", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		ds := createTestDataSourceForAuth()
+		req := datasource.ConfigureRequest{ProviderData: idsecAPI}
+		resp := &datasource.ConfigureResponse{}
+
+		ds.Configure(ctx, req, resp)
+
+		for _, diag := range resp.Diagnostics.Errors() {
+			if diag.Summary() == "Unexpected Provider Data" {
+				t.Errorf("Got 'Unexpected Provider Data' for *api.IdsecAPI: %s", diag.Detail())
+			}
+		}
+		hasServiceError := false
+		for _, diag := range resp.Diagnostics.Errors() {
+			if diag.Summary() == "Service Configuration Error" {
+				hasServiceError = true
+			}
+		}
+		if !hasServiceError {
+			t.Errorf("Expected 'Service Configuration Error' for zero-value IdsecAPI, got: %v", resp.Diagnostics.Errors())
+		}
+	})
+}
+
+// TestIdsecAPI_FlowsThroughProviderLayer verifies that *api.IdsecAPI flows through
+// both resource and data source Configure without producing "Unexpected Provider Data",
+// and that idsecAPI is assigned on the resource/datasource.
+// Replaces TestBothAuthTypesPassProviderLayer.
+func TestIdsecAPI_FlowsThroughProviderLayer(t *testing.T) {
+	idsecAPI := &api.IdsecAPI{}
+
+	t.Run("resource", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		r := createTestResource(successfulConfigureService)
+		req := resource.ConfigureRequest{ProviderData: idsecAPI}
+		resp := &resource.ConfigureResponse{}
+
+		r.Configure(ctx, req, resp)
+
+		for _, diag := range resp.Diagnostics.Errors() {
+			if diag.Summary() == "Unexpected Provider Data" {
+				t.Errorf("*api.IdsecAPI rejected by resource Configure: %s", diag.Detail())
+			}
+		}
+		if resp.Diagnostics.HasError() {
+			t.Errorf("Expected no error, got: %v", resp.Diagnostics.Errors())
+		}
+		if r.idsecAPI != idsecAPI {
+			t.Errorf("Expected idsecAPI to be assigned on resource")
+		}
+	})
+
+	t.Run("datasource", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		ds := createTestDataSource(successfulConfigureService)
+		req := datasource.ConfigureRequest{ProviderData: idsecAPI}
+		resp := &datasource.ConfigureResponse{}
+
+		ds.Configure(ctx, req, resp)
+
+		for _, diag := range resp.Diagnostics.Errors() {
+			if diag.Summary() == "Unexpected Provider Data" {
+				t.Errorf("*api.IdsecAPI rejected by datasource Configure: %s", diag.Detail())
+			}
+		}
+		if resp.Diagnostics.HasError() {
+			t.Errorf("Expected no error, got: %v", resp.Diagnostics.Errors())
+		}
+		if ds.idsecAPI != idsecAPI {
+			t.Errorf("Expected idsecAPI to be assigned on datasource")
+		}
+	})
+}
+
+// TestAuthenticateWithRetry tests the retry inversion in authenticateWithRetry:
+// - retryable errors ("invalid keyring", "unexpected end of JSON input") are retried.
+// - non-retryable errors stop immediately.
+// - a transient retryable error that clears on retry results in success.
+func TestAuthenticateWithRetry(t *testing.T) {
+	tests := []struct {
+		name          string
+		authErrors    []error // sequence; after exhaustion Authenticate returns nil
+		expectError   bool
+		expectedCalls int
 	}{
 		{
-			name:         "isp_auth",
-			authProvider: auth.NewIdsecISPAuth(false),
+			name:          "non_retryable_error_stops_immediately",
+			authErrors:    []error{fmt.Errorf("bad credentials")},
+			expectError:   true,
+			expectedCalls: 1,
 		},
 		{
-			name:         "pvwa_auth",
-			authProvider: auth.NewIdsecPVWAAuth(false),
+			name: "invalid_keyring_is_retried",
+			authErrors: []error{
+				fmt.Errorf("invalid keyring"),
+				fmt.Errorf("invalid keyring"),
+				nil,
+			},
+			expectError:   false,
+			expectedCalls: 3,
+		},
+		{
+			name: "unexpected_json_is_retried",
+			authErrors: []error{
+				fmt.Errorf("unexpected end of JSON input"),
+				nil,
+			},
+			expectError:   false,
+			expectedCalls: 2,
+		},
+		{
+			name: "retryable_error_exhausts_all_attempts",
+			authErrors: []error{
+				fmt.Errorf("invalid keyring"),
+				fmt.Errorf("invalid keyring"),
+				fmt.Errorf("invalid keyring"),
+			},
+			expectError:   true,
+			expectedCalls: 3, // authRetryCount = 3
+		},
+		{
+			name:          "success_on_first_attempt",
+			authErrors:    nil,
+			expectError:   false,
+			expectedCalls: 1,
 		},
 	}
 
-	for _, authType := range authTypes {
-		t.Run("resource_"+authType.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			idsecResource := createTestResourceForAuth()
-
-			req := resource.ConfigureRequest{
-				ProviderData: authType.authProvider,
+			fake := &fakeAuthenticator{errors: tt.authErrors}
+			p := &IdsecProvider{}
+			creds := &authCredentials{
+				userName:   "test",
+				secret:     "secret",
+				authMethod: "test",
 			}
-			resp := &resource.ConfigureResponse{}
 
-			idsecResource.Configure(ctx, req, resp)
+			err := p.authenticateWithRetry(context.Background(), fake, creds, "test")
 
-			// Check that there's no Authentication Error
-			// (Service Initialization Error is expected since we don't have real credentials)
-			for _, diag := range resp.Diagnostics.Errors() {
-				if diag.Summary() == "Authentication Error" {
-					t.Errorf("Authentication Error occurred for %s: %s", authType.name, diag.Detail())
-				}
+			if tt.expectError && err == nil {
+				t.Errorf("Expected error but got nil")
 			}
-		})
-
-		t.Run("datasource_"+authType.name, func(t *testing.T) {
-			t.Parallel()
-
-			ctx := context.Background()
-			idsecDataSource := createTestDataSourceForAuth()
-
-			req := datasource.ConfigureRequest{
-				ProviderData: authType.authProvider,
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error, got: %v", err)
 			}
-			resp := &datasource.ConfigureResponse{}
-
-			idsecDataSource.Configure(ctx, req, resp)
-
-			// Check that there's no Authentication Error
-			// (Service Initialization Error is expected since we don't have real credentials)
-			for _, diag := range resp.Diagnostics.Errors() {
-				if diag.Summary() == "Authentication Error" {
-					t.Errorf("Authentication Error occurred for %s: %s", authType.name, diag.Detail())
-				}
+			if fake.calls != tt.expectedCalls {
+				t.Errorf("Expected %d Authenticate calls, got %d", tt.expectedCalls, fake.calls)
 			}
 		})
 	}

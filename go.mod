@@ -3,7 +3,7 @@ module github.com/cyberark/terraform-provider-idsec
 go 1.25.0
 
 require (
-	github.com/cyberark/idsec-sdk-golang v0.10.0
+	github.com/cyberark/idsec-sdk-golang v0.11.0
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/hashicorp/terraform-plugin-framework v1.18.0
 	github.com/hashicorp/terraform-plugin-go v0.30.0
@@ -11,6 +11,7 @@ require (
 	github.com/hashicorp/terraform-plugin-testing v1.14.0
 	github.com/iancoleman/strcase v0.3.0
 	github.com/mitchellh/mapstructure v1.5.0
+	golang.org/x/crypto v0.52.0
 	golang.org/x/text v0.37.0
 )
 
@@ -24,12 +25,9 @@ require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.6.0 // indirect
 	github.com/ChrisTrenkamp/goxpath v0.0.0-20210404020558-97928f7e12b6 // indirect
-	github.com/EDDYCJY/fake-useragent v0.2.0 // indirect
 	github.com/Iilun/survey/v2 v2.5.3 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
-	github.com/PuerkitoBio/goquery v1.10.3 // indirect
 	github.com/agext/levenshtein v1.2.2 // indirect
-	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.42.1 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.11 // indirect
@@ -110,7 +108,6 @@ require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/zclconf/go-cty v1.17.0 // indirect
 	golang.design/x/clipboard v0.7.0 // indirect
-	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/exp/shiny v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 	golang.org/x/image v0.26.0 // indirect
 	golang.org/x/mobile v0.0.0-20250408133729-978277e7eaf7 // indirect

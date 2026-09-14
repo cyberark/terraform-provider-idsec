@@ -14,7 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	api "github.com/cyberark/idsec-sdk-golang/pkg"
-	"github.com/cyberark/idsec-sdk-golang/pkg/auth"
 	modelsactions "github.com/cyberark/idsec-sdk-golang/pkg/models/actions"
 	"github.com/cyberark/idsec-sdk-golang/pkg/services"
 	"github.com/cyberark/idsec-sdk-golang/pkg/validation"
@@ -131,28 +130,12 @@ func (s *IdsecDataSource) Configure(ctx context.Context, req datasource.Configur
 	if req.ProviderData == nil {
 		return
 	}
-	ispAuth, ok := req.ProviderData.(*auth.IdsecISPAuth)
+	idsecAPI, ok := req.ProviderData.(*api.IdsecAPI)
 	if !ok {
-		// Try PVWA auth
-		pvwaAuth, ok := req.ProviderData.(*auth.IdsecPVWAAuth)
-		if !ok {
-			resp.Diagnostics.AddError("Authentication Error", "Unable to authenticate with the provided credentials.")
-			return
-		}
-		var err error
-		s.idsecAPI, err = api.NewIdsecAPI([]auth.IdsecAuth{pvwaAuth}, nil)
-		if err != nil {
-			resp.Diagnostics.AddError("Service Initialization Error", fmt.Sprintf("Unable to create API: %s", err.Error()))
-			return
-		}
-	} else {
-		var err error
-		s.idsecAPI, err = api.NewIdsecAPI([]auth.IdsecAuth{ispAuth}, nil)
-		if err != nil {
-			resp.Diagnostics.AddError("Service Initialization Error", fmt.Sprintf("Unable to create API: %s", err.Error()))
-			return
-		}
+		resp.Diagnostics.AddError("Unexpected Provider Data", fmt.Sprintf("Expected *api.IdsecAPI, got %T", req.ProviderData))
+		return
 	}
+	s.idsecAPI = idsecAPI
 
 	// Configure the service instance using the helper
 	err := s.configureService(s.idsecAPI)

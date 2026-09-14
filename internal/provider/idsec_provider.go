@@ -6,10 +6,9 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
-
-	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	terraformprovider "github.com/hashicorp/terraform-plugin-framework/provider"
@@ -18,7 +17,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	api "github.com/cyberark/idsec-sdk-golang/pkg"
 	"github.com/cyberark/idsec-sdk-golang/pkg/auth"
+	sdkcommon "github.com/cyberark/idsec-sdk-golang/pkg/common"
 	sdkconfig "github.com/cyberark/idsec-sdk-golang/pkg/config"
 	"github.com/cyberark/idsec-sdk-golang/pkg/models"
 	authmodels "github.com/cyberark/idsec-sdk-golang/pkg/models/auth"
@@ -75,6 +76,7 @@ const (
 var (
 	authRetryableErrrors = []string{
 		"invalid keyring",
+		"unexpected end of JSON input",
 	}
 )
 
@@ -112,8 +114,7 @@ type IdsecProviderConfig struct {
 // IdsecProvider is the main struct for the Idsec provider.
 type IdsecProvider struct {
 	terraformprovider.Provider
-	ispAuth  *auth.IdsecISPAuth
-	pvwaAuth *auth.IdsecPVWAAuth
+	idsecAPI *api.IdsecAPI
 	config   IdsecProviderConfig
 }
 
@@ -239,44 +240,53 @@ func (p *IdsecProvider) parsePVWAAuth(ctx context.Context, config *IdsecProvider
 // authenticateWithRetry performs authentication with retry logic for transient errors.
 func (p *IdsecProvider) authenticateWithRetry(ctx context.Context, authenticator IdsecAuthenticator, creds *authCredentials, authType string) error {
 	tflog.Info(ctx, fmt.Sprintf("Performing %s authentication", authType))
-	var lastErr error
-	for attempt := 1; attempt <= authRetryCount; attempt++ {
-		forceRetry := attempt > 1
-		if forceRetry {
-			tflog.Info(ctx, fmt.Sprintf("Retrying %s authentication, attempt %d", authType, attempt))
-		}
-		_, err := authenticator.Authenticate(
-			nil, // profile
-			&authmodels.IdsecAuthProfile{
-				Username:           creds.userName,
-				AuthMethod:         creds.authMethod,
-				AuthMethodSettings: creds.authMethodSettings,
-			},
-			&authmodels.IdsecSecret{
-				Secret: creds.secret,
-			},
-			forceRetry,
-			false,
-		)
-		if err == nil {
-			tflog.Info(ctx, fmt.Sprintf("Successfully authenticated with %s", authType))
-			return nil
-		}
-		lastErr = err
-		// Check if error is retryable
-		shouldRetry := false
-		for _, retryableError := range authRetryableErrrors {
-			if strings.Contains(err.Error(), retryableError) {
-				tflog.Warn(ctx, fmt.Sprintf("Retrying %s authentication due to retryable error: %s [%v]", authType, retryableError, err))
-				shouldRetry = true
-				break
+	attempt := 0
+	var authErr error
+	_ = sdkcommon.RetryCall(
+		func() error {
+			forceRetry := attempt > 0
+			if forceRetry {
+				tflog.Info(ctx, fmt.Sprintf("Retrying %s authentication, attempt %d", authType, attempt+1))
 			}
-		}
-		if !shouldRetry {
-			return fmt.Errorf("failed to authenticate with %s: %w", authType, err)
-		}
-	}
-	return fmt.Errorf("failed to authenticate with %s, retries exhausted: %w", authType, lastErr)
+			attempt++
+			_, err := authenticator.Authenticate(
+				nil,
+				&authmodels.IdsecAuthProfile{
+					Username:           creds.userName,
+					AuthMethod:         creds.authMethod,
+					AuthMethodSettings: creds.authMethodSettings,
+				},
+				&authmodels.IdsecSecret{
+					Secret: creds.secret,
+				},
+				forceRetry,
+				false,
+			)
+			if err == nil {
+				tflog.Info(ctx, fmt.Sprintf("Successfully authenticated with %s", authType))
+				authErr = nil
+				return nil
+			}
+			for _, retryableError := range authRetryableErrrors {
+				if strings.Contains(err.Error(), retryableError) {
+					tflog.Warn(ctx, fmt.Sprintf("Retrying %s authentication due to retryable error: %s [%v]", authType, retryableError, err))
+					authErr = err
+					return err // retryable: let RetryCall sleep and retry
+				}
+			}
+			authErr = fmt.Errorf("failed to authenticate with %s: %w", authType, err)
+			return nil // non-retryable: stop RetryCall, authErr holds the real error
+		},
+		authRetryCount,
+		1,
+		nil,
+		2,
+		[2]int{0, 2},
+		func(err error, delay int) {
+			tflog.Warn(ctx, fmt.Sprintf("Waiting %ds before retrying %s authentication: %v", delay, authType, err))
+		},
+	)
+	return authErr
 }
 
 // Metadata returns the provider's metadata.
@@ -444,16 +454,21 @@ func (p *IdsecProvider) configurePVWAAuth(ctx context.Context, config *IdsecProv
 		resp.Diagnostics.AddError("Authentication Error", "Failed to create PVWA authentication.")
 		return
 	}
-	p.pvwaAuth = pvwaAuth
-
 	if err := p.authenticateWithRetry(ctx, pvwaAuth, creds, "PVWA"); err != nil {
 		resp.Diagnostics.AddError("Authentication Error", err.Error())
 		return
 	}
 
+	idsecAPI, err := api.NewIdsecAPI([]auth.IdsecAuth{pvwaAuth}, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("API Initialization Error", fmt.Sprintf("Unable to create IdsecAPI: %s", err.Error()))
+		return
+	}
+	p.idsecAPI = idsecAPI
+
 	providerVersion = p.config.Version
-	resp.ResourceData = p.pvwaAuth
-	resp.DataSourceData = p.pvwaAuth
+	resp.ResourceData = p.idsecAPI
+	resp.DataSourceData = p.idsecAPI
 }
 
 // configureISPAuth configures ISP (Identity) authentication for the provider.
@@ -463,8 +478,6 @@ func (p *IdsecProvider) configureISPAuth(ctx context.Context, config *IdsecProvi
 		resp.Diagnostics.AddError("Authentication Error", "Failed to create ISP authentication.")
 		return
 	}
-	p.ispAuth = ispAuth
-
 	if err := p.authenticateWithRetry(ctx, ispAuth, creds, "ISP"); err != nil {
 		resp.Diagnostics.AddError("Authentication Error", err.Error())
 		return
@@ -499,9 +512,16 @@ func (p *IdsecProvider) configureISPAuth(ctx context.Context, config *IdsecProvi
 		}
 	}
 
+	idsecAPI, err := api.NewIdsecAPI([]auth.IdsecAuth{ispAuth}, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("API Initialization Error", fmt.Sprintf("Unable to create IdsecAPI: %s", err.Error()))
+		return
+	}
+	p.idsecAPI = idsecAPI
+
 	providerVersion = p.config.Version
-	resp.ResourceData = p.ispAuth
-	resp.DataSourceData = p.ispAuth
+	resp.ResourceData = p.idsecAPI
+	resp.DataSourceData = p.idsecAPI
 }
 
 func (p *IdsecProvider) collectTfResources() []schemas.Tuple[*services.IdsecServiceConfig, *provideractions.IdsecServiceTerraformResourceActionDefinition] {

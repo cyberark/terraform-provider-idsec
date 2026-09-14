@@ -854,10 +854,13 @@ func getNestedStructFieldNames(stateModel interface{}) map[string]bool {
 // plan modifier should be attached (e.g. SemanticEqualityCaseInsensitive, SemanticEqualityTrailingSlash).
 // writeOnlyAttrs maps the dotted path of each attribute to make write-only to the name of its
 // trigger attribute; see applyWriteOnlyAttributes for the rules.
+// writeOnlyHashedAttrs lists top-level scalar attribute paths that desugar into write-only mode
+// with a synthesized "<attr>_write_only_hash" trigger instead of a manually declared one; see
+// applyWriteOnlyHashedAttributes for the rules.
 //
 // The returned diagnostics report a schema-declaration error and must be surfaced by the caller,
 // since a wrong schema has to fail the operation rather than be used.
-func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel interface{}, stateModel interface{}, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string, forceNewAttrs []string, computedAttrs []string, semanticEqualityAttrs map[string]SemanticEqualityKind, writeOnlyAttrs map[string]string) (schema.Schema, diag.Diagnostics) {
+func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel interface{}, stateModel interface{}, sensitiveAttrs []string, extraRequiredAttrs []string, computedAsSetAttrs []string, immutableAttrs []string, forceNewAttrs []string, computedAttrs []string, semanticEqualityAttrs map[string]SemanticEqualityKind, writeOnlyAttrs map[string]string, writeOnlyHashedAttrs []string) (schema.Schema, diag.Diagnostics) {
 	return generateResourceSchema(resourceSchemaOptions{
 		CreateModel:                createModel,
 		UpdateModel:                updateModel,
@@ -870,6 +873,7 @@ func GenerateResourceSchemaFromStruct(createModel interface{}, updateModel inter
 		ComputedAttributes:         computedAttrs,
 		SemanticEqualityAttributes: semanticEqualityAttrs,
 		WriteOnlyAttributes:        writeOnlyAttrs,
+		WriteOnlyHashedAttributes:  writeOnlyHashedAttrs,
 	})
 }
 
@@ -889,6 +893,7 @@ type resourceSchemaOptions struct {
 	ComputedAttributes         []string
 	SemanticEqualityAttributes map[string]SemanticEqualityKind
 	WriteOnlyAttributes        map[string]string
+	WriteOnlyHashedAttributes  []string
 }
 
 // generateResourceSchema is the implementation behind
@@ -940,6 +945,11 @@ func generateResourceSchema(opts resourceSchemaOptions) (schema.Schema, diag.Dia
 	// trigger; one that missed it would build a state object narrower than the schema and fail
 	// respState.Set at runtime.
 	diags.Append(applyWriteOnlyAttributes(schemaAttrs, opts)...)
+
+	// Must run after applyWriteOnlyAttributes: it rejects mutual exclusion against
+	// WriteOnlyAttributes, and it must see every attribute in the exact shape the manual pass left
+	// it, since a hashed entry desugars into the same write-only marking that pass performs.
+	diags.Append(applyWriteOnlyHashedAttributes(schemaAttrs, opts)...)
 
 	return schema.Schema{
 		Attributes: schemaAttrs,

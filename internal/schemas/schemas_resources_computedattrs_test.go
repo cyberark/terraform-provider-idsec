@@ -74,6 +74,7 @@ func TestGenerateResourceSchema_BareComputedNameIsTopLevelOnly(t *testing.T) {
 		[]string{"id"},
 		nil, // semanticEqualityAttrs
 		nil, // writeOnlyAttrs
+		nil, // writeOnlyHashedAttrs
 	)
 
 	if !attrIsReadOnly(s.Attributes["id"]) {
@@ -105,6 +106,7 @@ func TestGenerateResourceSchema_DottedComputedPathTargetsNestedOnly(t *testing.T
 		[]string{"source.id"},
 		nil, // semanticEqualityAttrs
 		nil, // writeOnlyAttrs
+		nil, // writeOnlyHashedAttrs
 	)
 
 	if !attrIsSettable(s.Attributes["id"]) {
@@ -115,5 +117,90 @@ func TestGenerateResourceSchema_DottedComputedPathTargetsNestedOnly(t *testing.T
 	}
 	if got := nestedIDAttr(t, s.Attributes, "target"); !attrIsSettable(got) {
 		t.Errorf("expected target.id to remain settable, got %+v", got)
+	}
+}
+
+// roleCreateModel mirrors the shape of IdsecIdentityCreateRole — deliberately
+// without RoleAttributes to reflect the real SDK contract (DVP-11593).
+type roleCreateModel struct {
+	RoleName          string   `mapstructure:"role_name"`
+	Description       string   `mapstructure:"description"`
+	AdminRights       []string `mapstructure:"admin_rights"`
+	RoleType          string   `mapstructure:"role_type"`
+	DynamicRoleScript string   `mapstructure:"dynamic_role_script"`
+}
+
+// roleUpdateModel mirrors the shape of IdsecIdentityUpdateRole — also without RoleAttributes.
+// Note: no RoleType field — IdsecIdentityUpdateRole does not expose it.
+type roleUpdateModel struct {
+	RoleID            string   `mapstructure:"role_id"`
+	RoleName          string   `mapstructure:"role_name"`
+	Description       string   `mapstructure:"description"`
+	AdminRights       []string `mapstructure:"admin_rights"`
+	DynamicRoleScript string   `mapstructure:"dynamic_role_script"`
+}
+
+// roleStateModel mirrors the shape of IdsecIdentityRole — the full state including
+// RoleAttributes which is populated by a separate API call in Get().
+type roleStateModel struct {
+	RoleID         string            `mapstructure:"role_id"`
+	RoleName       string            `mapstructure:"role_name"`
+	Description    string            `mapstructure:"description"`
+	AdminRights    []string          `mapstructure:"admin_rights"`
+	RoleType       string            `mapstructure:"role_type"`
+	RoleAttributes map[string]string `mapstructure:"role_attributes"`
+}
+
+// TestGenerateResourceSchema_RoleAttributesIsReadOnly verifies that marking
+// role_attributes in ComputedAttributes makes it Computed-only (not settable).
+// This is the schema-level guard for DVP-11593: role_attributes cannot be written
+// via IdsecIdentityCreateRole/IdsecIdentityUpdateRole (those structs have no such
+// field), so the schema must not advertise it as Optional.
+func TestGenerateResourceSchema_RoleAttributesIsReadOnly(t *testing.T) {
+	t.Parallel()
+
+	s, _ := GenerateResourceSchemaFromStruct(
+		&roleCreateModel{},
+		&roleUpdateModel{},
+		&roleStateModel{},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		[]string{"role_attributes"},
+		nil, // semanticEqualityAttrs
+		nil, // writeOnlyAttrs
+		nil, // writeOnlyHashedAttrs
+	)
+
+	if !attrIsReadOnly(s.Attributes["role_attributes"]) {
+		t.Errorf("expected role_attributes to be read-only (Computed=true, Optional=false), got %+v", s.Attributes["role_attributes"])
+	}
+}
+
+// TestGenerateResourceSchema_RoleAttributesIsSettableWithoutComputedAttr is the
+// negative counterpart: without ComputedAttributes the field appears as Optional+Computed
+// (the broken state before DVP-11593).
+func TestGenerateResourceSchema_RoleAttributesIsSettableWithoutComputedAttr(t *testing.T) {
+	t.Parallel()
+
+	s, _ := GenerateResourceSchemaFromStruct(
+		&roleCreateModel{},
+		&roleUpdateModel{},
+		&roleStateModel{},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil, // no computedAttrs — role_attributes would be Optional+Computed
+		nil, // semanticEqualityAttrs
+		nil, // writeOnlyAttrs
+		nil, // writeOnlyHashedAttrs
+	)
+
+	if !attrIsSettable(s.Attributes["role_attributes"]) {
+		t.Errorf("expected role_attributes to be settable when not in ComputedAttributes, got %+v", s.Attributes["role_attributes"])
 	}
 }

@@ -549,6 +549,152 @@ func assertImportStateString(t *testing.T, ctx context.Context, state tfsdk.Stat
 	}
 }
 
+// TestIdsecResource_ImportState_NumericAttributes covers the type-aware part of the
+// ImportState loop: resources whose import ID keys on a Number attribute
+// (idsec_pcloud_user.user_id, idsec_pcloud_target_platform.id) need the string import ID
+// converted to an int64, because SetAttribute rejects a string for an Int64 attribute.
+func TestIdsecResource_ImportState_NumericAttributes(t *testing.T) {
+	// A schema mixing a numeric import key, a string one and a nested numeric one, so the
+	// loop is exercised on every combination it has to handle.
+	testSchema := schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"user_id":  schema.Int64Attribute{},
+			"username": schema.StringAttribute{},
+			"metadata": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"policy_id": schema.Int64Attribute{},
+				},
+			},
+		},
+	}
+	nestedType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{"policy_id": tftypes.Number}}
+	objectType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+		"user_id":  tftypes.Number,
+		"username": tftypes.String,
+		"metadata": nestedType,
+	}}
+	rawValue := tftypes.NewValue(objectType, map[string]tftypes.Value{
+		"user_id":  tftypes.NewValue(tftypes.Number, nil),
+		"username": tftypes.NewValue(tftypes.String, nil),
+		"metadata": tftypes.NewValue(nestedType, map[string]tftypes.Value{
+			"policy_id": tftypes.NewValue(tftypes.Number, nil),
+		}),
+	})
+
+	tests := []struct {
+		name              string
+		importIDAttribute string
+		importID          string
+		expectedError     string
+		expectedInts      map[string]int64
+		expectedStrings   map[string]string
+		description       string
+	}{
+		{
+			name:              "success_numeric_import_id",
+			importIDAttribute: "user_id",
+			importID:          "42",
+			expectedInts:      map[string]int64{"user_id": 42},
+			description:       "a single Int64 import attribute is parsed into an int64",
+		},
+		{
+			name:              "success_nested_numeric_import_id",
+			importIDAttribute: "metadata.policy_id",
+			importID:          "7",
+			expectedInts:      map[string]int64{"metadata.policy_id": 7},
+			description:       "the type lookup resolves nested paths, not just top-level ones",
+		},
+		{
+			name:              "success_mixed_string_and_numeric_import_id",
+			importIDAttribute: "username:user_id",
+			importID:          "alice:99",
+			expectedInts:      map[string]int64{"user_id": 99},
+			expectedStrings:   map[string]string{"username": "alice"},
+			description:       "each part is converted according to its own attribute type",
+		},
+		{
+			name:              "error_non_numeric_import_id",
+			importIDAttribute: "user_id",
+			importID:          "not-a-number",
+			expectedError:     "Invalid Import ID",
+			description:       "a non-numeric ID for a numeric attribute is reported as a bad import ID",
+		},
+		{
+			name:              "error_non_numeric_part_in_multi_attribute_import_id",
+			importIDAttribute: "username:user_id",
+			importID:          "alice:not-a-number",
+			expectedError:     "Invalid Import ID",
+			description:       "the numeric check applies to every part of a multi-attribute ID",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := context.Background()
+			actionDefinition := CreateTestActionDefinitionWithImportIDAndOperations(
+				"test-action",
+				"Test action description",
+				tt.importIDAttribute,
+				[]actions.IdsecServiceActionOperation{actions.ReadOperation},
+			)
+			idsecResource := CreateTestIdsecResource(CreateTestServiceConfig("test-service"), actionDefinition)
+			idsecRes, ok := idsecResource.(*IdsecResource)
+			if !ok {
+				t.Fatalf("Failed to cast resource to *IdsecResource")
+			}
+
+			req := resource.ImportStateRequest{ID: tt.importID}
+			resp := &resource.ImportStateResponse{
+				State: tfsdk.State{Raw: rawValue, Schema: testSchema},
+			}
+
+			idsecRes.ImportState(ctx, req, resp)
+
+			if tt.expectedError != "" {
+				if !resp.Diagnostics.HasError() {
+					t.Fatalf("Expected error '%s', but no error was returned", tt.expectedError)
+				}
+				for _, diagnostic := range resp.Diagnostics.Errors() {
+					if diagnostic.Summary() == tt.expectedError {
+						return
+					}
+				}
+				t.Fatalf("Expected error '%s', but got: %v", tt.expectedError, resp.Diagnostics.Errors())
+			}
+
+			if resp.Diagnostics.HasError() {
+				t.Fatalf("Expected no errors, but got: %v", resp.Diagnostics.Errors())
+			}
+			for attributePath, expectedValue := range tt.expectedInts {
+				assertImportStateInt64(t, ctx, resp.State, attributePath, expectedValue)
+			}
+			for attributePath, expectedValue := range tt.expectedStrings {
+				assertImportStateString(t, ctx, resp.State, attributePath, expectedValue)
+			}
+		})
+	}
+}
+
+func assertImportStateInt64(t *testing.T, ctx context.Context, state tfsdk.State, attributePath string, expectedValue int64) {
+	t.Helper()
+
+	attrPath, err := schemas.ParseImportAttributePath(attributePath)
+	if err != nil {
+		t.Fatalf("failed to parse attribute path %q: %v", attributePath, err)
+	}
+
+	var attrValue types.Int64
+	diags := state.GetAttribute(ctx, attrPath, &attrValue)
+	if diags.HasError() {
+		t.Fatalf("failed to get attribute %q from state: %v", attributePath, diags.Errors())
+	}
+	if attrValue.ValueInt64() != expectedValue {
+		t.Fatalf("expected attribute %q to be %d, got %d", attributePath, expectedValue, attrValue.ValueInt64())
+	}
+}
+
 type testPrivateData struct {
 	data map[string][]byte
 }

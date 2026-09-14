@@ -31,9 +31,16 @@ resource "idsec_identity_role" "myrole" {
 - `admin_rights` (Set of String) Admin rights to add to the role
 - `description` (String) Description of the role
 - `dynamic_role_script` (String) Script for dynamic role, required if RoleType is Script
-- `role_attributes` (Map of String) Custom attributes of the role
 - `role_id` (String) Role id to update
 - `role_type` (String) Type of the role to create, can be PrincipalList, Script, or Everybody
+
+### Read-Only
+
+- `role_attributes` (Map of String) Custom attributes of the role
+
+<!-- BEGIN ATTR NOTE: role_attributes -->
+~> `role_attributes` is now read-only. Any value set on `idsec_identity_role` was silently discarded by the API; manage role attributes exclusively via the `idsec_identity_role_attributes` resource and remove `role_attributes` from your `idsec_identity_role` configuration.
+<!-- END ATTR NOTE: role_attributes -->
 
 
 

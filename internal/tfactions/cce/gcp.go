@@ -14,7 +14,33 @@ func boolPtr(b bool) *bool { return &b }
 func init() {
 	_ = tfactions.Register(tfactions.TerraformServiceConfig{
 		ServiceName: "cce-gcp",
-		Resources:   []*tfactions.IdsecServiceTerraformResourceActionDefinition{},
+		Resources: []*tfactions.IdsecServiceTerraformResourceActionDefinition{
+			{
+				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
+					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
+						// TODO: GCP TF is still in development. Enabled flag is set to false to prevent
+						// this resource from being published in new releases until the feature is complete.
+						// Remove boolPtr(false) once the feature is ready.
+						ActionName: "cce-gcp-project", Enabled: boolPtr(false), ActionDescription: "CCE GCP project resource, manages GCP project manual onboarding.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
+					},
+					ExtraRequiredAttributes: []string{},
+					ComputedAttributes: []string{
+						"id",
+						"onboarding_type",
+						"display_name",
+						"status",
+						"organization_name",
+						"duplicated_services",
+						"services_data",
+					},
+					StateSchema: &gcpmodels.TfIdsecCCEGCPProject{},
+				},
+				RawStateInference:   true,
+				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
+				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "tf-add-project", tfactions.ReadOperation: "tf-project", tfactions.UpdateOperation: "tf-update-project", tfactions.DeleteOperation: "tf-delete-project"},
+				ImportID:            "id",
+			},
+		},
 		DataSources: []*tfactions.IdsecServiceTerraformDataSourceActionDefinition{
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{

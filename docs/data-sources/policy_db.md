@@ -115,10 +115,10 @@ Read-Only:
 
 Read-Only:
 
-- `link` (String) Link to documentation when available. maxLength: 255
-- `status` (String) The status of the policy
-- `status_code` (String) The status code. maxLength: 99
-- `status_description` (String) A description of the status. maxLength: 1000
+- `link` (String) Link to documentation when available. maxLength: 255 (read-only)
+- `status` (String) The status of the policy. Policies are created with an **Active** status. You can edit the status from **Active** to **Suspended**, or from **Suspended** to **Active**.
+- `status_code` (String) The status code. maxLength: 99 (read-only)
+- `status_description` (String) A description of the status. maxLength: 1000 (read-only)
 
 
 <a id="nestedatt--metadata--time_frame"></a>

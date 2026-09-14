@@ -15,7 +15,7 @@ import (
 	"github.com/cyberark/terraform-provider-idsec/internal/schemas"
 )
 
-// cceUpdatableResources returns the registered CCE AWS/Azure resources that both
+// cceUpdatableResources returns the registered CCE AWS/Azure/GCP resources that both
 // support Update and treat "id" as a computed attribute. These are precisely the
 // resources exposed to the empty-id-on-update regression, so every read-key
 // invariant below is asserted against exactly this set.
@@ -23,7 +23,7 @@ func cceUpdatableResources(t *testing.T) []*tfactions.IdsecServiceTerraformResou
 	t.Helper()
 	var out []*tfactions.IdsecServiceTerraformResourceActionDefinition
 	for _, cfg := range tfactions.AllTerraformConfigs() {
-		if cfg.ServiceName != "cce-aws" && cfg.ServiceName != "cce-azure" {
+		if cfg.ServiceName != "cce-aws" && cfg.ServiceName != "cce-azure" && cfg.ServiceName != "cce-gcp" {
 			continue
 		}
 		for _, res := range cfg.Resources {
@@ -72,7 +72,7 @@ func mapstructureStringField(structVal reflect.Value, name string) (string, bool
 // resources declared "id" as computed but did NOT set ImportID, so on update "id"
 // was zeroed and the SDK issued a get-details request with an empty id
 // (e.g. `GET /api/aws/programmatic/account/`), which the tenant rejects with a
-// generic 403.
+// generic 403. CCE GCP resources are checked against the same invariant.
 //
 // Invariant: any CCE resource that supports Update AND lists "id" as a computed
 // attribute MUST declare an ImportID that includes "id"; otherwise its read key is
@@ -80,7 +80,7 @@ func mapstructureStringField(structVal reflect.Value, name string) (string, bool
 func TestCCEResources_UpdateWithComputedIDDeclareImportID(t *testing.T) {
 	var checked int
 	for _, cfg := range tfactions.AllTerraformConfigs() {
-		if cfg.ServiceName != "cce-aws" && cfg.ServiceName != "cce-azure" {
+		if cfg.ServiceName != "cce-aws" && cfg.ServiceName != "cce-azure" && cfg.ServiceName != "cce-gcp" {
 			continue
 		}
 		for _, res := range cfg.Resources {
@@ -115,7 +115,7 @@ func TestCCEResources_UpdateWithComputedIDDeclareImportID(t *testing.T) {
 // on the resource's state schema. Such a key silently fails to protect anything
 // from the computed-attribute stripping, reintroducing the empty-id -> 403 bug.
 // Every ImportID attribute must resolve to a real string/int field on the SDK
-// state schema for both CCE AWS and Azure resources.
+// state schema for CCE AWS, Azure, and GCP resources.
 func TestCCEResources_ImportIDResolvesOnStateSchema(t *testing.T) {
 	resources := cceUpdatableResources(t)
 	if len(resources) == 0 {
