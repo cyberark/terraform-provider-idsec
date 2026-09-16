@@ -18,8 +18,7 @@ func init() {
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
 						ActionName: "sia-secrets-vm", ActionDescription: "The SIA Secrets VM resource, manages VM Secrets information and metadata, based on the type of Secret.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
-					SensitiveAttributes: []string{"provisioner_password", "secret_data"},
-					StateSchema:         &secretsvmmodels.IdsecSIAVMSecret{},
+					StateSchema: &secretsvmmodels.IdsecSIAVMSecret{},
 				},
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "create", tfactions.ReadOperation: "get", tfactions.UpdateOperation: "change", tfactions.DeleteOperation: "delete"},

@@ -83,7 +83,7 @@ resource "idsec_sia_secrets_vm" "example_ephemeral_domain_secret" {
 - `pcloud_account_safe` (String) If Priviledge Cloud account type is selected, the account Safe.
 - `provisioner_password` (String, Sensitive) If provisioner user type is selected, the password.
 - `provisioner_username` (String) If provisioner user type is selected, the username.
-- `secret` (Attributes) Secret itself (see [below for nested schema](#nestedatt--secret))
+- `secret` (Attributes, Sensitive) Secret itself (see [below for nested schema](#nestedatt--secret))
 - `secret_id` (String) The Secret ID to change.
 - `secret_name` (String) The name of the Secret. For PCloudAccount type, this is auto-generated from account name and Safe.
 - `tenant_id` (String) Tenant ID of the secret

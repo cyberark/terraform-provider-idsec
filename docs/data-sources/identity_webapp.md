@@ -52,7 +52,7 @@ data "idsec_identity_webapp" "my_webapp_by_name" {
 - `mobile_url` (String) Mobile URL of the webapp
 - `oauth_profile` (Attributes) OAuth profile (optional) (see [below for nested schema](#nestedatt--oauth_profile))
 - `open_id_connect_script` (String) OpenID Connect script
-- `password` (String) Password for the webapp
+- `password` (String, Sensitive) Password for the webapp
 - `safe` (String) Safe that the webapp belongs to
 - `service_name` (String) Name of the service to which the webapp belongs
 - `state` (String) State of the webapp
@@ -60,7 +60,7 @@ data "idsec_identity_webapp" "my_webapp_by_name" {
 - `url` (String) URL of the webapp
 - `user_map_script` (String) User map script for the webapp
 - `user_name_strategy` (String) User name strategy
-- `user_pass_script` (String) User password script for the webapp
+- `user_pass_script` (String, Sensitive) User password script for the webapp
 - `username` (String) Username for the webapp
 - `webapp_login_type` (String) Web app login type
 - `webapp_type` (String) Type of the webapp

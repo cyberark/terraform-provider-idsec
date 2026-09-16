@@ -41,7 +41,7 @@ data "idsec_identity_user" "myuser_by_id" {
 - `is_service_user` (Boolean) Whether the user is a service user
 - `last_login` (Attributes) Last login time of the user (see [below for nested schema](#nestedatt--last_login))
 - `mobile_number` (String) Mobile number of the user
-- `password` (String) Password of the user
+- `password` (String, Sensitive) Password of the user
 - `password_never_expire` (Boolean) Whether the user password never expires
 - `state` (String) State of the user, can be None, Locked, Disabled, or Expired
 - `suffix` (String) Suffix of the user

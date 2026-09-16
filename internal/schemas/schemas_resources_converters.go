@@ -145,7 +145,7 @@ func resourceSchemaAttrsFromStruct(inputModel interface{}, setAsComputed bool, s
 			fieldPath = pathPrefix + "." + fieldName
 		}
 		isRequired := strings.Contains(required, "true") || isRequiredTag(validate) || slices.Contains(extraRequiredAttrs, fieldName)
-		isSensitive := slices.Contains(sensitiveAttrs, fieldName)
+		isSensitive := isFieldSensitive(field, fieldName, sensitiveAttrs)
 		isImmutable := slices.Contains(immutableAttrs, fieldName)
 		isForceNew := slices.Contains(forceNewAttrs, fieldName)
 		isComputedOnly := slices.Contains(computedAttrs, fieldPath)

@@ -32,8 +32,7 @@ func init() {
 						"user_type",
 						"location",
 					},
-					SensitiveAttributes: []string{"initial_password"},
-					StateSchema:         &usersmodels.IdsecPCloudUser{},
+					StateSchema: &usersmodels.IdsecPCloudUser{},
 					PageNotes: []tfactions.DocNote{
 						{
 							Severity: tfactions.DocNoteWarning,

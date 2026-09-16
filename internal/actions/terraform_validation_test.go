@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	dsschema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	rschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/cyberark/idsec-sdk-golang/pkg/common"
@@ -314,5 +315,146 @@ func TestAllWriteOnlyAttributesAreValid(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// flatAttr is one attribute of a generated schema, reduced to the two facts the sensitivity
+// consistency check needs: where it lives and whether it is redacted.
+type flatAttr struct {
+	owner     string
+	path      string
+	name      string
+	sensitive bool
+}
+
+// flattenResourceAttrs walks a generated resource schema, including nested objects, and returns
+// one flatAttr per leaf and per nested container.
+func flattenResourceAttrs(owner string, attrs map[string]rschema.Attribute, prefix string) []flatAttr {
+	out := make([]flatAttr, 0, len(attrs))
+	for name, attr := range attrs {
+		path := name
+		if prefix != "" {
+			path = prefix + "." + name
+		}
+		out = append(out, flatAttr{owner: owner, path: path, name: name, sensitive: attr.IsSensitive()})
+		switch a := attr.(type) {
+		case rschema.SingleNestedAttribute:
+			out = append(out, flattenResourceAttrs(owner, a.Attributes, path)...)
+		case rschema.ListNestedAttribute:
+			out = append(out, flattenResourceAttrs(owner, a.NestedObject.Attributes, path)...)
+		case rschema.SetNestedAttribute:
+			out = append(out, flattenResourceAttrs(owner, a.NestedObject.Attributes, path)...)
+		case rschema.MapNestedAttribute:
+			out = append(out, flattenResourceAttrs(owner, a.NestedObject.Attributes, path)...)
+		}
+	}
+	return out
+}
+
+// flattenDataSourceAttrs is flattenResourceAttrs for data-source schemas, which use a parallel
+// but distinct set of attribute types.
+func flattenDataSourceAttrs(owner string, attrs map[string]dsschema.Attribute, prefix string) []flatAttr {
+	out := make([]flatAttr, 0, len(attrs))
+	for name, attr := range attrs {
+		path := name
+		if prefix != "" {
+			path = prefix + "." + name
+		}
+		out = append(out, flatAttr{owner: owner, path: path, name: name, sensitive: attr.IsSensitive()})
+		switch a := attr.(type) {
+		case dsschema.SingleNestedAttribute:
+			out = append(out, flattenDataSourceAttrs(owner, a.Attributes, path)...)
+		case dsschema.ListNestedAttribute:
+			out = append(out, flattenDataSourceAttrs(owner, a.NestedObject.Attributes, path)...)
+		case dsschema.SetNestedAttribute:
+			out = append(out, flattenDataSourceAttrs(owner, a.NestedObject.Attributes, path)...)
+		case dsschema.MapNestedAttribute:
+			out = append(out, flattenDataSourceAttrs(owner, a.NestedObject.Attributes, path)...)
+		}
+	}
+	return out
+}
+
+// collectAllAttributes generates every registered resource and data-source schema and returns
+// their attributes flattened into a single slice.
+func collectAllAttributes(t *testing.T) []flatAttr {
+	t.Helper()
+	var all []flatAttr
+	for _, config := range actions.AllTerraformConfigs() {
+		for _, resourceDef := range config.Resources {
+			generated, _, err := generateSchemaForResource(resourceDef, resourceDef.WriteOnlyAttributes, resourceDef.WriteOnlyHashedAttributes)
+			if err != nil {
+				continue
+			}
+			all = append(all, flattenResourceAttrs("resource "+resourceDef.ActionName, generated.Attributes, "")...)
+		}
+		for _, dataSourceDef := range config.DataSources {
+			if dataSourceDef.StateSchema == nil || dataSourceDef.DataSourceAction == "" {
+				continue
+			}
+			inputSchema, ok := dataSourceDef.Schemas[dataSourceDef.DataSourceAction]
+			if !ok {
+				continue
+			}
+			inputSchema, _ = modelsactions.UnwrapSchema(inputSchema)
+			generated := schemas.GenerateDataSourceSchemaFromStruct(
+				inputSchema,
+				dataSourceDef.StateSchema,
+				dataSourceDef.SensitiveAttributes,
+				dataSourceDef.ExtraRequiredAttributes,
+				dataSourceDef.ComputedAsSetAttributes,
+			)
+			all = append(all, flattenDataSourceAttrs("data source "+dataSourceDef.ActionName, generated.Attributes, "")...)
+		}
+	}
+	return all
+}
+
+// TestSensitiveAttributesAreConsistent fails if an attribute name is marked Sensitive somewhere
+// in the provider but left unmarked somewhere else.
+//
+// Sensitivity is declared in two places that can disagree: the SDK's `secret:"true"` struct tag
+// and the per-action-definition SensitiveAttributes list. A resource and its data source are
+// separate definitions that share one StateSchema, so an untagged credential has to be listed
+// twice and silently renders in cleartext wherever the list was not repeated. An unmarked
+// attribute is printed verbatim in plan output, CI logs, and pull-request comments, and it does
+// not propagate redaction to values derived from it.
+//
+// The check treats "marked sensitive anywhere" as the provider's own assertion that the value is
+// a credential, then requires every other occurrence of that attribute name to agree. Matching is
+// on the leaf attribute name rather than the full path because that is the granularity
+// SensitiveAttributes itself uses.
+//
+// It needs no tenant and no Terraform binary: schemas are generated in-process from the
+// registrations, so this runs in plain `go test`.
+func TestSensitiveAttributesAreConsistent(t *testing.T) {
+	t.Parallel()
+
+	allAttrs := collectAllAttributes(t)
+	if len(allAttrs) == 0 {
+		t.Skip("No Terraform service configurations registered")
+	}
+
+	// An attribute name is expected to be sensitive everywhere as soon as it is sensitive once.
+	sensitiveNames := map[string]string{}
+	for _, a := range allAttrs {
+		if a.sensitive {
+			if _, seen := sensitiveNames[a.name]; !seen {
+				sensitiveNames[a.name] = a.owner + "." + a.path
+			}
+		}
+	}
+
+	for _, a := range allAttrs {
+		if a.sensitive {
+			continue
+		}
+		declaredAt, expected := sensitiveNames[a.name]
+		if !expected {
+			continue
+		}
+		t.Errorf("%s: attribute %q is not marked Sensitive, but %q is marked Sensitive at %s.\n"+
+			"Mark it via the SDK's `secret:\"true\"` struct tag, or add %q to SensitiveAttributes on this definition.",
+			a.owner, a.path, a.name, declaredAt, a.name)
 	}
 }

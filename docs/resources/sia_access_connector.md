@@ -67,7 +67,7 @@ Optional:
 - `k_8_s_image_pull_secret` (String) Name of an existing Kubernetes pull-secret in the connector namespace. When supplied, skips the interactive prompt.
 - `k_8_s_image_uri` (String) Full URI of the connector image (registry/repo:tag). When supplied, skips the interactive image-URI prompt.
 - `k_8_s_namespace` (String) Kubernetes namespace to install into. When supplied, skips the interactive namespace prompt.
-- `k_8_s_password` (String) Service user password for the K8s connector. When supplied, skips the interactive password prompt.
+- `k_8_s_password` (String, Sensitive) Service user password for the K8s connector. When supplied, skips the interactive password prompt.
 - `k_8_s_replicas` (Number) Number of connector replicas (1-10). When supplied, skips the interactive replicas prompt.
 - `k_8_s_username` (String) Service user username for the K8s connector. When supplied, skips the interactive username prompt.
 - `upgrade` (Boolean) When true, passes --upgrade to the K8s setup script to upgrade an existing installation.

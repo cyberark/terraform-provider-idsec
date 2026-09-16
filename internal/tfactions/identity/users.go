@@ -19,9 +19,8 @@ func init() {
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
 						ActionName: "identity-user", ActionDescription: "The Identity service user resource that is used to manage users.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
-					SensitiveAttributes: []string{"password"},
-					ComputedAttributes:  []string{"user_attributes"},
-					StateSchema:         &usersmodels.IdsecIdentityUser{},
+					ComputedAttributes: []string{"user_attributes"},
+					StateSchema:        &usersmodels.IdsecIdentityUser{},
 					SemanticEqualityAttributes: map[string]schemas.SemanticEqualityKind{
 						"username": schemas.SemanticEqualityCaseInsensitive,
 					},

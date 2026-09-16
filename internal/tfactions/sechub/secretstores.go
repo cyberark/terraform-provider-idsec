@@ -52,9 +52,6 @@ func init() {
 						"hashi_vault_url",
 						"mount_path",
 					},
-					SensitiveAttributes: []string{
-						"password",
-					},
 					SemanticEqualityAttributes: map[string]schemas.SemanticEqualityKind{
 						"mount_path":          schemas.SemanticEqualityTrailingSlash,
 						"authentication_path": schemas.SemanticEqualityTrailingSlash,
@@ -88,9 +85,6 @@ func init() {
 					},
 					ExtraRequiredAttributes: []string{
 						"id",
-					},
-					SensitiveAttributes: []string{
-						"password",
 					},
 					StateSchema: &secretstoresmodels.IdsecSecHubSecretStore{},
 				},

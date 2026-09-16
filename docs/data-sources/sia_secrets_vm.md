@@ -41,9 +41,9 @@ data "idsec_sia_secrets_vm" "example_secret" {
 - `last_modified` (String) Last time the secret was modified
 - `pcloud_account_name` (String) If Priviledge Cloud account type is selected, the account name.
 - `pcloud_account_safe` (String) If Priviledge Cloud account type is selected, the account Safe.
-- `provisioner_password` (String) If provisioner user type is selected, the password.
+- `provisioner_password` (String, Sensitive) If provisioner user type is selected, the password.
 - `provisioner_username` (String) If provisioner user type is selected, the username.
-- `secret` (Attributes) Secret itself (see [below for nested schema](#nestedatt--secret))
+- `secret` (Attributes, Sensitive) Secret itself (see [below for nested schema](#nestedatt--secret))
 - `secret_name` (String) A friendly name label
 - `secret_type` (String) Type of the secret
 - `tenant_id` (String) Tenant ID of the secret
@@ -56,6 +56,6 @@ data "idsec_sia_secrets_vm" "example_secret" {
 
 Read-Only:
 
-- `secret_data` (Dynamic) The actual Secret data, can be of different types, and is base64 encoded if SecretBytes. Otherwise it is stored in the JIT data message as a string or as a dict of Secret data to be encrypted.
+- `secret_data` (Dynamic, Sensitive) The actual Secret data, can be of different types, and is base64 encoded if SecretBytes. Otherwise it is stored in the JIT data message as a string or as a dict of Secret data to be encrypted.
 - `tenant_encrypted` (Boolean) Indicates whether the Secret is encrypted by the tenant key.
 

@@ -28,7 +28,7 @@ resource "idsec_sia_certificate" "my_certificate" {
 - `cert_body` (String) The body content of the certificate.
 - `cert_description` (String) The description of the certificate.
 - `cert_name` (String) The name of the certificate.
-- `cert_password` (String) The encryption password for certificate.
+- `cert_password` (String, Sensitive) The encryption password for certificate.
 - `cert_type` (String) The certificate type (PEM, DER).
 - `certificate_body` (String) The body content of the certificate.
 - `certificate_id` (String) The ID of the certificate to update.

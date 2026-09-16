@@ -19,7 +19,6 @@ func init() {
 						ActionName: "sia-ssh-public-key", ActionDescription: "The SIA SSH public key resource, manages SIA SSH CA public key installation and removal from a target machine.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
 					ExtraRequiredAttributes: []string{"target_machine", "username"},
-					SensitiveAttributes:     []string{"password", "private_key_contents"},
 					StateSchema:             &sshcamodels.IdsecSIASSHPublicKeyOperationResult{},
 				},
 				RawStateInference:   true,

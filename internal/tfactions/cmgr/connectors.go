@@ -21,9 +21,8 @@ func init() {
 						ActionVersion:     1,
 						Schemas:           actions.ActionToSchemaMap,
 					},
-					StateSchema:         &connectorsmodels.IdsecCmgrConnectorID{},
-					SensitiveAttributes: []string{"password", "private_key_contents"},
-					ComputedAttributes:  []string{"connector_id"},
+					StateSchema:        &connectorsmodels.IdsecCmgrConnectorID{},
+					ComputedAttributes: []string{"connector_id"},
 				},
 				RawStateInference: true,
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{

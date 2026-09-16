@@ -31,7 +31,6 @@ func init() {
 						ActionName: "sia-access-connector", ActionDescription: "SIA connector resource, manages SIA connector installation and removal on SIA and target machines.", ActionVersion: 1, Schemas: siaAccessSchemasMap,
 					},
 					ExtraRequiredAttributes: []string{"connector_os", "connector_type", "target_machine", "username"},
-					SensitiveAttributes:     []string{"password", "private_key_contents"},
 					StateSchema:             &accessmodels.IdsecSIAAccessConnectorID{},
 				},
 				RawStateInference:   true,
@@ -53,7 +52,6 @@ func init() {
 						ActionName: "sia-access-relay", ActionDescription: "SIA HTTPS relay resource, manages SIA HTTPS relay installation and removal on target machines.", ActionVersion: 1, Schemas: siaAccessSchemasMap,
 					},
 					ExtraRequiredAttributes: []string{"https_relay_os", "target_machine", "username", "protocol_port_map"},
-					SensitiveAttributes:     []string{"password", "private_key_contents"},
 					StateSchema:             &accessmodels.IdsecSIAHTTPSRelay{},
 					ComputedAttributes: []string{
 						"https_relay_id", "host_ip", "host_name", "version", "status", "status_code", "os",
