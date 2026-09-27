@@ -7,9 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
@@ -3398,5 +3401,580 @@ func TestSetFieldFromRawValue(t *testing.T) {
 			}
 			tt.verify(t, tgt)
 		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// UpdateOnlyModified (unchangedAttributeNames / StructFromPlanAndStateObject)
+// ---------------------------------------------------------------------------
+
+// diffTestSecretManagement mirrors the squashed secret-management embed shared by the request
+// and state prototypes below, the same relationship IdsecPCloudUpdateAccount and IdsecPCloudAccount
+// have via their own embedded IdsecPCloud*SecretManagement structs.
+type diffTestSecretManagement struct {
+	AutomaticManagementEnabled *bool   `mapstructure:"automatic_management_enabled,omitempty"`
+	ManualManagementReason     *string `mapstructure:"manual_management_reason,omitempty"`
+}
+
+// diffTestUpdateModel is the request ("plan") prototype: every optional field is nilable, the same
+// shape as IdsecPCloudUpdateAccount.
+type diffTestUpdateModel struct {
+	diffTestSecretManagement `mapstructure:",squash"`
+	AccountID                string                 `mapstructure:"account_id"`
+	Address                  *string                `mapstructure:"address,omitempty"`
+	Secret                   *string                `mapstructure:"secret,omitempty"`
+	RemoteMachines           []string               `mapstructure:"remote_machines,omitempty"`
+	Properties               map[string]interface{} `mapstructure:"properties,omitempty"`
+}
+
+// diffTestStateModelFull is a state ("read") prototype with a field for every attribute except
+// Secret -- exactly the IdsecPCloudAccount / IdsecPCloudUpdateAccount relationship the "secret"
+// test case below depends on: the read model never gets a Secret field, because CyberArk never
+// returns passwords.
+type diffTestStateModelFull struct {
+	diffTestSecretManagement `mapstructure:",squash"`
+	AccountID                string                 `mapstructure:"account_id"`
+	Address                  string                 `mapstructure:"address,omitempty"`
+	RemoteMachines           []string               `mapstructure:"remote_machines,omitempty"`
+	Properties               map[string]interface{} `mapstructure:"properties,omitempty"`
+}
+
+// diffTestSecretManagementNoReason mirrors diffTestSecretManagement but omits
+// ManualManagementReason entirely, simulating a state model with no field at all for an
+// attribute -- the shape right after `terraform import`, where Read cannot recover the value.
+type diffTestSecretManagementNoReason struct {
+	AutomaticManagementEnabled *bool `mapstructure:"automatic_management_enabled,omitempty"`
+}
+
+// diffTestStateModelNoReason is diffTestStateModelFull with ManualManagementReason entirely
+// absent, for the "prior state null, attribute unknown to the state model" branch of the
+// null-state rule.
+type diffTestStateModelNoReason struct {
+	diffTestSecretManagementNoReason `mapstructure:",squash"`
+	AccountID                        string                 `mapstructure:"account_id"`
+	Address                          string                 `mapstructure:"address,omitempty"`
+	RemoteMachines                   []string               `mapstructure:"remote_machines,omitempty"`
+	Properties                       map[string]interface{} `mapstructure:"properties,omitempty"`
+}
+
+func diffTestObjectType() tftypes.Object {
+	return tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+		"account_id":                   tftypes.String,
+		"address":                      tftypes.String,
+		"secret":                       tftypes.String,
+		"automatic_management_enabled": tftypes.Bool,
+		"manual_management_reason":     tftypes.String,
+		"remote_machines":              tftypes.List{ElementType: tftypes.String},
+		"properties":                   tftypes.Map{ElementType: tftypes.String},
+	}}
+}
+
+func diffTestSchema() schema.Schema {
+	return schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"account_id":                   schema.StringAttribute{Required: true},
+			"address":                      schema.StringAttribute{Optional: true},
+			"secret":                       schema.StringAttribute{Optional: true, Sensitive: true},
+			"automatic_management_enabled": schema.BoolAttribute{Optional: true},
+			"manual_management_reason":     schema.StringAttribute{Optional: true},
+			"remote_machines":              schema.ListAttribute{Optional: true, ElementType: types.StringType},
+			"properties":                   schema.MapAttribute{Optional: true, ElementType: types.StringType},
+		},
+	}
+}
+
+// diffTestRaw builds a fully-populated tftypes.Object value for diffTestSchema, defaulting every
+// attribute to null and overriding only the ones the caller supplies.
+func diffTestRaw(overrides map[string]tftypes.Value) tftypes.Value {
+	objType := diffTestObjectType()
+	values := map[string]tftypes.Value{
+		"account_id":                   tftypes.NewValue(tftypes.String, nil),
+		"address":                      tftypes.NewValue(tftypes.String, nil),
+		"secret":                       tftypes.NewValue(tftypes.String, nil),
+		"automatic_management_enabled": tftypes.NewValue(tftypes.Bool, nil),
+		"manual_management_reason":     tftypes.NewValue(tftypes.String, nil),
+		"remote_machines":              tftypes.NewValue(objType.AttributeTypes["remote_machines"], nil),
+		"properties":                   tftypes.NewValue(objType.AttributeTypes["properties"], nil),
+	}
+	for k, v := range overrides {
+		values[k] = v
+	}
+	return tftypes.NewValue(objType, values)
+}
+
+func diffTestPlan(overrides map[string]tftypes.Value) *tfsdk.Plan {
+	return &tfsdk.Plan{Schema: diffTestSchema(), Raw: diffTestRaw(overrides)}
+}
+
+func diffTestState(overrides map[string]tftypes.Value) *tfsdk.State {
+	return &tfsdk.State{Schema: diffTestSchema(), Raw: diffTestRaw(overrides)}
+}
+
+func diffTestStringList(values ...string) tftypes.Value {
+	elems := make([]tftypes.Value, len(values))
+	for i, v := range values {
+		elems[i] = tftypes.NewValue(tftypes.String, v)
+	}
+	return tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, elems)
+}
+
+func diffTestStringMap(values map[string]string) tftypes.Value {
+	elems := make(map[string]tftypes.Value, len(values))
+	for k, v := range values {
+		elems[k] = tftypes.NewValue(tftypes.String, v)
+	}
+	return tftypes.NewValue(tftypes.Map{ElementType: tftypes.String}, elems)
+}
+
+func diffTestUnknownString() tftypes.Value {
+	return tftypes.NewValue(tftypes.String, tftypes.UnknownValue)
+}
+
+// TestUnchangedAttributeNames exercises unchangedAttributeNames directly: it is the only place
+// the null-state rule (see the long comment on the function) is decided, so these cases pin that
+// logic independent of the surrounding copy loops.
+func TestUnchangedAttributeNames(t *testing.T) {
+	t.Parallel()
+
+	type stateWithReason struct {
+		ManualManagementReason *string `mapstructure:"manual_management_reason,omitempty"`
+	}
+	type stateWithoutReason struct {
+		Other string `mapstructure:"other"`
+	}
+
+	tests := []struct {
+		name          string
+		planObj       types.Object
+		stateObj      types.Object
+		stateValue    reflect.Value
+		wantUnchanged map[string]bool
+	}{
+		{
+			name:       "null_plan_object_returns_nil_no_panic",
+			planObj:    types.ObjectNull(map[string]attr.Type{"address": types.StringType}),
+			stateObj:   types.ObjectValueMust(map[string]attr.Type{"address": types.StringType}, map[string]attr.Value{"address": types.StringValue("a")}),
+			stateValue: reflect.ValueOf(&stateWithReason{}).Elem(),
+		},
+		{
+			name:       "unknown_state_object_returns_nil_no_panic",
+			planObj:    types.ObjectValueMust(map[string]attr.Type{"address": types.StringType}, map[string]attr.Value{"address": types.StringValue("a")}),
+			stateObj:   types.ObjectUnknown(map[string]attr.Type{"address": types.StringType}),
+			stateValue: reflect.ValueOf(&stateWithReason{}).Elem(),
+		},
+		{
+			name:          "equal_known_values_marked_unchanged",
+			planObj:       types.ObjectValueMust(map[string]attr.Type{"address": types.StringType}, map[string]attr.Value{"address": types.StringValue("same")}),
+			stateObj:      types.ObjectValueMust(map[string]attr.Type{"address": types.StringType}, map[string]attr.Value{"address": types.StringValue("same")}),
+			stateValue:    reflect.ValueOf(&stateWithReason{}).Elem(),
+			wantUnchanged: map[string]bool{"address": true},
+		},
+		{
+			name:          "differing_known_values_treated_as_changed",
+			planObj:       types.ObjectValueMust(map[string]attr.Type{"address": types.StringType}, map[string]attr.Value{"address": types.StringValue("new")}),
+			stateObj:      types.ObjectValueMust(map[string]attr.Type{"address": types.StringType}, map[string]attr.Value{"address": types.StringValue("old")}),
+			stateValue:    reflect.ValueOf(&stateWithReason{}).Elem(),
+			wantUnchanged: map[string]bool{},
+		},
+		{
+			name:          "unknown_planned_value_treated_as_changed",
+			planObj:       types.ObjectValueMust(map[string]attr.Type{"address": types.StringType}, map[string]attr.Value{"address": types.StringUnknown()}),
+			stateObj:      types.ObjectValueMust(map[string]attr.Type{"address": types.StringType}, map[string]attr.Value{"address": types.StringValue("old")}),
+			stateValue:    reflect.ValueOf(&stateWithReason{}).Elem(),
+			wantUnchanged: map[string]bool{},
+		},
+		{
+			name: "attribute_absent_from_prior_state_entirely_treated_as_changed",
+			planObj: types.ObjectValueMust(
+				map[string]attr.Type{"address": types.StringType, "new_attr": types.StringType},
+				map[string]attr.Value{"address": types.StringValue("same"), "new_attr": types.StringValue("value")},
+			),
+			stateObj: types.ObjectValueMust(
+				map[string]attr.Type{"address": types.StringType},
+				map[string]attr.Value{"address": types.StringValue("same")},
+			),
+			stateValue:    reflect.ValueOf(&stateWithReason{}).Elem(),
+			wantUnchanged: map[string]bool{"address": true},
+		},
+		{
+			// The post-`terraform import` case: no prior value, and the state model never had a
+			// field for it, so we cannot prove the value changed and must not resend it.
+			name: "null_state_value_absent_from_state_model_marked_unchanged",
+			planObj: types.ObjectValueMust(
+				map[string]attr.Type{"manual_management_reason": types.StringType},
+				map[string]attr.Value{"manual_management_reason": types.StringValue("first-reason")},
+			),
+			stateObj: types.ObjectValueMust(
+				map[string]attr.Type{"manual_management_reason": types.StringType},
+				map[string]attr.Value{"manual_management_reason": types.StringNull()},
+			),
+			stateValue:    reflect.ValueOf(&stateWithoutReason{}).Elem(),
+			wantUnchanged: map[string]bool{"manual_management_reason": true},
+		},
+		{
+			// This is the guard the big comment in unchangedAttributeNames protects: if the
+			// knownToStateModel check is ever deleted, this case starts (wrongly) returning
+			// "manual_management_reason": true, and a first-time set silently never reaches the
+			// API.
+			name: "null_state_value_present_in_state_model_marked_changed",
+			planObj: types.ObjectValueMust(
+				map[string]attr.Type{"manual_management_reason": types.StringType},
+				map[string]attr.Value{"manual_management_reason": types.StringValue("first-reason")},
+			),
+			stateObj: types.ObjectValueMust(
+				map[string]attr.Type{"manual_management_reason": types.StringType},
+				map[string]attr.Value{"manual_management_reason": types.StringNull()},
+			),
+			stateValue:    reflect.ValueOf(&stateWithReason{}).Elem(),
+			wantUnchanged: map[string]bool{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := unchangedAttributeNames(context.Background(), tt.planObj, tt.stateObj, tt.stateValue)
+			if !reflect.DeepEqual(got, tt.wantUnchanged) {
+				t.Fatalf("unchangedAttributeNames() = %#v, want %#v", got, tt.wantUnchanged)
+			}
+		})
+	}
+}
+
+// TestStructFromPlanAndStateObject_UpdateOnlyModified exercises the two copy loops end to end,
+// through real tfsdk.Plan/tfsdk.State values, proving UpdateOnlyModified is wired correctly rather
+// than just that unchangedAttributeNames computes the right set in isolation.
+func TestStructFromPlanAndStateObject_UpdateOnlyModified(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		plan           *tfsdk.Plan
+		state          *tfsdk.State
+		statePrototype interface{}
+		diffOpts       DiffOnUpdateOptions
+		validateFunc   func(t *testing.T, got *diffTestUpdateModel)
+	}{
+		{
+			// The regression guard for every resource that has not opted in: with the flag off,
+			// unchanged is nil, so both loops behave exactly as they did before this change --
+			// including re-sending an unchanged "secret" that the state model has no field for.
+			name: "flag_off_sends_everything_unconditionally",
+			plan: diffTestPlan(map[string]tftypes.Value{
+				"account_id":                   tftypes.NewValue(tftypes.String, "acc-1"),
+				"address":                      tftypes.NewValue(tftypes.String, "10.0.0.2"),
+				"secret":                       tftypes.NewValue(tftypes.String, "pw1"),
+				"automatic_management_enabled": tftypes.NewValue(tftypes.Bool, true),
+				"manual_management_reason":     tftypes.NewValue(tftypes.String, "new-reason"),
+				"remote_machines":              diffTestStringList("a", "b"),
+				"properties":                   diffTestStringMap(map[string]string{"x": "1"}),
+			}),
+			state: diffTestState(map[string]tftypes.Value{
+				"account_id":                   tftypes.NewValue(tftypes.String, "acc-1"),
+				"address":                      tftypes.NewValue(tftypes.String, "10.0.0.1"),
+				"secret":                       tftypes.NewValue(tftypes.String, "pw1"),
+				"automatic_management_enabled": tftypes.NewValue(tftypes.Bool, false),
+				"manual_management_reason":     tftypes.NewValue(tftypes.String, "old-reason"),
+				"remote_machines":              diffTestStringList("c"),
+				"properties":                   diffTestStringMap(map[string]string{"y": "2"}),
+			}),
+			statePrototype: &diffTestStateModelFull{},
+			diffOpts:       DiffOnUpdateOptions{},
+			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
+				if got.AccountID != "acc-1" {
+					t.Errorf("AccountID = %q, want acc-1", got.AccountID)
+				}
+				if got.Address == nil || *got.Address != "10.0.0.2" {
+					t.Errorf("Address = %v, want 10.0.0.2", got.Address)
+				}
+				if got.Secret == nil || *got.Secret != "pw1" {
+					t.Errorf("Secret = %v, want pw1 (flag off must re-send an unchanged secret -- this is the historical bug behavior, unchanged by this test)", got.Secret)
+				}
+				if got.AutomaticManagementEnabled == nil || !*got.AutomaticManagementEnabled {
+					t.Errorf("AutomaticManagementEnabled = %v, want true", got.AutomaticManagementEnabled)
+				}
+				if got.ManualManagementReason == nil || *got.ManualManagementReason != "new-reason" {
+					t.Errorf("ManualManagementReason = %v, want new-reason", got.ManualManagementReason)
+				}
+				if len(got.RemoteMachines) != 2 || got.RemoteMachines[0] != "a" || got.RemoteMachines[1] != "b" {
+					t.Errorf("RemoteMachines = %v, want [a b]", got.RemoteMachines)
+				}
+				if got.Properties["x"] != "1" {
+					t.Errorf("Properties = %v, want x=1", got.Properties)
+				}
+			},
+		},
+		{
+			// The single most important test here: it proves the comparison happens at the
+			// Terraform value layer, not the Go layer. "secret" has no field on the state
+			// prototype at all, yet the Terraform value is unchanged, so it must stay nil.
+			name: "secret_present_in_schema_absent_from_state_struct_unchanged_stays_nil",
+			plan: diffTestPlan(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+				"secret":     tftypes.NewValue(tftypes.String, "samepw"),
+			}),
+			state: diffTestState(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+				"secret":     tftypes.NewValue(tftypes.String, "samepw"),
+			}),
+			statePrototype: &diffTestStateModelFull{},
+			diffOpts:       DiffOnUpdateOptions{Enabled: true},
+			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
+				if got.Secret != nil {
+					t.Errorf("Secret = %v, want nil", *got.Secret)
+				}
+				if got.AccountID != "acc-1" {
+					t.Errorf("AccountID = %q, want acc-1", got.AccountID)
+				}
+			},
+		},
+		{
+			name: "unchanged_pointer_attribute_stays_nil",
+			plan: diffTestPlan(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+				"address":    tftypes.NewValue(tftypes.String, "1.2.3.4"),
+			}),
+			state: diffTestState(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+				"address":    tftypes.NewValue(tftypes.String, "1.2.3.4"),
+			}),
+			statePrototype: &diffTestStateModelFull{},
+			diffOpts:       DiffOnUpdateOptions{Enabled: true},
+			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
+				if got.Address != nil {
+					t.Errorf("Address = %v, want nil", *got.Address)
+				}
+			},
+		},
+		{
+			name: "changed_pointer_attribute_set_from_plan",
+			plan: diffTestPlan(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+				"address":    tftypes.NewValue(tftypes.String, "5.6.7.8"),
+			}),
+			state: diffTestState(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+				"address":    tftypes.NewValue(tftypes.String, "1.2.3.4"),
+			}),
+			statePrototype: &diffTestStateModelFull{},
+			diffOpts:       DiffOnUpdateOptions{Enabled: true},
+			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
+				if got.Address == nil || *got.Address != "5.6.7.8" {
+					t.Errorf("Address = %v, want 5.6.7.8", got.Address)
+				}
+			},
+		},
+		{
+			// The AccountID case: a non-pointer attribute cannot express absence, so it is always
+			// prefilled from state regardless of UpdateOnlyModified.
+			name: "unchanged_non_pointer_attribute_still_prefilled",
+			plan: diffTestPlan(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+			}),
+			state: diffTestState(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+			}),
+			statePrototype: &diffTestStateModelFull{},
+			diffOpts:       DiffOnUpdateOptions{Enabled: true},
+			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
+				if got.AccountID != "acc-1" {
+					t.Errorf("AccountID = %q, want acc-1", got.AccountID)
+				}
+			},
+		},
+		{
+			name: "unchanged_map_attribute_stays_nil",
+			plan: diffTestPlan(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+				"properties": diffTestStringMap(map[string]string{"a": "1"}),
+			}),
+			state: diffTestState(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+				"properties": diffTestStringMap(map[string]string{"a": "1"}),
+			}),
+			statePrototype: &diffTestStateModelFull{},
+			diffOpts:       DiffOnUpdateOptions{Enabled: true},
+			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
+				if got.Properties != nil {
+					t.Errorf("Properties = %v, want nil", got.Properties)
+				}
+			},
+		},
+		{
+			name: "unchanged_slice_attribute_stays_nil",
+			plan: diffTestPlan(map[string]tftypes.Value{
+				"account_id":      tftypes.NewValue(tftypes.String, "acc-1"),
+				"remote_machines": diffTestStringList("m1", "m2"),
+			}),
+			state: diffTestState(map[string]tftypes.Value{
+				"account_id":      tftypes.NewValue(tftypes.String, "acc-1"),
+				"remote_machines": diffTestStringList("m1", "m2"),
+			}),
+			statePrototype: &diffTestStateModelFull{},
+			diffOpts:       DiffOnUpdateOptions{Enabled: true},
+			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
+				if got.RemoteMachines != nil {
+					t.Errorf("RemoteMachines = %v, want nil", got.RemoteMachines)
+				}
+			},
+		},
+		{
+			// The post-`terraform import` case: prior state is null and the state model has no
+			// field for the attribute, so a plan value with no provable change is not sent.
+			name: "null_state_absent_from_state_model_stays_nil",
+			plan: diffTestPlan(map[string]tftypes.Value{
+				"account_id":               tftypes.NewValue(tftypes.String, "acc-1"),
+				"manual_management_reason": tftypes.NewValue(tftypes.String, "first-reason"),
+			}),
+			state: diffTestState(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+				// manual_management_reason left null (default).
+			}),
+			statePrototype: &diffTestStateModelNoReason{},
+			diffOpts:       DiffOnUpdateOptions{Enabled: true},
+			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
+				if got.ManualManagementReason != nil {
+					t.Errorf("ManualManagementReason = %v, want nil", *got.ManualManagementReason)
+				}
+			},
+		},
+		{
+			// The guard the big comment in unchangedAttributeNames protects: same null-state
+			// shape as above, but the state model DOES have a field for the attribute, so a
+			// first-time set must still reach the API.
+			name: "null_state_present_in_state_model_gets_set",
+			plan: diffTestPlan(map[string]tftypes.Value{
+				"account_id":               tftypes.NewValue(tftypes.String, "acc-1"),
+				"manual_management_reason": tftypes.NewValue(tftypes.String, "first-reason"),
+			}),
+			state: diffTestState(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+			}),
+			statePrototype: &diffTestStateModelFull{},
+			diffOpts:       DiffOnUpdateOptions{Enabled: true},
+			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
+				if got.ManualManagementReason == nil || *got.ManualManagementReason != "first-reason" {
+					t.Errorf("ManualManagementReason = %v, want first-reason", got.ManualManagementReason)
+				}
+			},
+		},
+		{
+			// An unresolved plan value cannot be proven unchanged, so it is not suppressed -- the
+			// field keeps whatever state prefilled, rather than being forced nil.
+			name: "unknown_planned_value_treated_as_changed",
+			plan: diffTestPlan(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+				"address":    diffTestUnknownString(),
+			}),
+			state: diffTestState(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+				"address":    tftypes.NewValue(tftypes.String, "old-address"),
+			}),
+			statePrototype: &diffTestStateModelFull{},
+			diffOpts:       DiffOnUpdateOptions{Enabled: true},
+			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
+				if got.Address == nil || *got.Address != "old-address" {
+					t.Errorf("Address = %v, want old-address", got.Address)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := StructFromPlanAndStateObject(
+				context.Background(), tt.plan, tt.state, &diffTestUpdateModel{}, tt.statePrototype, tt.diffOpts)
+			if err != nil {
+				t.Fatalf("StructFromPlanAndStateObject() error = %v", err)
+			}
+			got, ok := result.(*diffTestUpdateModel)
+			if !ok {
+				t.Fatalf("expected *diffTestUpdateModel, got %T", result)
+			}
+			tt.validateFunc(t, got)
+		})
+	}
+}
+
+func TestStructFromPlanAndStateObject_MismatchedFieldTypes(t *testing.T) {
+	t.Parallel()
+
+	type stateStruct struct {
+		ID       string   `json:"id" mapstructure:"id"`
+		Services []string `json:"services" mapstructure:"services"`
+	}
+
+	type serviceItem struct {
+		ServiceName string `json:"service_name" mapstructure:"service_name"`
+	}
+
+	type planStruct struct {
+		ID       string        `json:"id" mapstructure:"id"`
+		Services []serviceItem `json:"services" mapstructure:"services"`
+	}
+
+	stateSchemaAttrs := map[string]attr.Type{
+		"id":       types.StringType,
+		"services": types.ListType{ElemType: types.StringType},
+	}
+
+	stateObj, diags := types.ObjectValue(stateSchemaAttrs, map[string]attr.Value{
+		"id":       types.StringValue("org-123"),
+		"services": types.ListValueMust(types.StringType, []attr.Value{types.StringValue("sca")}),
+	})
+	if diags.HasError() {
+		t.Fatalf("failed to create state object: %v", diags)
+	}
+
+	planSchemaAttrs := map[string]attr.Type{
+		"id": types.StringType,
+		"services": types.ListType{
+			ElemType: types.ObjectType{
+				AttrTypes: map[string]attr.Type{
+					"service_name": types.StringType,
+				},
+			},
+		},
+	}
+
+	itemObj, diags := types.ObjectValue(map[string]attr.Type{"service_name": types.StringType}, map[string]attr.Value{
+		"service_name": types.StringValue("sca"),
+	})
+	if diags.HasError() {
+		t.Fatalf("failed to create item object: %v", diags)
+	}
+
+	planObj, diags := types.ObjectValue(planSchemaAttrs, map[string]attr.Value{
+		"id":       types.StringValue("org-123"),
+		"services": types.ListValueMust(itemObj.Type(context.Background()), []attr.Value{itemObj}),
+	})
+	if diags.HasError() {
+		t.Fatalf("failed to create plan object: %v", diags)
+	}
+
+	ctx := context.Background()
+	stateVal, err := stateObj.ToTerraformValue(ctx)
+	if err != nil {
+		t.Fatalf("failed to convert state to terraform value: %v", err)
+	}
+	planVal, err := planObj.ToTerraformValue(ctx)
+	if err != nil {
+		t.Fatalf("failed to convert plan to terraform value: %v", err)
+	}
+
+	stateSchema, _ := GenerateResourceSchemaFromStruct(&stateStruct{}, nil, &stateStruct{}, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	planSchema, _ := GenerateResourceSchemaFromStruct(&planStruct{}, nil, &planStruct{}, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+
+	state := tfsdk.State{Raw: stateVal, Schema: stateSchema}
+	plan := tfsdk.Plan{Raw: planVal, Schema: planSchema}
+
+	_, err = StructFromPlanAndStateObject(ctx, &plan, &state, &planStruct{}, &stateStruct{}, DiffOnUpdateOptions{})
+	if err == nil {
+		t.Fatal("expected a type-mismatch error but got nil")
+	}
+	if !strings.Contains(err.Error(), "type mismatch for field") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }

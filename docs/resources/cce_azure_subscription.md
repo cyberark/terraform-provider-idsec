@@ -36,6 +36,8 @@ resource "idsec_cce_azure_subscription" "example" {
 
 ### Optional
 
+- `cce_resources` (Dynamic) CCE resources. Must contain 'appId' (string, UUID) — the Azure application ID.
+- `cce_version` (String) Target version for the base CCE infrastructure. If not specified, the latest version is used.
 - `entra_name` (String) Microsoft Entra tenant name.
 - `parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.
 - `region` (String) The region where CCE resources are deployed.

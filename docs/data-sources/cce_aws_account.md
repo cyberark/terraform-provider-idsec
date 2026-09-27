@@ -33,6 +33,7 @@ output "full_account" {
 ### Read-Only
 
 - `account_id` (String) AWS account ID (12 digits)
+- `cce_version` (String) Current version of the base CCE infrastructure.
 - `display_name` (String) Display name shown in the CCE UI.
 - `duplicated_services` (List of String) Service resources deployed to this account and to the parent organization.
 - `onboarding_type` (String) The method used to deploy resources in AWS: standard (UI), programmatic (API), or Terraform Provider.

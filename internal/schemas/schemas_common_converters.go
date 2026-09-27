@@ -831,8 +831,79 @@ func StructFromConfigObject(ctx context.Context, config *tfsdk.Config, prototype
 	return reflect.ValueOf(newStruct).Elem().Interface(), nil
 }
 
+// DiffOnUpdateOptions controls whether a request field may be left unset because its Terraform
+// attribute did not change. The zero value is the historical behaviour, for every resource that
+// has not opted in.
+type DiffOnUpdateOptions struct {
+	Enabled bool
+}
+
+// isAbsentable reports whether a request-model field can express "not supplied" as distinct from
+// "supplied as the zero value". Only such a field may be skipped: skipping a plain string would
+// leave "" behind, which most request models still serialize.
+func isAbsentable(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice:
+		return true
+	default:
+		return false
+	}
+}
+
+// unchangedAttributeNames returns the top-level attributes that must not be sent on this update.
+//
+// stateValue is the decoded prior-state struct; it is consulted only to ask whether the resource's
+// state model has a field for an attribute at all -- see the null-state case below.
+func unchangedAttributeNames(
+	ctx context.Context,
+	planObj types.Object,
+	stateObj types.Object,
+	stateValue reflect.Value,
+) map[string]bool {
+	if planObj.IsNull() || planObj.IsUnknown() || stateObj.IsNull() || stateObj.IsUnknown() {
+		return nil
+	}
+	stateAttrs := stateObj.Attributes()
+	unchanged := make(map[string]bool, len(stateAttrs))
+	for name, planVal := range planObj.Attributes() {
+		stateVal, ok := stateAttrs[name]
+		if !ok || planVal.IsUnknown() {
+			// No prior value, or not resolved yet: we cannot prove it is unchanged, so send it.
+			continue
+		}
+		if planVal.Equal(stateVal) {
+			unchanged[name] = true
+			continue
+		}
+
+		// The values differ, which normally means send it -- including when prior state is null
+		// and the plan has a value. That is NOT dead code and must not be "simplified" away: it is
+		// the practitioner adding an attribute to their configuration for the first time, and it
+		// has to reach the API.
+		//
+		// The one exception is an attribute the resource's state model has no field for, meaning
+		// the API never reports it back. For those, a null in prior state means "we were never
+		// told", not "the server has no value" -- the situation right after `terraform import`,
+		// where Read cannot recover a credential. Sending on that basis re-writes a value we
+		// cannot prove changed, which is the exact failure this flag exists to prevent (CyberArk
+		// rejects the reuse with EPVWF061E). The value we skip sending is recorded into state by
+		// this same apply (MergePlanToStateObject writes the planned value into state regardless
+		// of whether it was sent), so it will compare equal to plan on every subsequent apply and
+		// that specific value is therefore never sent to the API -- not just on this one apply.
+		// Reaching the API requires the practitioner to configure a different value later.
+		if stateVal.IsNull() {
+			if _, knownToStateModel := findStructFieldByName(stateValue, name); !knownToStateModel {
+				tflog.Info(ctx, fmt.Sprintf(
+					"Attribute %q has no prior state value and is never returned by the API; treating it as unchanged and not sending it. It will be recorded in state by this apply.", name))
+				unchanged[name] = true
+			}
+		}
+	}
+	return unchanged
+}
+
 // StructFromPlanAndStateObject converts a Terraform plan and state object to a Go struct.
-func StructFromPlanAndStateObject(ctx context.Context, plan *tfsdk.Plan, state *tfsdk.State, planPrototype interface{}, statePrototype interface{}) (interface{}, error) {
+func StructFromPlanAndStateObject(ctx context.Context, plan *tfsdk.Plan, state *tfsdk.State, planPrototype interface{}, statePrototype interface{}, diffOpts DiffOnUpdateOptions) (interface{}, error) {
 	var stateObj types.Object
 	var planObj types.Object
 	diags := state.Get(ctx, &stateObj)
@@ -872,25 +943,48 @@ func StructFromPlanAndStateObject(ctx context.Context, plan *tfsdk.Plan, state *
 	}
 	planFinalizedStruct := reflect.New(planReflectedPrototype).Elem()
 	stateValue := reflect.ValueOf(stateNewStruct).Elem()
+
+	var unchanged map[string]bool
+	if diffOpts.Enabled {
+		unchanged = unchangedAttributeNames(ctx, planObj, stateObj, stateValue)
+	}
+
 	actualFields := resolveFieldsSquashed(stateValue.Type())
 	actualValueFields := resolveFieldsValueSquashed(stateValue)
 	for i := range actualFields {
 		field := actualFields[i]
-		if newField := planFinalizedStruct.FieldByName(field.Name); newField.IsValid() && newField.CanSet() {
-			if newField.Type().Kind() == reflect.Pointer && actualValueFields[i].Kind() != reflect.Pointer {
-				actualValueFields[i] = actualValueFields[i].Addr()
-			}
-			newField.Set(actualValueFields[i])
+		newField := planFinalizedStruct.FieldByName(field.Name)
+		if !newField.IsValid() || !newField.CanSet() {
+			continue
 		}
+		// Pre-filling an unchanged field from prior state is what makes it indistinguishable from
+		// a changed one, so under UpdateOnlyModified an absentable field is left nil instead.
+		if unchanged[resolveFieldName(field)] && isAbsentable(newField.Type()) {
+			continue
+		}
+		if newField.Type().Kind() == reflect.Pointer && actualValueFields[i].Kind() != reflect.Pointer {
+			actualValueFields[i] = actualValueFields[i].Addr()
+		}
+		if !actualValueFields[i].Type().AssignableTo(newField.Type()) {
+			return nil, fmt.Errorf("type mismatch for field %q: %s is not assignable to %s; "+
+				"this indicates a model inconsistency between SDK state and plan types",
+				field.Name, actualValueFields[i].Type(), newField.Type())
+		}
+		newField.Set(actualValueFields[i])
 	}
 	planValue := reflect.ValueOf(planNewStruct).Elem()
 	actualPlanFields := resolveFieldsSquashed(planValue.Type())
 	actualPlanValueFields := resolveFieldsValueSquashed(planValue)
 	for i := 0; i < len(actualPlanFields); i++ {
 		field := actualPlanFields[i]
-		if newField := planFinalizedStruct.FieldByName(field.Name); newField.IsValid() && newField.CanSet() {
-			setTargetValueFromPlanAndState(actualPlanValueFields[i], stateValue.FieldByName(field.Name), newField)
+		newField := planFinalizedStruct.FieldByName(field.Name)
+		if !newField.IsValid() || !newField.CanSet() {
+			continue
 		}
+		if unchanged[resolveFieldName(field)] && isAbsentable(newField.Type()) {
+			continue
+		}
+		setTargetValueFromPlanAndState(actualPlanValueFields[i], stateValue.FieldByName(field.Name), newField)
 	}
 	return planFinalizedStruct.Addr().Interface(), nil
 }

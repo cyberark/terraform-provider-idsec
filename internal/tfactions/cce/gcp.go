@@ -40,6 +40,37 @@ func init() {
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "tf-add-project", tfactions.ReadOperation: "tf-project", tfactions.UpdateOperation: "tf-update-project", tfactions.DeleteOperation: "tf-delete-project"},
 				ImportID:            "id",
 			},
+			{
+				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
+					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
+						// TODO: GCP TF is still in development. Enabled flag is set to false to prevent
+						// this resource from being published in new releases until the feature is complete.
+						// Remove boolPtr(false) once the feature is ready.
+						ActionName: "cce-gcp-organization", Enabled: boolPtr(false),
+						ActionDescription: "CCE GCP organization resource, manages GCP organization manual onboarding.",
+						ActionVersion:     1,
+						Schemas:           actions.ActionToSchemaMap,
+					},
+					ExtraRequiredAttributes: []string{},
+					ComputedAttributes: []string{
+						"id",
+						"onboarding_type",
+						"display_name",
+						"status",
+						"region",
+					},
+					StateSchema: &gcpmodels.TfIdsecCCEGCPOrganization{},
+				},
+				RawStateInference:   true,
+				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
+				ActionsMappings: map[tfactions.IdsecServiceActionOperation]string{
+					tfactions.CreateOperation: "tf-add-organization",
+					tfactions.ReadOperation:   "tf-organization",
+					tfactions.UpdateOperation: "tf-update-organization",
+					tfactions.DeleteOperation: "tf-delete-organization",
+				},
+				ImportID: "id",
+			},
 		},
 		DataSources: []*tfactions.IdsecServiceTerraformDataSourceActionDefinition{
 			{

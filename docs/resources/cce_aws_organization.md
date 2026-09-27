@@ -71,6 +71,7 @@ resource "idsec_cce_aws_organization_account" "organization_account_example" {
 
 ### Optional
 
+- `cce_version` (String) Target version for the base CCE infrastructure. If not specified, the latest version is used.
 - `display_name` (String) Display name shown in the CCE UI.
 - `organization_display_name` (String)
 - `parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.

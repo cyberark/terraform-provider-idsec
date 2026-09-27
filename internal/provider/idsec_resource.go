@@ -223,7 +223,12 @@ func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions
 			diagnostics.AddError("Schema Error", fmt.Sprintf("No schema mapping found for operation: %s", operation))
 			return nil, fmt.Errorf("no schema mapping found for operation: %s", operation)
 		}
-		operationSchemaInput, err = schemas.StructFromPlanAndStateObject(ctx, plan, state, operationSchema, s.actionDefinition.StateSchema)
+		diffOpts := schemas.DiffOnUpdateOptions{}
+		if operation == actions.UpdateOperation {
+			diffOpts.Enabled = s.actionDefinition.UpdateOnlyModified
+		}
+		operationSchemaInput, err = schemas.StructFromPlanAndStateObject(
+			ctx, plan, state, operationSchema, s.actionDefinition.StateSchema, diffOpts)
 		if err != nil {
 			tflog.Error(ctx, fmt.Sprintf("Failed to convert plan and state object to schema: %s", err.Error()))
 			diagnostics.AddError("Schema Conversion Error", fmt.Sprintf("Failed to convert plan and state object to schema: %s", err.Error()))
@@ -594,6 +599,14 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 		if errors.As(actionErr, &partialStateErr) {
 			tflog.Warn(ctx, fmt.Sprintf("Operation partially succeeded; writing partial state before surfacing error: %s", actionErr.Error()))
 			result[0] = reflect.ValueOf(partialStateErr.PartialResult)
+		} else if operation == actions.ReadOperation && errors.Is(actionErr, sdkcommon.ErrNotFound) {
+			// Resource was deleted outside Terraform. Remove it from state so the next plan
+			// detects the drift and schedules a recreate rather than surfacing a hard error.
+			tflog.Warn(ctx, fmt.Sprintf("Drift detected: resource no longer exists upstream; removing from Terraform state so the next plan will schedule a recreate: %s", actionErr.Error()))
+			if respState != nil {
+				respState.RemoveResource(ctx)
+			}
+			return
 		} else {
 			s.finalizeFailure(ctx, "Action Error", fmt.Sprintf("Unable to call action method: %s", actionErr.Error()), operation, originalState, respState, diagnostics)
 			return

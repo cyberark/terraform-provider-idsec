@@ -27,6 +27,7 @@ data "idsec_cce_azure_management_group" "example" {
 
 ### Read-Only
 
+- `cce_version` (String) Current version of the base CCE infrastructure.
 - `consent_data` (Dynamic) Consent data for service applications.
 - `display_name` (String) Display name shown in CCE UI.
 - `entra_id` (String) Microsoft Entra tenant ID.

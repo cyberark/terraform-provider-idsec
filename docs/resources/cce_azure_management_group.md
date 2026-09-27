@@ -34,6 +34,7 @@ resource "idsec_cce_azure_management_group" "example" {
 
 ### Optional
 
+- `cce_version` (String) Target version for the base CCE infrastructure. If not specified, the latest version is used.
 - `parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.
 - `region` (String) The region where CCE resources are deployed.
 

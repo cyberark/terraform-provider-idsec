@@ -78,11 +78,29 @@ func init() {
 						"secret_type",
 					},
 					StateSchema: &accountsmodels.IdsecPCloudAccount{},
+					AttributeNotes: map[string][]tfactions.DocNote{
+						"secret": {{
+							Severity: tfactions.DocNoteWarning,
+							Body: "After `terraform import`, or after adding `secret` to a resource that previously " +
+								"had none, the value you have configured at that moment is recorded into Terraform " +
+								"state without being written to the vault. Because state then matches your " +
+								"configuration, no later apply will write it either, even though the vault still " +
+								"holds the old credential. To actually set the credential, change `secret` to a " +
+								"different value on a subsequent apply.",
+						}},
+						"secret_file": {{
+							Severity: tfactions.DocNoteWarning,
+							Body: "Editing the contents of the file at this path does not rotate the credential: " +
+								"Terraform compares the path, not the file's contents. To rotate, change the path, " +
+								"or set the `secret` attribute instead.",
+						}},
+					},
 				},
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "create", tfactions.ReadOperation: "get", tfactions.UpdateOperation: "update", tfactions.DeleteOperation: "delete"},
 				ImportID:            "account_id",
 				PlanValidators:      []tfactions.IdsecPlanValidator{platformExistsValidator{}},
+				UpdateOnlyModified:  true,
 			},
 		},
 		DataSources: []*tfactions.IdsecServiceTerraformDataSourceActionDefinition{

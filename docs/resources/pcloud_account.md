@@ -41,7 +41,15 @@ resource "idsec_pcloud_account" "example_account" {
 - `platform_account_properties` (Dynamic) The object containing key-value pairs to associate with the account, as defined by the account platform. Optional properties that do not exist or internal properties are not returned
 - `remote_machines` (List of String) List of remote machines that the account can access, separated by semicolons
 - `secret` (String, Sensitive) The secret value.
+
+<!-- BEGIN ATTR NOTE: secret -->
+~> After `terraform import`, or after adding `secret` to a resource that previously had none, the value you have configured at that moment is recorded into Terraform state without being written to the vault. Because state then matches your configuration, no later apply will write it either, even though the vault still holds the old credential. To actually set the credential, change `secret` to a different value on a subsequent apply.
+<!-- END ATTR NOTE: secret -->
 - `secret_file` (String) The path to the secret file.
+
+<!-- BEGIN ATTR NOTE: secret_file -->
+~> Editing the contents of the file at this path does not rotate the credential: Terraform compares the path, not the file's contents. To rotate, change the path, or set the `secret` attribute instead.
+<!-- END ATTR NOTE: secret_file -->
 - `secret_type` (String) The type of secret for the acccount (password,key)
 - `username` (String) Account user's name
 

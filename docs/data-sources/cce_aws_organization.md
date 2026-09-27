@@ -60,6 +60,7 @@ output "status" {
 
 ### Read-Only
 
+- `cce_version` (String) Current version of the base CCE infrastructure.
 - `display_name` (String) Display name shown in the CCE UI.
 - `last_successful_scan` (String) Timestamp of the last successful organization scan (RFC3339 format).
 - `management_account_id` (String) Organization's management account ID.
@@ -82,6 +83,7 @@ Read-Only:
 - `properties` (Attributes List) Additional properties for the service (see [below for nested schema](#nestedatt--services_data--properties))
 - `status` (String) Onboarding status of the service
 - `suspended` (Boolean) Whether the service is suspended
+- `version` (String) Deployed version of the service
 
 <a id="nestedatt--services_data--properties"></a>
 ### Nested Schema for `services_data.properties`

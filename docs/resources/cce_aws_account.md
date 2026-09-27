@@ -42,6 +42,7 @@ resource "idsec_cce_aws_account" "simple_example" {
 ### Optional
 
 - `account_display_name` (String) Optional name for the account shown in the CCE UI.
+- `cce_version` (String) Target version for the base CCE infrastructure. If not specified, the latest version is used.
 - `deployment_region` (String) AWS region where the account is deployed, for example, us-east-1. If not specified, the tenant region is used.
 - `display_name` (String) Display name shown in the CCE UI.
 - `organization_id` (String) CCE onboarding ID of the parent AWS organization.

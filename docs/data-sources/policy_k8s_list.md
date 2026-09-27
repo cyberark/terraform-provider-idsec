@@ -1,23 +1,24 @@
 ---
-page_title: "terraform-provider-idsec - idsec_policy_k8s"
+page_title: "terraform-provider-idsec - idsec_policy_k8s_list"
 subcategory: "Access Policy"
-description: Kubernetes cluster access policy data source.
+description: Kubernetes cluster access policies list data source. Returns policies matching the provided filters.
 ---
 
-# idsec_policy_k8s (Data Source)
+# idsec_policy_k8s_list (Data Source)
 
-Kubernetes cluster access policy data source.
+Kubernetes cluster access policies list data source. Returns policies matching the provided filters.
 <!-- BEGIN CUSTOM NOTES -->
--> Returns the full details of a specific Kubernetes cluster access policy by its `policy_id`. Policy IDs can be obtained from the `idsec_policy_k8s_list` data source.
-
-~> The `targets.azure_targets.region` attribute has been removed from Azure AKS targets. Remove it from your Terraform configuration.
+-> Returns a list of Kubernetes cluster access policies matching the specified filters. The response includes partial details only — targets are not included. Use the `idsec_policy_k8s` data source with a specific `policy_id` to retrieve full details.
 <!-- END CUSTOM NOTES -->
 
 ## Example Usage
 
 ```terraform
-data "idsec_policy_k8s" "example_policy" {
-  policy_id = "example_policy_id"
+data "idsec_policy_k8s_list" "example" {
+  location_type   = ["AWS"]
+  target_category = ["Clusters"]
+  policy_type     = ["Recurring"]
+  status          = ["Active"]
 }
 ```
 
@@ -26,27 +27,42 @@ data "idsec_policy_k8s" "example_policy" {
 
 ### Optional
 
-- `policy_id` (String) Returns the details about a specific access policy
+- `identities` (List of String) List of identities to filter the policies by
+- `location_type` (List of String) List of wanted location types for the policies
+- `max_pages` (Number) The maximum number of pages for pagination, default is 1000000
+- `policy_tags` (List of String) List of wanted policy tags for the policies
+- `policy_type` (List of String) List of wanted policy types for the policies
+- `show_editable_policies` (Boolean) Whether to show editable policies or not
+- `status` (List of String) List of wanted policy statuses for the policies
+- `target_category` (List of String) List of wanted target categories for the policies
+- `text_search` (String) Text search filter to apply on the policies names and descriptions
 
 ### Read-Only
 
-- `conditions` (Attributes) The allowed session length, and the access window during which a session can be started. (see [below for nested schema](#nestedatt--conditions))
-- `connection_method` (String) The method used to connect to the cluster. A SIA connector for Kubernetes must be installed and configured, regardless of the connection method.
-- `delegation_classification` (String) Indicates the user rights for the policy. Default: Unrestricted
-- `metadata` (Attributes) The policy metadata: ID, name, and additional information (see [below for nested schema](#nestedatt--metadata))
-- `principals` (Attributes List) The identity: user, group, role (see [below for nested schema](#nestedatt--principals))
-- `targets` (Attributes) Kubernetes cluster targets (see [below for nested schema](#nestedatt--targets))
+- `policies` (Attributes List) The list of K8s cluster access policies matching the provided filters. (see [below for nested schema](#nestedatt--policies))
 
-<a id="nestedatt--conditions"></a>
-### Nested Schema for `conditions`
+<a id="nestedatt--policies"></a>
+### Nested Schema for `policies`
 
 Read-Only:
 
-- `access_window` (Attributes) The days and times when the user can connect to their target using this policy (see [below for nested schema](#nestedatt--conditions--access_window))
+- `conditions` (Attributes) The allowed session length, and the access window during which a session can be started. (see [below for nested schema](#nestedatt--policies--conditions))
+- `connection_method` (String) The method used to connect to the cluster. A SIA connector for Kubernetes must be installed and configured, regardless of the connection method.
+- `delegation_classification` (String) Indicates the user rights for the policy. Default: Unrestricted
+- `metadata` (Attributes) The policy metadata: ID, name, and additional information (see [below for nested schema](#nestedatt--policies--metadata))
+- `principals` (Attributes List) The identity: user, group, role (see [below for nested schema](#nestedatt--policies--principals))
+- `targets` (Attributes) Kubernetes cluster targets (see [below for nested schema](#nestedatt--policies--targets))
+
+<a id="nestedatt--policies--conditions"></a>
+### Nested Schema for `policies.conditions`
+
+Read-Only:
+
+- `access_window` (Attributes) The days and times when the user can connect to their target using this policy (see [below for nested schema](#nestedatt--policies--conditions--access_window))
 - `max_session_duration` (Number) The maximum length of time (in hours) a user can remain connected in a single session. Default: 1
 
-<a id="nestedatt--conditions--access_window"></a>
-### Nested Schema for `conditions.access_window`
+<a id="nestedatt--policies--conditions--access_window"></a>
+### Nested Schema for `policies.conditions.access_window`
 
 Read-Only:
 
@@ -56,24 +72,24 @@ Read-Only:
 
 
 
-<a id="nestedatt--metadata"></a>
-### Nested Schema for `metadata`
+<a id="nestedatt--policies--metadata"></a>
+### Nested Schema for `policies.metadata`
 
 Read-Only:
 
-- `created_by` (Attributes) The user who created the policy and when (see [below for nested schema](#nestedatt--metadata--created_by))
+- `created_by` (Attributes) The user who created the policy and when (see [below for nested schema](#nestedatt--policies--metadata--created_by))
 - `description` (String) A short description about the policy - maximum 200 characters
 - `name` (String) A unique name for the access policy - minLength: 1, maxLength: 200
-- `policy_entitlement` (Attributes) The policy target category, location type, and policy type (see [below for nested schema](#nestedatt--metadata--policy_entitlement))
+- `policy_entitlement` (Attributes) The policy target category, location type, and policy type (see [below for nested schema](#nestedatt--policies--metadata--policy_entitlement))
 - `policy_id` (String) The unique identifier of the access policy - minLength: 0, maxLength: 99
 - `policy_tags` (List of String) Customized tags to help identify the policy and those similar to it - maximum 20 tags per policy
-- `status` (Attributes) The status of the policy (see [below for nested schema](#nestedatt--metadata--status))
-- `time_frame` (Attributes) The timeframe that the policy is active. For an unlimited timeframe, leave empty - maxLength: 50 (see [below for nested schema](#nestedatt--metadata--time_frame))
+- `status` (Attributes) The status of the policy (see [below for nested schema](#nestedatt--policies--metadata--status))
+- `time_frame` (Attributes) The timeframe that the policy is active. For an unlimited timeframe, leave empty - maxLength: 50 (see [below for nested schema](#nestedatt--policies--metadata--time_frame))
 - `time_zone` (String) The time zone identifier - maxLength: 50, Default: GMT
-- `updated_on` (Attributes) The user who updated the policy, and when (see [below for nested schema](#nestedatt--metadata--updated_on))
+- `updated_on` (Attributes) The user who updated the policy, and when (see [below for nested schema](#nestedatt--policies--metadata--updated_on))
 
-<a id="nestedatt--metadata--created_by"></a>
-### Nested Schema for `metadata.created_by`
+<a id="nestedatt--policies--metadata--created_by"></a>
+### Nested Schema for `policies.metadata.created_by`
 
 Read-Only:
 
@@ -81,8 +97,8 @@ Read-Only:
 - `user` (String) The name of the user that modified the policy (read-only) minLength: 1 maxLength: 512 readOnly: true
 
 
-<a id="nestedatt--metadata--policy_entitlement"></a>
-### Nested Schema for `metadata.policy_entitlement`
+<a id="nestedatt--policies--metadata--policy_entitlement"></a>
+### Nested Schema for `policies.metadata.policy_entitlement`
 
 Read-Only:
 
@@ -91,8 +107,8 @@ Read-Only:
 - `target_category` (String) The category of the target: Cloud access: Cloud console, Groups; Infrastructure access: VM, DB; Kubernetes: Clusters
 
 
-<a id="nestedatt--metadata--status"></a>
-### Nested Schema for `metadata.status`
+<a id="nestedatt--policies--metadata--status"></a>
+### Nested Schema for `policies.metadata.status`
 
 Read-Only:
 
@@ -102,8 +118,8 @@ Read-Only:
 - `status_description` (String) A description of the status. maxLength: 1000 (read-only)
 
 
-<a id="nestedatt--metadata--time_frame"></a>
-### Nested Schema for `metadata.time_frame`
+<a id="nestedatt--policies--metadata--time_frame"></a>
+### Nested Schema for `policies.metadata.time_frame`
 
 Read-Only:
 
@@ -111,8 +127,8 @@ Read-Only:
 - `to_time` (String) format: yyyy-MM-ddTHH:mm:ss The date the policy expires
 
 
-<a id="nestedatt--metadata--updated_on"></a>
-### Nested Schema for `metadata.updated_on`
+<a id="nestedatt--policies--metadata--updated_on"></a>
+### Nested Schema for `policies.metadata.updated_on`
 
 Read-Only:
 
@@ -121,8 +137,8 @@ Read-Only:
 
 
 
-<a id="nestedatt--principals"></a>
-### Nested Schema for `principals`
+<a id="nestedatt--policies--principals"></a>
+### Nested Schema for `policies.principals`
 
 Read-Only:
 
@@ -133,17 +149,17 @@ Read-Only:
 - `type` (String) The type of principal
 
 
-<a id="nestedatt--targets"></a>
-### Nested Schema for `targets`
+<a id="nestedatt--policies--targets"></a>
+### Nested Schema for `policies.targets`
 
 Optional:
 
-- `aws_account_targets` (Attributes Set) Amazon EKS cluster target details (AWS IAM) (see [below for nested schema](#nestedatt--targets--aws_account_targets))
-- `aws_idc_targets` (Attributes Set) Amazon EKS cluster target details (AWS IAM Identity Center) (see [below for nested schema](#nestedatt--targets--aws_idc_targets))
-- `azure_targets` (Attributes Set) AKS cluster target details (see [below for nested schema](#nestedatt--targets--azure_targets))
+- `aws_account_targets` (Attributes Set) Amazon EKS cluster target details (AWS IAM) (see [below for nested schema](#nestedatt--policies--targets--aws_account_targets))
+- `aws_idc_targets` (Attributes Set) Amazon EKS cluster target details (AWS IAM Identity Center) (see [below for nested schema](#nestedatt--policies--targets--aws_idc_targets))
+- `azure_targets` (Attributes Set) AKS cluster target details (see [below for nested schema](#nestedatt--policies--targets--azure_targets))
 
-<a id="nestedatt--targets--aws_account_targets"></a>
-### Nested Schema for `targets.aws_account_targets`
+<a id="nestedatt--policies--targets--aws_account_targets"></a>
+### Nested Schema for `policies.targets.aws_account_targets`
 
 Optional:
 
@@ -160,8 +176,8 @@ Optional:
 - `workspace_name` (String) The display name of the AWS account in Idira.
 
 
-<a id="nestedatt--targets--aws_idc_targets"></a>
-### Nested Schema for `targets.aws_idc_targets`
+<a id="nestedatt--policies--targets--aws_idc_targets"></a>
+### Nested Schema for `policies.targets.aws_idc_targets`
 
 Optional:
 
@@ -179,8 +195,8 @@ Optional:
 - `workspace_name` (String) The display name of the AWS account in Idira.
 
 
-<a id="nestedatt--targets--azure_targets"></a>
-### Nested Schema for `targets.azure_targets`
+<a id="nestedatt--policies--targets--azure_targets"></a>
+### Nested Schema for `policies.targets.azure_targets`
 
 Optional:
 
@@ -197,5 +213,6 @@ Optional:
 - `workspace_id` (String) The unique identifier created for the AKS cluster (Azure resource) in Idira when it was connected.
 - `workspace_name` (String) The display name of the AKS cluster in Idira.
 - `workspace_type` (String) The scope level at which the Microsoft Entra tenant was connected to Idira. For AKS clusters access policies, this value must be set to resource.
+
 
 

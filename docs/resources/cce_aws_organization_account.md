@@ -21,6 +21,7 @@ CCE AWS organization account resource, adds AWS accounts to an organization.
 
 ### Optional
 
+- `cce_version` (String) Current version of the base CCE infrastructure.
 - `parameters` (Dynamic) A key-value map of service-specific configuration parameters, keyed by service name.
 - `scan_probe_interval_seconds` (Number) Wait time between scan probes in seconds (default: 3).
 - `scan_probe_max_retries` (Number) Maximum scan probe attempts when the account isn't discovered (default: 20).

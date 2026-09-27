@@ -88,6 +88,19 @@ func init() {
 				},
 				DataSourceAction: "policy",
 			},
+			{
+				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
+					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
+						ActionName: "policy-k8s-list", ActionDescription: "Kubernetes cluster access policies list data source. Returns policies matching the provided filters.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
+					},
+					StateSchema:             &policyk8smodels.IdsecPolicyK8sPolicyList{},
+					ComputedAsSetAttributes: []string{"days_of_the_week", "aws_account_targets", "aws_idc_targets", "azure_targets"},
+					PageNotes: []tfactions.DocNote{
+						{Severity: tfactions.DocNoteInfo, Body: "Returns a list of Kubernetes cluster access policies matching the specified filters. The response includes partial details only — targets are not included. Use the `idsec_policy_k8s` data source with a specific `policy_id` to retrieve full details."},
+					},
+				},
+				DataSourceAction: "tf-list-policies-by",
+			},
 		},
 	})
 }

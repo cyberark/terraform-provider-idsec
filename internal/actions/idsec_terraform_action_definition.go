@@ -128,6 +128,11 @@ type IdsecServiceTerraformResourceActionDefinition struct {
 	// DeprecationMessage is shown as a Terraform warning whenever this resource
 	// appears in a plan. Leave empty for non-deprecated resources.
 	DeprecationMessage string
+	// UpdateOnlyModified makes an update send only the attributes that actually changed. A request
+	// field that can express "absent" -- a pointer, map or slice -- is left nil when its Terraform
+	// attribute is identical in plan and state. Opt in per resource: it is only safe where the SDK
+	// service gates each field of its request independently of the others.
+	UpdateOnlyModified bool
 }
 
 // IdsecServiceTerraformDataSourceActionDefinition is a struct that defines the structure of a data source action in the Idsec Terraform provider.

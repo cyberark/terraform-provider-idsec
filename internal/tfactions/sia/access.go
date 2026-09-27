@@ -30,7 +30,11 @@ func init() {
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
 						ActionName: "sia-access-connector", ActionDescription: "SIA connector resource, manages SIA connector installation and removal on SIA and target machines.", ActionVersion: 1, Schemas: siaAccessSchemasMap,
 					},
-					ExtraRequiredAttributes: []string{"connector_os", "connector_type", "target_machine", "username"},
+					// connector_type and connector_os are always required. target_machine and username
+					// are required only for machine-based connector_os values (Linux, windows); when
+					// connector_os is k8s-ephemeral, k_8_s_namespace is required instead. This
+					// conditional-attribute validation is enforced on the SDK side.
+					ExtraRequiredAttributes: []string{"connector_type", "connector_os"},
 					StateSchema:             &accessmodels.IdsecSIAAccessConnectorID{},
 				},
 				RawStateInference:   true,
