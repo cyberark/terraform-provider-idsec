@@ -6,6 +6,7 @@ package actions
 import (
 	"context"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	api "github.com/cyberark/idsec-sdk-golang/pkg"
 	"github.com/cyberark/terraform-provider-idsec/internal/schemas"
@@ -13,6 +14,17 @@ import (
 
 // IdsecServiceActionOperation defines the operation type for an Idsec service action, such as create, read, update, delete, or state.
 type IdsecServiceActionOperation string
+
+// StateUpgrade describes how a resource upgrades state written by one prior schema version.
+type StateUpgrade struct {
+	// Transform rewrites the raw prior state into the current shape. Nil means no structural
+	// change (attributes were not renamed or removed).
+	//
+	// Numbers in prior arrive as json.Number, not float64 -- a float64 silently truncates any
+	// integer past 2^53, which would corrupt large numeric attributes the Transform never touches.
+	// Read them with .Int64()/.Float64(); values passed through untouched re-serialise verbatim.
+	Transform func(ctx context.Context, prior map[string]any) (map[string]any, diag.Diagnostics)
+}
 
 // IdsecPlanValidator is the interface that plan-time API validators that are more complex than simple attribute checks.
 //
@@ -129,10 +141,17 @@ type IdsecServiceTerraformResourceActionDefinition struct {
 	// appears in a plan. Leave empty for non-deprecated resources.
 	DeprecationMessage string
 	// UpdateOnlyModified makes an update send only the attributes that actually changed. A request
-	// field that can express "absent" -- a pointer, map or slice -- is left nil when its Terraform
-	// attribute is identical in plan and state. Opt in per resource: it is only safe where the SDK
-	// service gates each field of its request independently of the others.
+	// field declared as a pointer (including a pointer to a slice or map) is left nil when its
+	// Terraform attribute is identical in plan and state; non-pointer fields, plain slices and maps
+	// included, are always sent. Opt in per resource: it is only safe where the SDK service gates
+	// each pointer field of its request independently of the others.
 	UpdateOnlyModified bool
+	// StateUpgrades maps each prior schema version this resource upgrades from to its upgrade.
+	// Keys are the version upgraded FROM (a bump to N is keyed at N-1). Resources that leave
+	// this empty get no upgrader, which keeps Terraform's hard error ("Terraform was expecting an
+	// implementation for version N upgrade") for older state — that error is what forces a real
+	// upgrade to be written when a bump restructures state.
+	StateUpgrades map[int64]StateUpgrade
 }
 
 // IdsecServiceTerraformDataSourceActionDefinition is a struct that defines the structure of a data source action in the Idsec Terraform provider.

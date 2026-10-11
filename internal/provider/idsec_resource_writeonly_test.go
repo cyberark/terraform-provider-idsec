@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -88,7 +89,17 @@ func TestIdsecResource_triggerFired(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
+		name string
+		// attrPath overrides the write-only attribute path passed to triggerFired; defaults to
+		// "write_only_attr" when empty. Hash-mode adopt cases need this to be the actual hashed
+		// attribute name ("password") so isHashedWriteOnlyAttribute's membership check matches.
+		attrPath string
+		// actionDef overrides the IdsecResource's actionDefinition; nil (the default) mirrors a
+		// resource with no write-only declarations at all, matching triggerFired's real callers
+		// when isHashedWriteOnlyAttribute must safely report false.
+		actionDef *actions.IdsecServiceTerraformResourceActionDefinition
+		// pending is the import-adoption marker read from private state; nil means not imported.
+		pending     map[string]bool
 		triggerPath string
 		plan        *tfsdk.Plan
 		state       *tfsdk.State
@@ -178,6 +189,56 @@ func TestIdsecResource_triggerFired(t *testing.T) {
 			wantFired:   true,
 		},
 		{
+			// Imported resource: the sibling is null in prior state and the plan (no reusable
+			// salt) is unknown. Must not fire: the backend already holds a credential this apply
+			// must not overwrite. The hash is still adopted into state via
+			// schemas.ResolveWriteOnlyHashTags, exercised separately in the schemas package.
+			name:        "success_hash_mode_imported_null_prior_hash_with_unknown_plan_adopts_without_firing",
+			attrPath:    "password",
+			actionDef:   writeOnlyHashedTestActionDef([]string{"password"}),
+			pending:     map[string]bool{"password": true},
+			triggerPath: hashTriggerPath,
+			plan:        &tfsdk.Plan{Raw: hashTrigger(unknownString())},
+			state:       &tfsdk.State{Raw: hashTrigger(nullString())},
+			wantFired:   false,
+		},
+		{
+			// Same adopt rule, but with a concrete (already-known) planned tag rather than
+			// unknown: the adopt check must still win and suppress the send.
+			name:        "success_hash_mode_imported_null_prior_hash_with_known_plan_adopts_without_firing",
+			attrPath:    "password",
+			actionDef:   writeOnlyHashedTestActionDef([]string{"password"}),
+			pending:     map[string]bool{"password": true},
+			triggerPath: hashTriggerPath,
+			plan:        &tfsdk.Plan{Raw: hashTrigger(knownString("v1:adopted-tag"))},
+			state:       &tfsdk.State{Raw: hashTrigger(nullString())},
+			wantFired:   false,
+		},
+		{
+			// Regression guard: a secret newly added to config on an existing, NOT imported
+			// resource (e.g. an optional credential set for the first time). Nothing shows the
+			// backend holds it, so it must be sent; adopting would record a hash for a value the
+			// backend never received.
+			name:        "success_hash_mode_not_imported_null_prior_hash_fires",
+			attrPath:    "password",
+			actionDef:   writeOnlyHashedTestActionDef([]string{"password"}),
+			triggerPath: hashTriggerPath,
+			plan:        &tfsdk.Plan{Raw: hashTrigger(unknownString())},
+			state:       &tfsdk.State{Raw: hashTrigger(nullString())},
+			wantFired:   true,
+		},
+		{
+			// Regression guard: a manually declared (non-hash) trigger that happens to be null in
+			// prior state, on an existing resource, must still fire on a known plan value. The
+			// adopt rule is gated on isHashedWriteOnlyAttribute and must never apply to manual
+			// triggers, which have no actionDefinition declaring "trigger" as hashed here.
+			name:        "success_manual_trigger_null_prior_state_with_known_plan_still_fires",
+			triggerPath: "trigger",
+			plan:        &tfsdk.Plan{Raw: trigger(knownString("v"))},
+			state:       &tfsdk.State{Raw: trigger(nullString())},
+			wantFired:   true,
+		},
+		{
 			name:        "error_trigger_path_not_addressable",
 			triggerPath: "does_not_exist",
 			plan:        &tfsdk.Plan{Raw: trigger(knownString("v"))},
@@ -190,8 +251,12 @@ func TestIdsecResource_triggerFired(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := &IdsecResource{}
-			fired, err := s.triggerFired(context.Background(), "write_only_attr", tt.triggerPath, tt.plan, tt.state)
+			attrPath := tt.attrPath
+			if attrPath == "" {
+				attrPath = "write_only_attr"
+			}
+			s := &IdsecResource{actionDefinition: tt.actionDef}
+			fired, err := s.triggerFired(context.Background(), attrPath, tt.triggerPath, tt.plan, tt.state, tt.pending)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("expected an error, got nil (fired=%v)", fired)
@@ -242,7 +307,7 @@ func TestIdsecResource_applyWriteOnlyValues(t *testing.T) {
 		target := &woSquashModel{}
 		config := &tfsdk.Config{Raw: stringObjectValue(map[string]tftypes.Value{"secret": knownString("s3cr3t")})}
 
-		if err := s.applyWriteOnlyValues(context.Background(), target, config, nil, nil); err != nil {
+		if err := s.applyWriteOnlyValues(context.Background(), target, config, nil, nil, nil); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if target.Secret != "s3cr3t" {
@@ -258,7 +323,7 @@ func TestIdsecResource_applyWriteOnlyValues(t *testing.T) {
 		plan := &tfsdk.Plan{Raw: stringObjectValue(map[string]tftypes.Value{"trigger": knownString("new")})}
 		state := &tfsdk.State{Raw: stringObjectValue(map[string]tftypes.Value{"trigger": knownString("old")})}
 
-		if err := s.applyWriteOnlyValues(context.Background(), target, config, plan, state); err != nil {
+		if err := s.applyWriteOnlyValues(context.Background(), target, config, plan, state, nil); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if target.Secret != "new-secret" {
@@ -277,7 +342,7 @@ func TestIdsecResource_applyWriteOnlyValues(t *testing.T) {
 		plan := &tfsdk.Plan{Raw: stringObjectValue(map[string]tftypes.Value{"trigger": knownString("same")})}
 		state := &tfsdk.State{Raw: stringObjectValue(map[string]tftypes.Value{"trigger": knownString("same")})}
 
-		if err := s.applyWriteOnlyValues(context.Background(), target, config, plan, state); err != nil {
+		if err := s.applyWriteOnlyValues(context.Background(), target, config, plan, state, nil); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if target.Secret != "" {
@@ -297,7 +362,7 @@ func TestIdsecResource_applyWriteOnlyValues(t *testing.T) {
 			"token":  knownString("multi-token"),
 		})}
 
-		if err := s.applyWriteOnlyValues(context.Background(), target, config, nil, nil); err != nil {
+		if err := s.applyWriteOnlyValues(context.Background(), target, config, nil, nil, nil); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if target.Secret != "multi-secret" || target.Token != "multi-token" {
@@ -314,7 +379,7 @@ func TestIdsecResource_applyWriteOnlyValues(t *testing.T) {
 		plan := &tfsdk.Plan{Raw: stringObjectValue(map[string]tftypes.Value{hashAttr: knownString("v1:new-tag")})}
 		state := &tfsdk.State{Raw: stringObjectValue(map[string]tftypes.Value{hashAttr: knownString("v1:old-tag")})}
 
-		if err := s.applyWriteOnlyValues(context.Background(), target, config, plan, state); err != nil {
+		if err := s.applyWriteOnlyValues(context.Background(), target, config, plan, state, nil); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if target.Password != "new-secret" {
@@ -331,11 +396,79 @@ func TestIdsecResource_applyWriteOnlyValues(t *testing.T) {
 		plan := &tfsdk.Plan{Raw: stringObjectValue(map[string]tftypes.Value{hashAttr: knownString("v1:same-tag")})}
 		state := &tfsdk.State{Raw: stringObjectValue(map[string]tftypes.Value{hashAttr: knownString("v1:same-tag")})}
 
-		if err := s.applyWriteOnlyValues(context.Background(), target, config, plan, state); err != nil {
+		if err := s.applyWriteOnlyValues(context.Background(), target, config, plan, state, nil); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if target.Password != "" {
 			t.Errorf("expected Password to stay unset when the hash tag did not change, got %q", target.Password)
+		}
+	})
+
+	t.Run("success_hash_mode_imported_skips_when_prior_hash_is_null_and_plan_unknown", func(t *testing.T) {
+		t.Parallel()
+		s := &IdsecResource{actionDefinition: writeOnlyHashedTestActionDef([]string{"password"})}
+		target := &woHashModel{}
+		hashAttr := schemas.WriteOnlyHashAttributeName("password")
+		config := &tfsdk.Config{Raw: stringObjectValue(map[string]tftypes.Value{"password": knownString("adopted-secret")})}
+		plan := &tfsdk.Plan{Raw: stringObjectValue(map[string]tftypes.Value{hashAttr: unknownString()})}
+		state := &tfsdk.State{Raw: stringObjectValue(map[string]tftypes.Value{hashAttr: nullString()})}
+
+		if err := s.applyWriteOnlyValues(context.Background(), target, config, plan, state, map[string]bool{"password": true}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if target.Password != "" {
+			t.Errorf("expected Password to stay unset on the import adopt path, got %q", target.Password)
+		}
+	})
+
+	t.Run("success_hash_mode_imported_skips_when_prior_hash_is_null_and_plan_known", func(t *testing.T) {
+		t.Parallel()
+		s := &IdsecResource{actionDefinition: writeOnlyHashedTestActionDef([]string{"password"})}
+		target := &woHashModel{}
+		hashAttr := schemas.WriteOnlyHashAttributeName("password")
+		config := &tfsdk.Config{Raw: stringObjectValue(map[string]tftypes.Value{"password": knownString("adopted-secret")})}
+		plan := &tfsdk.Plan{Raw: stringObjectValue(map[string]tftypes.Value{hashAttr: knownString("v1:adopted-tag")})}
+		state := &tfsdk.State{Raw: stringObjectValue(map[string]tftypes.Value{hashAttr: nullString()})}
+
+		if err := s.applyWriteOnlyValues(context.Background(), target, config, plan, state, map[string]bool{"password": true}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if target.Password != "" {
+			t.Errorf("expected Password to stay unset on the import adopt path, got %q", target.Password)
+		}
+	})
+
+	t.Run("success_hash_mode_not_imported_sends_when_prior_hash_is_null", func(t *testing.T) {
+		t.Parallel()
+		s := &IdsecResource{actionDefinition: writeOnlyHashedTestActionDef([]string{"password"})}
+		target := &woHashModel{}
+		hashAttr := schemas.WriteOnlyHashAttributeName("password")
+		config := &tfsdk.Config{Raw: stringObjectValue(map[string]tftypes.Value{"password": knownString("newly-added-secret")})}
+		plan := &tfsdk.Plan{Raw: stringObjectValue(map[string]tftypes.Value{hashAttr: unknownString()})}
+		state := &tfsdk.State{Raw: stringObjectValue(map[string]tftypes.Value{hashAttr: nullString()})}
+
+		if err := s.applyWriteOnlyValues(context.Background(), target, config, plan, state, nil); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if target.Password != "newly-added-secret" {
+			t.Errorf("expected a secret newly added to a non-imported resource to be sent, got %q", target.Password)
+		}
+	})
+
+	t.Run("edge_case_hash_mode_skips_when_secret_null_in_config", func(t *testing.T) {
+		t.Parallel()
+		s := &IdsecResource{actionDefinition: writeOnlyHashedTestActionDef([]string{"password"})}
+		target := &woHashModel{}
+		hashAttr := schemas.WriteOnlyHashAttributeName("password")
+		config := &tfsdk.Config{Raw: stringObjectValue(map[string]tftypes.Value{"password": nullString()})}
+		plan := &tfsdk.Plan{Raw: stringObjectValue(map[string]tftypes.Value{hashAttr: nullString()})}
+		state := &tfsdk.State{Raw: stringObjectValue(map[string]tftypes.Value{hashAttr: nullString()})}
+
+		if err := s.applyWriteOnlyValues(context.Background(), target, config, plan, state, nil); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if target.Password != "" {
+			t.Errorf("expected Password to stay unset when no secret is configured, got %q", target.Password)
 		}
 	})
 
@@ -344,7 +477,7 @@ func TestIdsecResource_applyWriteOnlyValues(t *testing.T) {
 		s := &IdsecResource{actionDefinition: writeOnlyTestActionDef(map[string]string{"does_not_exist": "trigger"})}
 		config := &tfsdk.Config{Raw: stringObjectValue(map[string]tftypes.Value{"does_not_exist": knownString("v")})}
 
-		if err := s.applyWriteOnlyValues(context.Background(), &woSquashModel{}, config, nil, nil); err == nil {
+		if err := s.applyWriteOnlyValues(context.Background(), &woSquashModel{}, config, nil, nil, nil); err == nil {
 			t.Fatal("expected an error for a write-only path with no backing request-model field")
 		}
 	})
@@ -354,7 +487,7 @@ func TestIdsecResource_applyWriteOnlyValues(t *testing.T) {
 		s := &IdsecResource{actionDefinition: writeOnlyTestActionDef(map[string]string{"secret": "trigger"})}
 		config := &tfsdk.Config{Raw: stringObjectValue(map[string]tftypes.Value{"other_field": knownString("v")})}
 
-		err := s.applyWriteOnlyValues(context.Background(), &woSquashModel{}, config, nil, nil)
+		err := s.applyWriteOnlyValues(context.Background(), &woSquashModel{}, config, nil, nil, nil)
 		if err == nil {
 			t.Fatal("expected an error for a write-only path not present in configuration")
 		}
@@ -409,13 +542,13 @@ func TestIdsecResource_applyWriteOnlyValues_NoOps(t *testing.T) {
 			s := &IdsecResource{actionDefinition: writeOnlyTestActionDef(tt.writeOnly)}
 
 			if tt.nilTarget {
-				if err := s.applyWriteOnlyValues(context.Background(), nil, tt.config, nil, nil); err != nil {
+				if err := s.applyWriteOnlyValues(context.Background(), nil, tt.config, nil, nil, nil); err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
 				return
 			}
 			target := &woSquashModel{}
-			if err := s.applyWriteOnlyValues(context.Background(), target, tt.config, nil, nil); err != nil {
+			if err := s.applyWriteOnlyValues(context.Background(), target, tt.config, nil, nil, nil); err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if target.Secret != "" {
@@ -471,7 +604,7 @@ func TestIdsecResource_parsePlanAndState_createConfigViewIsInert(t *testing.T) {
 	marshalled := make([][]byte, 0, 2)
 	for _, config := range []*tfsdk.Config{nil, populatedConfig} {
 		var diags diag.Diagnostics
-		result, err := s.parsePlanAndState(ctx, actions.CreateOperation, &diags, plan, nil, config, nil)
+		result, err := s.parsePlanAndState(ctx, actions.CreateOperation, &diags, plan, nil, config, nil, nil)
 		if err != nil || diags.HasError() {
 			t.Fatalf("unexpected failure (config != nil: %v): err=%v diags=%v", config != nil, err, diags.Errors())
 		}
@@ -651,5 +784,44 @@ func TestIdsecResource_nullWriteOnlyAttributesInState_HashMode(t *testing.T) {
 	hashVal, ok := result.Attributes()[hashAttr]
 	if !ok || hashVal.IsNull() {
 		t.Errorf("expected %s to be preserved (it is the rotation signal, not the secret), got %v", hashAttr, hashVal)
+	}
+}
+
+// TestIdsecResource_markHashAdoptionPending checks that the marker ImportState writes round-trips
+// through schemas.ReadPendingHashAdoption, which is what Update feeds to triggerFired.
+func TestIdsecResource_markHashAdoptionPending(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		actionDef   *actions.IdsecServiceTerraformResourceActionDefinition
+		wantPending map[string]bool
+	}{
+		{
+			name:        "success_marks_hashed_attributes",
+			actionDef:   writeOnlyHashedTestActionDef([]string{"password", "api_key"}),
+			wantPending: map[string]bool{"password": true, "api_key": true},
+		},
+		{
+			name:        "edge_case_no_hashed_attributes_writes_nothing",
+			actionDef:   writeOnlyTestActionDef(map[string]string{"secret": "trigger"}),
+			wantPending: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := &IdsecResource{actionDefinition: tt.actionDef}
+			private := &testPrivateData{}
+			if diags := s.markHashAdoptionPending(context.Background(), private); diags.HasError() {
+				t.Fatalf("unexpected diagnostics: %v", diags)
+			}
+			got := schemas.ReadPendingHashAdoption(context.Background(), private)
+			if !reflect.DeepEqual(got, tt.wantPending) {
+				t.Errorf("expected pending %v, got %v", tt.wantPending, got)
+			}
+		})
 	}
 }

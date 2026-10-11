@@ -16,7 +16,11 @@ func init() {
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
-						ActionName: "pamsh-safe", ActionDescription: "Privilege Cloud Safe resource, manages Privilege Cloud Safes information and metadata.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap, Enabled: boolPtr(false),
+						ActionName:        "pamsh-safe",
+						ActionDescription: "PAM Self-Hosted Safe resource, manages PAM Self-Hosted Safes information and metadata.",
+						ActionVersion:     1,
+						Schemas:           actions.ActionToSchemaMap,
+						Enabled:           boolPtr(true),
 					},
 					ComputedAttributes: []string{
 						"safe_number",
@@ -38,7 +42,11 @@ func init() {
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
-						ActionName: "pamsh-safe-member", ActionDescription: "Privilege Cloud safe member resource, manages Privilege Cloud Safe members and their relevant permissions.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap, Enabled: boolPtr(false),
+						ActionName:        "pamsh-safe-member",
+						ActionDescription: "PAM Self-Hosted safe member resource, manages PAM Self-Hosted Safe members and their relevant permissions.",
+						ActionVersion:     1,
+						Schemas:           actions.ActionToSchemaMap,
+						Enabled:           boolPtr(true),
 					},
 					ComputedAttributes: []string{
 						"member_id",
@@ -65,7 +73,11 @@ func init() {
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
-						ActionName: "pamsh-safe", ActionDescription: "Privilege Cloud Safe data source, reads safe information and metadata, based on the Safe ID.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap, Enabled: boolPtr(false),
+						ActionName:        "pamsh-safe",
+						ActionDescription: "PAM Self-Hosted Safe data source, reads safe information and metadata, based on the Safe ID.",
+						ActionVersion:     1,
+						Schemas:           actions.ActionToSchemaMap,
+						Enabled:           boolPtr(true),
 					},
 					ExtraRequiredAttributes: []string{"safe_id"},
 					StateSchema:             &safesmodels.IdsecPamshSafe{},
@@ -75,7 +87,11 @@ func init() {
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
-						ActionName: "pamsh-safe-member", ActionDescription: "Privilege Cloud Safe Member data source, reads Safe member information and metadata, based on the Safe ID and the member name.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap, Enabled: boolPtr(false),
+						ActionName:        "pamsh-safe-member",
+						ActionDescription: "PAM Self-Hosted Safe Member data source, reads Safe member information and metadata, based on the Safe ID and the member name.",
+						ActionVersion:     1,
+						Schemas:           actions.ActionToSchemaMap,
+						Enabled:           boolPtr(true),
 					},
 					ExtraRequiredAttributes: []string{"safe_id", "member_name"},
 					StateSchema:             &safesmodels.IdsecPamshSafeMember{},

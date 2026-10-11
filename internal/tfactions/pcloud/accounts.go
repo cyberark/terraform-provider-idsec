@@ -63,7 +63,10 @@ func init() {
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
-						ActionName: "pcloud-account", ActionDescription: "Manage Privilege Cloud account information, metadata, and credentials", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
+						ActionName:        "pcloud-account",
+						ActionDescription: "Manage Privilege Cloud account information, metadata, and credentials",
+						ActionVersion:     2,
+						Schemas:           actions.ActionToSchemaMap,
 					},
 					ExtraRequiredAttributes: []string{},
 					ComputedAttributes: []string{
@@ -81,13 +84,27 @@ func init() {
 					AttributeNotes: map[string][]tfactions.DocNote{
 						"secret": {{
 							Severity: tfactions.DocNoteWarning,
-							Body: "After `terraform import`, or after adding `secret` to a resource that previously " +
-								"had none, the value you have configured at that moment is recorded into Terraform " +
-								"state without being written to the vault. Because state then matches your " +
-								"configuration, no later apply will write it either, even though the vault still " +
-								"holds the old credential. To actually set the credential, change `secret` to a " +
-								"different value on a subsequent apply.",
-						}},
+							Body: "`secret` is a write-only attribute — its value is never stored in plain text in state " +
+								"and always reads back as null, even when set in your configuration. " +
+								"Any outputs or locals that reference the state value, e.g. " +
+								"`idsec_pcloud_account.example_resource.secret`, will also be null. " +
+								"After `terraform import`, a subsequent `terraform apply` will show a diff like: " +
+								"`+ secret_write_only_hash               = (sensitive value)`. " +
+								"This is expected: the import records the configured value as a hash in state " +
+								"but does not write it to the vault. Once state and configuration agree, " +
+								"no further apply will push the credential — even if the vault still holds an older value. " +
+								"To rotate the credential, change `secret` to a new value and apply.",
+						},
+							{
+								Severity: tfactions.DocNoteWarning,
+								Body: "** When upgrading to version 0.13 or later a one-time state migration is needed:** " +
+									"After upgrading the provider, run terraform " +
+									"apply (or terraform apply -refresh-only) once. The plan shows no changes, " +
+									"but the apply rewrites state so the previously stored plain-text secret is " +
+									"removed and replaced by secret_write_only_hash. " +
+									"No credential is sent to the vault.",
+							},
+						},
 						"secret_file": {{
 							Severity: tfactions.DocNoteWarning,
 							Body: "Editing the contents of the file at this path does not rotate the credential: " +
@@ -96,11 +113,15 @@ func init() {
 						}},
 					},
 				},
-				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
-				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "create", tfactions.ReadOperation: "get", tfactions.UpdateOperation: "update", tfactions.DeleteOperation: "delete"},
-				ImportID:            "account_id",
-				PlanValidators:      []tfactions.IdsecPlanValidator{platformExistsValidator{}},
-				UpdateOnlyModified:  true,
+				SupportedOperations:       []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
+				ActionsMappings:           map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "create", tfactions.ReadOperation: "get", tfactions.UpdateOperation: "update", tfactions.DeleteOperation: "delete"},
+				ImportID:                  "account_id",
+				PlanValidators:            []tfactions.IdsecPlanValidator{platformExistsValidator{}},
+				WriteOnlyHashedAttributes: []string{"secret"},
+				UpdateOnlyModified:        true,
+				StateUpgrades: map[int64]tfactions.StateUpgrade{
+					1: {}, // "secret" became write-only (hashed)
+				},
 			},
 		},
 		DataSources: []*tfactions.IdsecServiceTerraformDataSourceActionDefinition{

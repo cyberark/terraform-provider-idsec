@@ -8,6 +8,9 @@ description: |-
 
 This workflow describes how to create users, roles and associate role members using the Idsec Terraform Provider.
 
+# Prerequisites
+- Outbound HTTPS access (port 443) to `https://platform-discovery.cyberark.cloud/api/*` from the machine running Terraform.
+
 # Workflow
 The workflow will:
 - Authenticate to Idira with a user who has admin permissions to create users / roles.
@@ -22,7 +25,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.12"
+      version = ">= 0.13"
     }
   }
 }

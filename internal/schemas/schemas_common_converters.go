@@ -282,8 +282,14 @@ func attrToInterface(key string, val attr.Value, prototype interface{}) (interfa
 		attrMap := v.Elements()
 		m := make(map[string]interface{}, len(attrMap))
 		var elemPrototype interface{}
-		if actualField != nil && actualField.Type.Kind() == reflect.Map {
-			elemPrototype = reflect.New(actualField.Type.Elem()).Interface()
+		if actualField != nil {
+			fieldType := actualField.Type
+			for fieldType.Kind() == reflect.Pointer {
+				fieldType = fieldType.Elem()
+			}
+			if fieldType.Kind() == reflect.Map {
+				elemPrototype = reflect.New(fieldType.Elem()).Interface()
+			}
 		}
 		for k, elem := range attrMap {
 			converted, err := attrToInterface(k, elem, elemPrototype)
@@ -838,16 +844,12 @@ type DiffOnUpdateOptions struct {
 	Enabled bool
 }
 
-// isAbsentable reports whether a request-model field can express "not supplied" as distinct from
-// "supplied as the zero value". Only such a field may be skipped: skipping a plain string would
-// leave "" behind, which most request models still serialize.
+// isAbsentable reports whether a request-model field opted in to "not supplied" semantics, by being
+// a pointer. Only such a field may be skipped. Plain slices and maps are deliberately excluded: they
+// often carry a full desired set (e.g. CCE services), where nil would read as "remove everything".
+// A slice or map that should be skipped when unchanged must be declared as a pointer to it.
 func isAbsentable(t reflect.Type) bool {
-	switch t.Kind() {
-	case reflect.Pointer, reflect.Map, reflect.Slice:
-		return true
-	default:
-		return false
-	}
+	return t.Kind() == reflect.Pointer
 }
 
 // unchangedAttributeNames returns the top-level attributes that must not be sent on this update.

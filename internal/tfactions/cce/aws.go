@@ -31,6 +31,7 @@ func init() {
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "tf-add-organization", tfactions.ReadOperation: "tf-organization", tfactions.UpdateOperation: "tf-update-organization", tfactions.DeleteOperation: "tf-delete-organization"},
 				ImportID:            "id",
+				UpdateOnlyModified:  true,
 			},
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
@@ -51,6 +52,7 @@ func init() {
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "tf-add-account", tfactions.ReadOperation: "tf-account", tfactions.UpdateOperation: "tf-update-account", tfactions.DeleteOperation: "tf-delete-account"},
 				ImportID:            "id",
+				UpdateOnlyModified:  true,
 			},
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{

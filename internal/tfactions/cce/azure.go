@@ -32,6 +32,7 @@ func init() {
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "tf-add-entra", tfactions.ReadOperation: "tf-entra", tfactions.UpdateOperation: "tf-update-entra", tfactions.DeleteOperation: "tf-delete-entra"},
 				ImportID:            "id",
+				UpdateOnlyModified:  true,
 			},
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
@@ -52,6 +53,7 @@ func init() {
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "tf-add-management-group", tfactions.ReadOperation: "tf-management-group", tfactions.UpdateOperation: "tf-update-management-group", tfactions.DeleteOperation: "tf-delete-management-group"},
 				ImportID:            "id",
+				UpdateOnlyModified:  true,
 			},
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
@@ -74,6 +76,7 @@ func init() {
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "tf-add-subscription", tfactions.ReadOperation: "tf-subscription", tfactions.UpdateOperation: "tf-update-subscription", tfactions.DeleteOperation: "tf-delete-subscription"},
 				ImportID:            "id",
+				UpdateOnlyModified:  true,
 			},
 		},
 		DataSources: []*tfactions.IdsecServiceTerraformDataSourceActionDefinition{

@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -214,7 +215,7 @@ func (s *IdsecResource) readKeyAttributePaths() []string {
 	return schemas.SplitImportIDAttributes(importID)
 }
 
-func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions.IdsecServiceActionOperation, diagnostics *diag.Diagnostics, plan *tfsdk.Plan, state *tfsdk.State, config *tfsdk.Config, userSetPaths map[string]bool) (interface{}, error) {
+func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions.IdsecServiceActionOperation, diagnostics *diag.Diagnostics, plan *tfsdk.Plan, state *tfsdk.State, config *tfsdk.Config, userSetPaths map[string]bool, pendingHashAdoption map[string]bool) (interface{}, error) {
 	var operationSchemaInput interface{}
 	if plan != nil && state != nil {
 		tflog.Info(ctx, "Plan and state are not nil")
@@ -245,7 +246,7 @@ func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions
 			return nil, err
 		}
 		// Must run after both Clear* calls: either could zero a field this has just populated.
-		if err = s.applyWriteOnlyValues(ctx, operationSchemaInput, config, plan, state); err != nil {
+		if err = s.applyWriteOnlyValues(ctx, operationSchemaInput, config, plan, state, pendingHashAdoption); err != nil {
 			tflog.Error(ctx, fmt.Sprintf("Failed to apply write-only values: %s", err.Error()))
 			diagnostics.AddError("Schema Conversion Error", fmt.Sprintf("Failed to apply write-only values: %s", err.Error()))
 			return nil, err
@@ -264,7 +265,7 @@ func (s *IdsecResource) parsePlanAndState(ctx context.Context, operation actions
 			return nil, err
 		}
 		// Create path: a nil state always fires the trigger, so a supplied value is always sent.
-		if err = s.applyWriteOnlyValues(ctx, operationSchemaInput, config, nil, nil); err != nil {
+		if err = s.applyWriteOnlyValues(ctx, operationSchemaInput, config, nil, nil, nil); err != nil {
 			tflog.Error(ctx, fmt.Sprintf("Failed to apply write-only values: %s", err.Error()))
 			diagnostics.AddError("Schema Conversion Error", fmt.Sprintf("Failed to apply write-only values: %s", err.Error()))
 			return nil, err
@@ -338,10 +339,11 @@ func (s *IdsecResource) effectiveWriteOnlyTriggers() map[string]string {
 //
 // A nil target or config makes this a no-op, matching Read and Delete, which have no config view.
 // state is nil on create, where a supplied value is sent regardless of any trigger.
+// pendingHashAdoption is the import-adoption marker read from private state; see triggerFired.
 //
 // Every failure is returned as an error rather than skipped: this is the last step before the
 // request is sent, and swallowing one would create or update a resource without its credential.
-func (s *IdsecResource) applyWriteOnlyValues(ctx context.Context, target interface{}, config *tfsdk.Config, plan *tfsdk.Plan, state *tfsdk.State) error {
+func (s *IdsecResource) applyWriteOnlyValues(ctx context.Context, target interface{}, config *tfsdk.Config, plan *tfsdk.Plan, state *tfsdk.State, pendingHashAdoption map[string]bool) error {
 	triggers := s.effectiveWriteOnlyTriggers()
 	if target == nil || config == nil || len(triggers) == 0 {
 		return nil
@@ -367,7 +369,7 @@ func (s *IdsecResource) applyWriteOnlyValues(ctx context.Context, target interfa
 			continue
 		}
 
-		fired, err := s.triggerFired(ctx, attrPath, triggerPath, plan, state)
+		fired, err := s.triggerFired(ctx, attrPath, triggerPath, plan, state, pendingHashAdoption)
 		if err != nil {
 			return fmt.Errorf("write-only attribute %q: %w", attrPath, err)
 		}
@@ -387,9 +389,30 @@ func (s *IdsecResource) applyWriteOnlyValues(ctx context.Context, target interfa
 	return nil
 }
 
+// isHashedWriteOnlyAttribute reports whether attrPath is declared in this resource's
+// WriteOnlyHashedAttributes, i.e. its trigger is a synthesized hash sibling rather than a manually
+// declared trigger. A nil actionDefinition (as constructed by zero-value tests that exercise
+// triggerFired directly) safely reports false rather than panicking on the nil dereference.
+func (s *IdsecResource) isHashedWriteOnlyAttribute(attrPath string) bool {
+	return s.actionDefinition != nil && slices.Contains(s.actionDefinition.WriteOnlyHashedAttributes, attrPath)
+}
+
 // triggerFired reports whether a write-only attribute's trigger indicates its value should be
 // (re-)sent: true on create (a nil state, or one whose Raw is null), true if the trigger's planned
 // value differs from its prior-state value, and true if the planned value is unknown.
+//
+// Adopt rule for hash mode: when attrPath is declared in WriteOnlyHashedAttributes, the resource
+// already exists, its hash sibling is null in prior state, and ImportState marked it in
+// pendingHashAdoption, this returns false without sending the secret: after import the backend
+// already holds a credential this apply must not overwrite (re-sending an identical secret can be
+// rejected outright by some backends, and re-sending a stale one can clobber an out-of-band
+// rotation). The hash is still adopted into state with no extra code needed here:
+// schemas.ResolveWriteOnlyHashTags derives a concrete tag for the unknown planned sibling from the
+// same config secret, and setWriteOnlyHashTagsInState writes it after the API call. A null prior
+// hash without the import marker (e.g. a secret newly added to config) is sent: nothing shows the
+// backend holds it, and adopting would record a hash for a value it never received. This check
+// must run before the general "!planVal.IsFullyKnown() counts as changed" branch below, since a
+// null prior sibling always plans unknown and would otherwise be caught by that branch first.
 //
 // A trigger that changes for reasons unrelated to the write-only value re-sends the credential,
 // and so rotates it in the backend, on applies that were never meant to touch it. Prefer a stable
@@ -397,7 +420,7 @@ func (s *IdsecResource) applyWriteOnlyValues(ctx context.Context, target interfa
 //
 // An unwalkable trigger path is an error rather than "unchanged", which would turn a validation
 // gap into a silently skipped credential rotation.
-func (s *IdsecResource) triggerFired(ctx context.Context, attrPath, triggerPath string, plan *tfsdk.Plan, state *tfsdk.State) (bool, error) {
+func (s *IdsecResource) triggerFired(ctx context.Context, attrPath, triggerPath string, plan *tfsdk.Plan, state *tfsdk.State, pendingHashAdoption map[string]bool) (bool, error) {
 	if state == nil || state.Raw.IsNull() {
 		return true, nil
 	}
@@ -426,6 +449,13 @@ func (s *IdsecResource) triggerFired(ctx context.Context, attrPath, triggerPath 
 	stateVal, ok := stateResult.(tftypes.Value)
 	if !ok {
 		return false, fmt.Errorf("trigger %q did not resolve to a value in state", triggerPath)
+	}
+
+	if stateVal.IsNull() && s.isHashedWriteOnlyAttribute(attrPath) && pendingHashAdoption[attrPath] {
+		// Existing resource (checked above), hash mode, no prior hash, imported: adopt the hash
+		// from config without sending the secret; see the doc comment above.
+		tflog.Info(ctx, fmt.Sprintf("Write-only hashed attribute %q was imported and has no prior hash in state; adopting its hash from configuration without sending its value", attrPath))
+		return false, nil
 	}
 
 	if !planVal.IsFullyKnown() {
@@ -497,7 +527,7 @@ func (s *IdsecResource) finalizeFailure(ctx context.Context, summary string, det
 	s.finalizeState(ctx, operation, originalState, respState, diagnostics)
 }
 
-func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.IdsecServiceActionOperation, diagnostics *diag.Diagnostics, plan *tfsdk.Plan, state *tfsdk.State, config *tfsdk.Config, respState *tfsdk.State, userSetPaths map[string]bool) {
+func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.IdsecServiceActionOperation, diagnostics *diag.Diagnostics, plan *tfsdk.Plan, state *tfsdk.State, config *tfsdk.Config, respState *tfsdk.State, userSetPaths map[string]bool, pendingHashAdoption map[string]bool) {
 	tflog.Info(ctx, fmt.Sprintf("Triggering operation: %s", operation))
 	var originalState basetypes.ObjectValue
 	if state != nil {
@@ -512,7 +542,7 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 		s.finalizeState(ctx, operation, originalState, respState, diagnostics)
 		return
 	}
-	operationSchemaInput, err := s.parsePlanAndState(ctx, operation, diagnostics, plan, state, config, userSetPaths)
+	operationSchemaInput, err := s.parsePlanAndState(ctx, operation, diagnostics, plan, state, config, userSetPaths, pendingHashAdoption)
 	if diagnostics.HasError() || err != nil {
 		if err != nil {
 			s.finalizeFailure(ctx, "Parsing Error", fmt.Sprintf("Failed to parse plan and state: %s", err.Error()), operation, originalState, respState, diagnostics)
@@ -877,7 +907,7 @@ func (s *IdsecResource) Create(ctx context.Context, req resource.CreateRequest, 
 	s.setTerraformContext("Create")
 	defer s.clearTerraformContext()
 	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Create"))()
-	s.triggerOperation(ctx, actions.CreateOperation, &resp.Diagnostics, &req.Plan, nil, &req.Config, &resp.State, nil)
+	s.triggerOperation(ctx, actions.CreateOperation, &resp.Diagnostics, &req.Plan, nil, &req.Config, &resp.State, nil, nil)
 	if !resp.Diagnostics.HasError() {
 		s.recordUserSetHistory(ctx, &req.Config, resp.Private, &resp.Diagnostics)
 	}
@@ -888,7 +918,7 @@ func (s *IdsecResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	s.setTerraformContext("Read")
 	defer s.clearTerraformContext()
 	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Read"))()
-	s.triggerOperation(ctx, actions.ReadOperation, &resp.Diagnostics, nil, &req.State, nil, &resp.State, nil)
+	s.triggerOperation(ctx, actions.ReadOperation, &resp.Diagnostics, nil, &req.State, nil, &resp.State, nil, nil)
 	if !resp.Diagnostics.HasError() {
 		s.seedUserSetHistoryFromState(ctx, &resp.State, req.Private, resp.Private, &resp.Diagnostics)
 	}
@@ -902,9 +932,14 @@ func (s *IdsecResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	// Prior user-set history gates which removed attributes are actually cleared on apply: only
 	// attributes the user had previously set are removed, leaving server-defaulted values intact.
 	priorUserSetPaths := schemas.ReadUserSetPaths(ctx, req.Private)
-	s.triggerOperation(ctx, actions.UpdateOperation, &resp.Diagnostics, &req.Plan, &req.State, &req.Config, &resp.State, priorUserSetPaths)
+	pendingHashAdoption := schemas.ReadPendingHashAdoption(ctx, req.Private)
+	s.triggerOperation(ctx, actions.UpdateOperation, &resp.Diagnostics, &req.Plan, &req.State, &req.Config, &resp.State, priorUserSetPaths, pendingHashAdoption)
 	if !resp.Diagnostics.HasError() {
 		s.recordUserSetHistory(ctx, &req.Config, resp.Private, &resp.Diagnostics)
+		if len(pendingHashAdoption) > 0 && resp.Private != nil {
+			// The import marker applies to the first apply after import only.
+			resp.Diagnostics.Append(resp.Private.SetKey(ctx, schemas.WriteOnlyHashAdoptPrivateKey, nil)...)
+		}
 	}
 }
 
@@ -913,7 +948,7 @@ func (s *IdsecResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 	s.setTerraformContext("Delete")
 	defer s.clearTerraformContext()
 	defer featureadoption.ReportOperationDefer(ctx, s.idsecAPI, &resp.Diagnostics, s.buildFASTags(s.actionDefinition.ActionName, "Delete"))()
-	s.triggerOperation(ctx, actions.DeleteOperation, &resp.Diagnostics, nil, &req.State, nil, nil, nil)
+	s.triggerOperation(ctx, actions.DeleteOperation, &resp.Diagnostics, nil, &req.State, nil, nil, nil, nil)
 }
 
 // ImportState handles importing existing resources into Terraform state.
@@ -1014,4 +1049,24 @@ func (s *IdsecResource) ImportState(ctx context.Context, req resource.ImportStat
 			return
 		}
 	}
+
+	if resp.Private != nil {
+		resp.Diagnostics.Append(s.markHashAdoptionPending(ctx, resp.Private)...)
+	}
+}
+
+// markHashAdoptionPending records this resource's hashed write-only attributes in private state so
+// the first apply after import adopts their hashes instead of sending the values; see triggerFired.
+func (s *IdsecResource) markHashAdoptionPending(ctx context.Context, private privateStateWriter) diag.Diagnostics {
+	hashed := s.actionDefinition.WriteOnlyHashedAttributes
+	if len(hashed) == 0 {
+		return nil
+	}
+	data, err := json.Marshal(hashed)
+	if err != nil {
+		var diags diag.Diagnostics
+		diags.AddError("Private State Error", fmt.Sprintf("Failed to encode write-only hash adoption marker: %s", err.Error()))
+		return diags
+	}
+	return private.SetKey(ctx, schemas.WriteOnlyHashAdoptPrivateKey, data)
 }

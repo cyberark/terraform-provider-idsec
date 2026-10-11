@@ -46,7 +46,7 @@ resource "idsec_sia_workspaces_db" "example_db" {
 - `domain` (String) The domain the DB resides in. Applies to Active Directory based authentication (MSSQL / DB2); required when configuredAuthMethodType is ad_ephemeral_user.
 - `domain_controller_enable_certificate_validation` (Boolean) Indicates whether to enforce certificate validation on TLS comm to the DC. Applies to Active Directory based authentication (MSSQL / DB2).
 - `domain_controller_ldaps_certificate` (String) The certificate ID to use for the domain controller TLS comm. Applies to Active Directory based authentication (MSSQL / DB2); required when both domainControllerUseLdaps and domainControllerEnableCertificateValidation are true.
-- `domain_controller_name` (String) The domain controller name associated to this database. Applies to Active Directory based authentication (MSSQL / DB2).
+- `domain_controller_name` (String) The domain controller name, or comma-separated list of names, associated to this database. Applies to Active Directory based authentication (MSSQL / DB2).
 - `domain_controller_netbios` (String) The domain controller netbios associated to this database. Applies to Active Directory based authentication (MSSQL / DB2).
 - `domain_controller_organizational_unit` (String) The Organizational Unit (OU) in which the ephemeral user will be created. Applies to Active Directory based authentication (MSSQL / DB2).
 - `domain_controller_use_ldaps` (Boolean) Indicates whether to work with secure LDAP. Applies to Active Directory based authentication (MSSQL / DB2).

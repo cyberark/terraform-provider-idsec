@@ -320,7 +320,7 @@ func (m hashPlanModifier) MarkdownDescription(ctx context.Context) string {
 // This method may only assign resp.PlanValue a value it can derive deterministically: a concrete
 // tag when a prior salt is reusable, or types.StringUnknown() otherwise. It never draws fresh
 // randomness itself -- see the hashPlanModifier doc comment and ResolveWriteOnlyHashTags for why.
-func (m hashPlanModifier) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+func (m hashPlanModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
 	if req.Config.Raw.IsNull() {
 		return
 	}
@@ -348,6 +348,13 @@ func (m hashPlanModifier) PlanModifyString(_ context.Context, req planmodifier.S
 
 	if !rawVal.IsFullyKnown() {
 		resp.PlanValue = types.StringUnknown()
+		// An imported resource with no prior hash is the adopt path: IdsecResource.triggerFired
+		// will not send the secret on this apply -- it adopts the hash instead (see
+		// ResolveWriteOnlyHashTags) -- so a "re-sent" warning would be false. Every other case,
+		// including a null prior hash on a resource that was not imported, does send.
+		if !req.State.Raw.IsNull() && req.StateValue.IsNull() && ReadPendingHashAdoption(ctx, req.Private)[m.sourcePath] {
+			return
+		}
 		resp.Diagnostics.AddAttributeWarning(
 			req.Path,
 			"Secret Not Known At Plan Time",

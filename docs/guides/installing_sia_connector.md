@@ -29,7 +29,7 @@ terraform {
     }
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.12"
+      version = ">= 0.13"
     }
   }
 }

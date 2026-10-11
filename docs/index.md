@@ -18,6 +18,10 @@ For requirements and setup information, see the relevant [Terraform provider doc
 
 The Terraform public registry–based provider requires **Terraform 0.13.x** or later.
 
+### Identity authentication prerequisites
+
+When using the `identity` or `identity_service_user` authentication methods, the machine running Terraform must have outbound HTTPS access (port 443) to `https://platform-discovery.cyberark.cloud/api/*`.
+
 ## Coverage
 
 The *idsec* Terraform provider centralizes the automation of identity security across key Idira solutions, ensuring comprehensive governance:
@@ -46,7 +50,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.12"
+      version = ">= 0.13"
     }
   }
 }

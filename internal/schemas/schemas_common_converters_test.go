@@ -3420,11 +3420,21 @@ type diffTestSecretManagement struct {
 // shape as IdsecPCloudUpdateAccount.
 type diffTestUpdateModel struct {
 	diffTestSecretManagement `mapstructure:",squash"`
-	AccountID                string                 `mapstructure:"account_id"`
-	Address                  *string                `mapstructure:"address,omitempty"`
-	Secret                   *string                `mapstructure:"secret,omitempty"`
-	RemoteMachines           []string               `mapstructure:"remote_machines,omitempty"`
-	Properties               map[string]interface{} `mapstructure:"properties,omitempty"`
+	AccountID                string                  `mapstructure:"account_id"`
+	Address                  *string                 `mapstructure:"address,omitempty"`
+	Secret                   *string                 `mapstructure:"secret,omitempty"`
+	RemoteMachines           *[]string               `mapstructure:"remote_machines,omitempty"`
+	Properties               *map[string]interface{} `mapstructure:"properties,omitempty"`
+}
+
+// diffTestDesiredSetUpdateModel is a request prototype whose slice and map are plain (not pointers),
+// the shape of a CCE update model whose Services list is the full desired set: such fields must
+// always be sent, even when unchanged and UpdateOnlyModified is on.
+type diffTestDesiredSetUpdateModel struct {
+	AccountID      string                 `mapstructure:"account_id"`
+	Address        *string                `mapstructure:"address,omitempty"`
+	RemoteMachines []string               `mapstructure:"remote_machines,omitempty"`
+	Properties     map[string]interface{} `mapstructure:"properties,omitempty"`
 }
 
 // diffTestStateModelFull is a state ("read") prototype with a field for every attribute except
@@ -3696,10 +3706,10 @@ func TestStructFromPlanAndStateObject_UpdateOnlyModified(t *testing.T) {
 				if got.ManualManagementReason == nil || *got.ManualManagementReason != "new-reason" {
 					t.Errorf("ManualManagementReason = %v, want new-reason", got.ManualManagementReason)
 				}
-				if len(got.RemoteMachines) != 2 || got.RemoteMachines[0] != "a" || got.RemoteMachines[1] != "b" {
+				if got.RemoteMachines == nil || !reflect.DeepEqual(*got.RemoteMachines, []string{"a", "b"}) {
 					t.Errorf("RemoteMachines = %v, want [a b]", got.RemoteMachines)
 				}
-				if got.Properties["x"] != "1" {
+				if got.Properties == nil || (*got.Properties)["x"] != "1" {
 					t.Errorf("Properties = %v, want x=1", got.Properties)
 				}
 			},
@@ -3796,7 +3806,25 @@ func TestStructFromPlanAndStateObject_UpdateOnlyModified(t *testing.T) {
 			diffOpts:       DiffOnUpdateOptions{Enabled: true},
 			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
 				if got.Properties != nil {
-					t.Errorf("Properties = %v, want nil", got.Properties)
+					t.Errorf("Properties = %v, want nil", *got.Properties)
+				}
+			},
+		},
+		{
+			name: "changed_map_attribute_set_from_plan",
+			plan: diffTestPlan(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+				"properties": diffTestStringMap(map[string]string{"a": "2"}),
+			}),
+			state: diffTestState(map[string]tftypes.Value{
+				"account_id": tftypes.NewValue(tftypes.String, "acc-1"),
+				"properties": diffTestStringMap(map[string]string{"a": "1"}),
+			}),
+			statePrototype: &diffTestStateModelFull{},
+			diffOpts:       DiffOnUpdateOptions{Enabled: true},
+			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
+				if got.Properties == nil || (*got.Properties)["a"] != "2" {
+					t.Errorf("Properties = %v, want a=2", got.Properties)
 				}
 			},
 		},
@@ -3814,7 +3842,25 @@ func TestStructFromPlanAndStateObject_UpdateOnlyModified(t *testing.T) {
 			diffOpts:       DiffOnUpdateOptions{Enabled: true},
 			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
 				if got.RemoteMachines != nil {
-					t.Errorf("RemoteMachines = %v, want nil", got.RemoteMachines)
+					t.Errorf("RemoteMachines = %v, want nil", *got.RemoteMachines)
+				}
+			},
+		},
+		{
+			name: "changed_slice_attribute_set_from_plan",
+			plan: diffTestPlan(map[string]tftypes.Value{
+				"account_id":      tftypes.NewValue(tftypes.String, "acc-1"),
+				"remote_machines": diffTestStringList("m1", "m3"),
+			}),
+			state: diffTestState(map[string]tftypes.Value{
+				"account_id":      tftypes.NewValue(tftypes.String, "acc-1"),
+				"remote_machines": diffTestStringList("m1", "m2"),
+			}),
+			statePrototype: &diffTestStateModelFull{},
+			diffOpts:       DiffOnUpdateOptions{Enabled: true},
+			validateFunc: func(t *testing.T, got *diffTestUpdateModel) {
+				if got.RemoteMachines == nil || !reflect.DeepEqual(*got.RemoteMachines, []string{"m1", "m3"}) {
+					t.Errorf("RemoteMachines = %v, want [m1 m3]", got.RemoteMachines)
 				}
 			},
 		},
@@ -3895,6 +3941,39 @@ func TestStructFromPlanAndStateObject_UpdateOnlyModified(t *testing.T) {
 			}
 			tt.validateFunc(t, got)
 		})
+	}
+}
+
+// TestStructFromPlanAndStateObject_UpdateOnlyModified_PlainSliceAndMapAlwaysSent guards the
+// opt-in boundary: only pointer fields are skipped when unchanged. A plain slice or map is often a
+// full desired set (CCE services), where nil would mean "remove everything", so it is always sent.
+func TestStructFromPlanAndStateObject_UpdateOnlyModified_PlainSliceAndMapAlwaysSent(t *testing.T) {
+	t.Parallel()
+
+	unchanged := map[string]tftypes.Value{
+		"account_id":      tftypes.NewValue(tftypes.String, "acc-1"),
+		"address":         tftypes.NewValue(tftypes.String, "1.2.3.4"),
+		"remote_machines": diffTestStringList("m1", "m2"),
+		"properties":      diffTestStringMap(map[string]string{"a": "1"}),
+	}
+
+	result, err := StructFromPlanAndStateObject(context.Background(), diffTestPlan(unchanged), diffTestState(unchanged),
+		&diffTestDesiredSetUpdateModel{}, &diffTestStateModelFull{}, DiffOnUpdateOptions{Enabled: true})
+	if err != nil {
+		t.Fatalf("StructFromPlanAndStateObject() error = %v", err)
+	}
+	got, ok := result.(*diffTestDesiredSetUpdateModel)
+	if !ok {
+		t.Fatalf("expected *diffTestDesiredSetUpdateModel, got %T", result)
+	}
+	if got.Address != nil {
+		t.Errorf("Address = %v, want nil (unchanged pointer must be skipped)", *got.Address)
+	}
+	if !reflect.DeepEqual(got.RemoteMachines, []string{"m1", "m2"}) {
+		t.Errorf("RemoteMachines = %v, want [m1 m2] (plain slice must always be sent)", got.RemoteMachines)
+	}
+	if got.Properties["a"] != "1" {
+		t.Errorf("Properties = %v, want a=1 (plain map must always be sent)", got.Properties)
 	}
 }
 

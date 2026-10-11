@@ -52,6 +52,10 @@ The provider supports multiple authentication methods to connect to CyberArk ser
 | `identity_service_user` | CyberArk Identity service user authentication | CI/CD pipelines, automation |
 | `pvwa` | Password Vault Web Access authentication | PAM Self-Hosted environments |
 
+### Identity Authentication Prerequisites
+
+When using the `identity` or `identity_service_user` authentication methods, the machine running Terraform must have outbound HTTPS access (port 443) to `https://platform-discovery.cyberark.cloud/api/*`.
+
 ---
 
 ### 1. Identity Authentication (`identity`)

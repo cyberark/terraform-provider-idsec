@@ -69,8 +69,10 @@ resource "idsec_sia_secrets_vm" "example_ephemeral_domain_secret" {
 
 - `account_domain` (String) Account domain of the secret (defaults to 'local').
 - `creation_time` (String) Creation time of the secret
-- `domain_controller_enable_certificate_validation` (Boolean) Enable certificate validation for domain controller LDAPS. Requires domain-controller-use-ldaps and domain-controller-ldaps-certificate. Default: false.
+- `domain_controller_automatic_discovery` (Boolean) Automatically discover the domain controller for ephemeral domain user creation. Cannot be enabled together with domain-controller-name or domain-controller-netbios. Default: false.
+- `domain_controller_enable_certificate_validation` (Boolean) Enable certificate validation for domain controller LDAPS. Requires domain-controller-use-ldaps and either domain-controller-ldaps-certificate or domain-controller-ldaps-load-all-certificates. Default: false.
 - `domain_controller_ldaps_certificate` (String) LDAPS certificate ID for domain controller. Default: empty.
+- `domain_controller_ldaps_load_all_certificates` (Boolean) Validate the domain controller LDAPS certificate against all certificates in the store instead of a single one. With certificate validation enabled, use either this or domain-controller-ldaps-certificate, not both. Default: false.
 - `domain_controller_name` (String) Domain controller name for ephemeral domain user creation. Default: empty.
 - `domain_controller_netbios` (String) Domain controller NetBIOS name for ephemeral domain user creation. Default: empty.
 - `domain_controller_use_ldaps` (Boolean) Use LDAPS for the domain controller. Default: true.
@@ -89,7 +91,8 @@ resource "idsec_sia_secrets_vm" "example_ephemeral_domain_secret" {
 - `tenant_id` (String) Tenant ID of the secret
 - `use_winrm_for_https` (Boolean) Use WinRM over HTTPS. Default: true.
 - `winrm_certificate` (String) WinRM certificate ID. Default: empty.
-- `winrm_enable_certificate_validation` (Boolean) Enable certificate validation for WinRM. Requires use-winrm-for-https and winrm-certificate. Default: false.
+- `winrm_enable_certificate_validation` (Boolean) Enable certificate validation for WinRM. Requires use-winrm-for-https and either winrm-certificate or winrm-load-all-certificates. Default: false.
+- `winrm_load_all_certificates` (Boolean) Validate the WinRM certificate against all certificates in the store instead of a single one. With certificate validation enabled, use either this or winrm-certificate, not both. Default: false.
 
 <a id="nestedatt--secret"></a>
 ### Nested Schema for `secret`

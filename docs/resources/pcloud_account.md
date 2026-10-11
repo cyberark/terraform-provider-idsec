@@ -33,6 +33,8 @@ resource "idsec_pcloud_account" "example_account" {
 
 ### Optional
 
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
 - `access_restricted_to_remote_machines` (Boolean) Whether to restrict access only to the specified remote machines
 - `address` (String) The name or address of the machine where the account will be used
 - `automatic_management_enabled` (Boolean) Whether the account secret is managed automatically
@@ -40,10 +42,12 @@ resource "idsec_pcloud_account" "example_account" {
 - `name` (String) Name of the account
 - `platform_account_properties` (Dynamic) The object containing key-value pairs to associate with the account, as defined by the account platform. Optional properties that do not exist or internal properties are not returned
 - `remote_machines` (List of String) List of remote machines that the account can access, separated by semicolons
-- `secret` (String, Sensitive) The secret value.
+- `secret` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The secret value. Write-only: this value is never stored in Terraform state or plan. It is sent to the API on create, and on update whenever it changes; rotation is detected automatically via the computed `secret_write_only_hash` attribute, so no manual trigger needs to be bumped. Requires Terraform 1.11 or later.
 
 <!-- BEGIN ATTR NOTE: secret -->
-~> After `terraform import`, or after adding `secret` to a resource that previously had none, the value you have configured at that moment is recorded into Terraform state without being written to the vault. Because state then matches your configuration, no later apply will write it either, even though the vault still holds the old credential. To actually set the credential, change `secret` to a different value on a subsequent apply.
+~> `secret` is a write-only attribute — its value is never stored in plain text in state and always reads back as null, even when set in your configuration. Any outputs or locals that reference the state value, e.g. `idsec_pcloud_account.example_resource.secret`, will also be null. After `terraform import`, a subsequent `terraform apply` will show a diff like: `+ secret_write_only_hash = (sensitive value)`. This is expected: the import records the configured value as a hash in state but does not write it to the vault. Once state and configuration agree, no further apply will push the credential — even if the vault still holds an older value. To rotate the credential, change `secret` to a new value and apply.
+
+~> ** When upgrading to version 0.13 or later a one-time state migration is needed:** After upgrading the provider, run terraform apply (or terraform apply -refresh-only) once. The plan shows no changes, but the apply rewrites state so the previously stored plain-text secret is removed and replaced by secret_write_only_hash. No credential is sent to the vault.
 <!-- END ATTR NOTE: secret -->
 - `secret_file` (String) The path to the secret file.
 
@@ -59,6 +63,7 @@ resource "idsec_pcloud_account" "example_account" {
 - `category_modification_time` (Number) The last time the account or one of its file categories was created or changed
 - `created_time` (Number) The date and time the account was created
 - `last_modified_time` (Number) Last time the account was modified
+- `secret_write_only_hash` (String, Sensitive) Automatically computed hash of secret. Changes when the secret changes; used to detect rotation without storing the raw value in state.
 - `status` (String) The account's management status
 
 

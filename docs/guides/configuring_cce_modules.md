@@ -36,8 +36,34 @@ Before using the CCE Terraform modules, ensure you have:
      - Create and manage IAM roles and policies (`iam:CreateRole`, `iam:PutRolePolicy`, `iam:AttachRolePolicy`)
      - For organization modules: AWS organization read/write permissions (`organizations:DescribeOrganization`, `organizations:ListAccounts`)
    - For Azure, Azure CLI installed and appropriate RBAC permissions
-3. **Identity credentials** - Username and secret for the Identity Security provider
+3. **Identity credentials** - A service user (login name and password) for the Identity Security provider. See [Creating an Identity Security service user](#creating-an-identity-security-service-user) below.
 4. **Identity tenant configured** - Your tenant must be set up for CCE onboarding
+
+### Creating an Identity Security service user
+
+The `idsec` provider authenticates as a **service user** in your Identity Security tenant. Create a service user and grant it the CCE onboarding permissions:
+
+1. Sign in to your Identity Security tenant.
+2. From the left-hand menu, select **Identity Administration**.
+3. Go to **Core Services → Users** and choose Add a user.
+4. Enter the user details:
+   - **Login Name**
+   - **Display Name**
+   - **Password**
+   - Under **Status**, enable **Is OAuth confidential client**.
+5. Click **Create User**.
+6. From the left-hand menu, select **Roles** and search for the **Cloud Onboarding Admin** role.
+7. Open the role, and under **Members**, add the user you just created.
+
+You can now use this service user to connect to Identity Security from Terraform:
+
+```hcl
+provider "idsec" {
+  auth_method   = "identity_service_user"
+  service_user  = var.idsec_service_user   # the login name you created
+  service_token = var.idsec_service_token  # the password you set for that user
+}
+```
 
 ---
 
@@ -152,7 +178,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.12"
+      version = ">= 0.13"
     }
     
     # For AWS modules - include this block
@@ -504,6 +530,20 @@ Download required providers and modules:
 terraform init
 ```
 
+### Upgrading to a New Module Version
+
+New service features (for SIA, SCA, Secrets Hub, and the onboarding flows) are delivered through new **CCE module versions**. After Terraform first downloads a module, it caches the selected version locally and a plain `terraform init` keeps using that cached version. It will not move to a newer release on its own.
+
+To use a newer module version and its features, run:
+
+```bash
+terraform init -upgrade
+```
+
+This re-evaluates each module's version constraints and downloads the newest allowed versions. After upgrading, run `terraform plan` to review what the new version changes before you apply.
+
+> **Note:** If you pin module versions with the `version` argument (recommended for production — see [Best Practices](#best-practices)), raise the pinned version first, then run `terraform init -upgrade`.
+
 ### Review the Execution Plan
 
 Preview the resources that will be created:
@@ -575,7 +615,7 @@ terraform {
   required_providers {
     idsec = {
       source  = "cyberark/idsec"
-      version = ">= 0.12"
+      version = ">= 0.13"
     }
     aws = {
       source  = "hashicorp/aws"

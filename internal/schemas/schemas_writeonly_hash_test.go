@@ -783,29 +783,88 @@ func TestHashPlanModifier_SourceNullInConfig(t *testing.T) {
 	}
 }
 
+// unknownSourceInConfigStateType is the object type shared by every req.State.Raw fixture in
+// TestHashPlanModifier_UnknownSourceInConfig: it must carry the sibling attribute alongside
+// "password" to plausibly represent a real prior resource state, distinct from
+// hashModifierConfigRaw's single-attribute config-only view.
+var unknownSourceInConfigStateType = tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+	"password":                 tftypes.String,
+	"password_write_only_hash": tftypes.String,
+}}
+
 // TestHashPlanModifier_UnknownSourceInConfig covers the not-yet-known branch: the secret's value
-// will not be known until apply, so the plan for the hash must itself be unknown, with exactly one
-// warning and zero errors.
+// will not be known until apply, so the plan for the hash must always be unknown. Whether a
+// warning accompanies that depends on whether the secret will actually be re-sent on this apply:
+// create and an existing resource with a parseable prior tag both do send it and so still warn,
+// but an existing resource with no prior hash takes the adopt path in
+// IdsecResource.triggerFired -- the secret is never sent -- so the "will be re-sent" warning
+// would be a false statement there and must be suppressed.
 func TestHashPlanModifier_UnknownSourceInConfig(t *testing.T) {
 	t.Parallel()
 
-	req := planmodifier.StringRequest{
-		Path:       path.Root("password_write_only_hash"),
-		StateValue: types.StringValue("v1:AAAA:BBBB"),
-		Config:     tfsdk.Config{Raw: hashModifierConfigRaw(hashUnknownString())},
+	tests := []struct {
+		name        string
+		stateRaw    tftypes.Value
+		stateValue  types.String
+		wantWarning bool
+	}{
+		{
+			// Create: no prior state at all. The secret is sent on this apply, so the warning
+			// must still fire.
+			name:        "success_create_secret_unknown_warns",
+			stateRaw:    tftypes.NewValue(unknownSourceInConfigStateType, nil),
+			stateValue:  types.StringNull(),
+			wantWarning: true,
+		},
+		{
+			// Existing resource, prior hash present and parseable: this is an ordinary rotation
+			// check, not the adopt path. The secret is sent on this apply, so the warning must
+			// still fire.
+			name:        "success_existing_resource_with_prior_tag_secret_unknown_warns",
+			stateRaw:    tftypes.NewValue(unknownSourceInConfigStateType, map[string]tftypes.Value{"password": hashNullString(), "password_write_only_hash": hashKnownString("v1:AAAA:BBBB")}),
+			stateValue:  types.StringValue("v1:AAAA:BBBB"),
+			wantWarning: true,
+		},
+		{
+			// Existing resource, no prior hash, not imported (e.g. a secret newly added to
+			// config): IdsecResource.triggerFired sends the secret, so the warning must fire. The
+			// imported case (suppressed warning) needs framework private state, which cannot be
+			// constructed here.
+			name:        "success_unknown_secret_null_prior_hash_not_imported_warns",
+			stateRaw:    tftypes.NewValue(unknownSourceInConfigStateType, map[string]tftypes.Value{"password": hashNullString(), "password_write_only_hash": hashNullString()}),
+			stateValue:  types.StringNull(),
+			wantWarning: true,
+		},
 	}
-	resp := &planmodifier.StringResponse{PlanValue: types.StringUnknown()}
 
-	newHashPlanModifier("password").PlanModifyString(context.Background(), req, resp)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	if !resp.PlanValue.IsUnknown() {
-		t.Errorf("expected the planned value to be unknown, got %v", resp.PlanValue)
-	}
-	if errs := resp.Diagnostics.Errors(); len(errs) != 0 {
-		t.Errorf("expected zero errors, got %v", errs)
-	}
-	if warnings := resp.Diagnostics.Warnings(); len(warnings) != 1 {
-		t.Fatalf("expected exactly one warning, got %d: %v", len(warnings), warnings)
+			req := planmodifier.StringRequest{
+				Path:       path.Root("password_write_only_hash"),
+				State:      tfsdk.State{Raw: tt.stateRaw},
+				StateValue: tt.stateValue,
+				Config:     tfsdk.Config{Raw: hashModifierConfigRaw(hashUnknownString())},
+			}
+			resp := &planmodifier.StringResponse{PlanValue: types.StringUnknown()}
+
+			newHashPlanModifier("password").PlanModifyString(context.Background(), req, resp)
+
+			if !resp.PlanValue.IsUnknown() {
+				t.Errorf("expected the planned value to be unknown, got %v", resp.PlanValue)
+			}
+			if errs := resp.Diagnostics.Errors(); len(errs) != 0 {
+				t.Errorf("expected zero errors, got %v", errs)
+			}
+			warnings := resp.Diagnostics.Warnings()
+			if tt.wantWarning && len(warnings) != 1 {
+				t.Fatalf("expected exactly one warning, got %d: %v", len(warnings), warnings)
+			}
+			if !tt.wantWarning && len(warnings) != 0 {
+				t.Fatalf("expected zero warnings (adopt path never re-sends the secret), got %d: %v", len(warnings), warnings)
+			}
+		})
 	}
 }
 
@@ -1066,6 +1125,36 @@ func TestResolveWriteOnlyHashTags_PlanApplyRoundTrip(t *testing.T) {
 	}
 	if resp.PlanValue.ValueString() != resolvedTag {
 		t.Errorf("expected the follow-up plan to be byte-identical to the apply-resolved tag, got %q want %q", resp.PlanValue.ValueString(), resolvedTag)
+	}
+}
+
+// TestResolveWriteOnlyHashTags_NullPriorSiblingAdoptsTag covers the import (or newly-added-secret
+// on an existing resource) adopt path: prior state exists (non-nil) but the sibling itself is
+// null in it, and the planned sibling is unknown (no reusable salt, since there is no prior tag
+// to parse one from). ResolveWriteOnlyHashTags must still derive a concrete, parseable v1 tag
+// from the config secret so it can be adopted into state -- this is what
+// IdsecResource.triggerFired relies on when it declines to send the secret on this exact path.
+func TestResolveWriteOnlyHashTags_NullPriorSiblingAdoptsTag(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	plan := &tfsdk.Plan{Raw: hashModifierObjectRaw(hashKnownString("s3cr3t"), hashUnknownString())}
+	priorState := &tfsdk.State{Raw: hashModifierObjectRaw(hashKnownString("s3cr3t"), hashNullString())}
+	config := &tfsdk.Config{Raw: hashModifierConfigRaw(hashKnownString("s3cr3t"))}
+
+	result, diags := ResolveWriteOnlyHashTags(ctx, []string{"password"}, plan, priorState, config)
+	if diags.HasError() {
+		t.Fatalf("unexpected error diagnostics: %v", diags.Errors())
+	}
+	resolved, ok := result["password_write_only_hash"]
+	if !ok {
+		t.Fatalf("expected %q in the result map, got %v", "password_write_only_hash", result)
+	}
+	if resolved.IsNull() || resolved.IsUnknown() {
+		t.Fatalf("expected a concrete resolved tag, got %v", resolved)
+	}
+	if _, _, _, ok := parseTag(resolved.ValueString()); !ok {
+		t.Fatalf("expected a valid v1 tag, got %q", resolved.ValueString())
 	}
 }
 
