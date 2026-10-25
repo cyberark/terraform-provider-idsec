@@ -205,7 +205,7 @@ func (s *IdsecDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 	for _, res := range result {
 		if err, ok := res.Interface().(error); ok && err != nil {
 			tflog.Error(ctx, fmt.Sprintf("Failed to call action method: %s", err.Error()))
-			resp.Diagnostics.AddError("Action Error", fmt.Sprintf("Unable to call action method: %s", err.Error()))
+			resp.Diagnostics.AddError(s.actionErrorSummary("read", s.actionDefinition.ActionName, true), s.actionErrorDetail(s.actionDefinition.ActionName, err))
 			return
 		}
 	}

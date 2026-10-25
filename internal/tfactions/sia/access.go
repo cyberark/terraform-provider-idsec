@@ -32,10 +32,26 @@ func init() {
 					},
 					// connector_type and connector_os are always required. target_machine and username
 					// are required only for machine-based connector_os values (Linux, windows); when
-					// connector_os is k8s-ephemeral, k_8_s_namespace is required instead. This
-					// conditional-attribute validation is enforced on the SDK side.
+					// connector_os is k8s-ephemeral, k8s_details (with a non-empty k8s_namespace) is
+					// required instead. This conditional-attribute validation is enforced on the SDK
+					// side: IdsecSIAInstallConnector.K8SDetails has validate:"required_if=...", and
+					// IdsecSIAK8SDetails.K8SNamespace itself has validate:"required", so
+					// ValidateConfig (which validates HCL config against the create schema) rejects a
+					// missing/incomplete k8s_details block for k8s-ephemeral connectors at plan time.
 					ExtraRequiredAttributes: []string{"connector_type", "connector_os"},
 					StateSchema:             &accessmodels.IdsecSIAAccessConnectorID{},
+					PageNotes: []tfactions.DocNote{
+						{
+							Severity:       tfactions.DocNoteWarning,
+							BreakingChange: true,
+							Body:           "The `k_8_s_details` nested block and the `k_8_s_namespace` attribute (previously mangled by Terraform's attribute-name conversion, which silently dropped any value assigned to them) have been renamed to `k8s_details` and `k8s_namespace`; the attributes inside `k8s_details` are likewise renamed from `k_8_s_*` to `k8s_*`. Update your Terraform configuration to use the new names.",
+						},
+						{
+							Severity:       tfactions.DocNoteWarning,
+							BreakingChange: true,
+							Body:           "The separate, top-level `k8s_namespace` attribute (used only at connector removal time) has been removed. The connector's namespace is now tracked solely via `k8s_details.k8s_namespace`, which is also used to uninstall it. If your configuration set a top-level `k8s_namespace`, remove it; `k8s_details.k8s_namespace` is required for `connector_os = \"k8s-ephemeral\"` and is validated at `terraform plan` time.",
+						},
+					},
 				},
 				RawStateInference:   true,
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},

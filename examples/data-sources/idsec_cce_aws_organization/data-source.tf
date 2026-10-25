@@ -35,3 +35,12 @@ output "status" {
   value       = data.idsec_cce_aws_organization.example.status
 }
 
+output "cce_upgrade" {
+  description = "Base CCE infrastructure version, the versions it can be upgraded to, and whether any upgrade (CCE or service) is available"
+  value = {
+    cce_version            = data.idsec_cce_aws_organization.example.cce_version
+    cce_available_versions = data.idsec_cce_aws_organization.example.cce_available_versions
+    upgrade_available      = data.idsec_cce_aws_organization.example.upgrade_available
+  }
+}
+

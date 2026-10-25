@@ -32,6 +32,11 @@ type StateUpgrade struct {
 // and invoked during ModifyPlan, after the provider has been configured and the IdsecAPI
 // client is ready. Add error diagnostics to resp to block the apply.
 //
+// A validator may also adjust the plan through resp.Plan, for example to mark a computed
+// attribute unknown when the API will change it. Validators share one resp and run in
+// registration order, so each sees the changes of those before it; the first error stops
+// the rest.
+//
 // Example implementation:
 //
 //	type safeMemberLimitValidator struct{}
@@ -106,11 +111,13 @@ func (a *IdsecServiceBaseActionDefinition) IsEnabled() bool {
 // IdsecServiceBaseTerraformActionDefinition is a struct that defines the structure of an action in the Idsec Terraform provider.
 type IdsecServiceBaseTerraformActionDefinition struct {
 	IdsecServiceBaseActionDefinition
-	StateSchema               interface{}
-	SensitiveAttributes       []string
-	ExtraRequiredAttributes   []string
-	ComputedAsSetAttributes   []string
-	ImmutableAttributes       []string
+	StateSchema             interface{}
+	SensitiveAttributes     []string
+	ExtraRequiredAttributes []string
+	ComputedAsSetAttributes []string
+	ImmutableAttributes     []string
+	// ForceNewAttributes are attributes whose change replaces the resource instead of updating it.
+	ForceNewAttributes        []string
 	ComputedAttributes        []string
 	HistoryComputedAttributes []string
 	// SemanticEqualityAttributes maps an attribute's field name to the semantic-equality plan

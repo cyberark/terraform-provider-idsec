@@ -27,14 +27,14 @@ resource "idsec_sia_access_connector" "example_k8s_connector" {
 
   # Required so the connector can be uninstalled later (a helm release may back
   # multiple replica connectors with no single connector_id).
-  k_8_s_namespace = "cyberark-sia"
+  k8s_namespace = "cyberark-sia"
 
-  k_8_s_details = {
-    k_8_s_namespace         = "cyberark-sia"
-    k_8_s_image_uri         = "registry.example.com/sia-connector:latest"
-    k_8_s_username          = "svc-connector"
-    k_8_s_password          = var.k8s_password
-    k_8_s_replicas          = 2
-    k_8_s_image_pull_secret = "sia-pull-secret"
+  k8s_details = {
+    k8s_namespace         = "cyberark-sia"
+    k8s_image_uri         = "registry.example.com/sia-connector:latest"
+    k8s_username          = "svc-connector"
+    k8s_password          = var.k8s_password
+    k8s_replicas          = 2
+    k8s_image_pull_secret = "sia-pull-secret"
   }
 }

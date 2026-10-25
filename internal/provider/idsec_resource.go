@@ -638,7 +638,7 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 			}
 			return
 		} else {
-			s.finalizeFailure(ctx, "Action Error", fmt.Sprintf("Unable to call action method: %s", actionErr.Error()), operation, originalState, respState, diagnostics)
+			s.finalizeFailure(ctx, s.actionErrorSummary(string(operation), s.actionDefinition.ActionName, false), s.actionErrorDetail(s.actionDefinition.ActionName, actionErr), operation, originalState, respState, diagnostics)
 			return
 		}
 	}
@@ -653,6 +653,17 @@ func (s *IdsecResource) triggerOperation(ctx context.Context, operation actions.
 	}
 	tflog.Info(ctx, "Managed to call action successfully with result")
 	if resultElem.Kind() == reflect.Pointer {
+		if resultElem.IsNil() {
+			// resultElem.Elem() on a nil pointer yields the zero Value, and calling Interface()
+			// on that zero Value panics. A nil result pointer with a nil error is never legitimate
+			// here: every SDK action's result model is expected to carry at least its required
+			// computed fields, so this can only mean an SDK action signature doesn't yet model a
+			// "no single result" case (e.g. k8s-ephemeral InstallConnector previously did this; it
+			// now returns a deterministic result instead) or a genuine SDK bug. Fail loudly instead
+			// of silently writing a zero-valued (and possibly schema-invalid) result into state.
+			s.finalizeFailure(ctx, "Action Result Error", "Action returned a nil result without an error", operation, originalState, respState, diagnostics)
+			return
+		}
 		resultElem = resultElem.Elem()
 	}
 	if respState != nil {

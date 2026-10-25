@@ -229,9 +229,6 @@ func operationSupported(operations []actions.IdsecServiceActionOperation, operat
 // schemas.GenerateResourceSchemaFromStruct call sites, so this package's tests see the same
 // generator inputs a real apply would, without importing internal/provider (an import cycle).
 //
-// ForceNewAttributes is passed as nil because the field does not exist on the action definition
-// today; see IdsecResource.getForceNewAttributes.
-//
 // writeOnlyOverride and writeOnlyHashedOverride let a caller substitute the schema-generation
 // inputs under test in place of the resource's own declarations (or nil to use neither), which
 // TestAllWriteOnlyAttributesAreValid needs to exercise WriteOnlyAttributes and
@@ -265,7 +262,7 @@ func generateSchemaForResource(resourceDef *actions.IdsecServiceTerraformResourc
 		resourceDef.ExtraRequiredAttributes,
 		resourceDef.ComputedAsSetAttributes,
 		resourceDef.ImmutableAttributes,
-		nil,
+		resourceDef.ForceNewAttributes,
 		resourceDef.ComputedAttributes,
 		resourceDef.SemanticEqualityAttributes,
 		writeOnlyOverride,

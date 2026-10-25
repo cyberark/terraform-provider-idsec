@@ -86,9 +86,9 @@ func init() {
 						ActionName: "cce-azure-entra", ActionDescription: "CCE Microsoft Entra tenant data source, reads Microsoft Entra tenant details based on the CCE Microsoft Entra tenant onboarding ID.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
 					ExtraRequiredAttributes: []string{"id"},
-					StateSchema:             &azuremodels.TfIdsecCCEAzureEntra{},
+					StateSchema:             &azuremodels.TfIdsecCCEAzureEntraDatasource{},
 				},
-				DataSourceAction: "tf-entra",
+				DataSourceAction: "tf-entra-datasource",
 			},
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
@@ -96,9 +96,9 @@ func init() {
 						ActionName: "cce-azure-management-group", ActionDescription: "CCE Azure management group data source, reads management group details based on the CCE management group onboarding ID.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
 					ExtraRequiredAttributes: []string{"id"},
-					StateSchema:             &azuremodels.TfIdsecCCEAzureManagementGroup{},
+					StateSchema:             &azuremodels.TfIdsecCCEAzureManagementGroupDatasource{},
 				},
-				DataSourceAction: "tf-management-group",
+				DataSourceAction: "tf-management-group-datasource",
 			},
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{
@@ -106,9 +106,9 @@ func init() {
 						ActionName: "cce-azure-subscription", ActionDescription: "CCE Azure Subscription data source, reads subscription details based on the CCE subscription onboarding ID.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
 					ExtraRequiredAttributes: []string{"id"},
-					StateSchema:             &azuremodels.TfIdsecCCEAzureSubscription{},
+					StateSchema:             &azuremodels.TfIdsecCCEAzureSubscriptionDatasource{},
 				},
-				DataSourceAction: "tf-subscription",
+				DataSourceAction: "tf-subscription-datasource",
 			},
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{

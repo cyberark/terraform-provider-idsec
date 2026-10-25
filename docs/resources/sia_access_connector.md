@@ -8,6 +8,9 @@ description: SIA connector resource, manages SIA connector installation and remo
 
 SIA connector resource, manages SIA connector installation and removal on SIA and target machines.
 <!-- BEGIN CUSTOM NOTES -->
+~> The `k_8_s_details` nested block and the `k_8_s_namespace` attribute (previously mangled by Terraform's attribute-name conversion, which silently dropped any value assigned to them) have been renamed to `k8s_details` and `k8s_namespace`; the attributes inside `k8s_details` are likewise renamed from `k_8_s_*` to `k8s_*`. Update your Terraform configuration to use the new names.
+
+~> The separate, top-level `k8s_namespace` attribute (used only at connector removal time) has been removed. The connector's namespace is now tracked solely via `k8s_details.k8s_namespace`, which is also used to uninstall it. If your configuration set a top-level `k8s_namespace`, remove it; `k8s_details.k8s_namespace` is required for `connector_os = "k8s-ephemeral"` and is validated at `terraform plan` time.
 <!-- END CUSTOM NOTES -->
 
 ## Example Usage
@@ -42,15 +45,15 @@ resource "idsec_sia_access_connector" "example_k8s_connector" {
 
   # Required so the connector can be uninstalled later (a helm release may back
   # multiple replica connectors with no single connector_id).
-  k_8_s_namespace = "cyberark-sia"
+  k8s_namespace = "cyberark-sia"
 
-  k_8_s_details = {
-    k_8_s_namespace         = "cyberark-sia"
-    k_8_s_image_uri         = "registry.example.com/sia-connector:latest"
-    k_8_s_username          = "svc-connector"
-    k_8_s_password          = var.k8s_password
-    k_8_s_replicas          = 2
-    k_8_s_image_pull_secret = "sia-pull-secret"
+  k8s_details = {
+    k8s_namespace         = "cyberark-sia"
+    k8s_image_uri         = "registry.example.com/sia-connector:latest"
+    k8s_username          = "svc-connector"
+    k8s_password          = var.k8s_password
+    k8s_replicas          = 2
+    k8s_image_pull_secret = "sia-pull-secret"
   }
 }
 ```
@@ -68,8 +71,7 @@ resource "idsec_sia_access_connector" "example_k8s_connector" {
 - `connector_os` (String) The type of the operating system on which to install the connector (Linux, windows, k8s-ephemeral).
 - `connector_type` (String) The type of the platform on which to install the connector (ON-PREMISE, AWS, AZURE, GCP).
 - `force_delete` (Boolean) When true, forces deletion of the connector even if it is active. Not applicable when connector_os is k8s-ephemeral, since no platform-side connector record is deleted in that case.
-- `k_8_s_details` (Attributes) Kubernetes configuration, required when connector_os is k8s-ephemeral. Forwarded to the setup-script API so the returned script is pre-configured with these values; the script is then run locally instead of over a target machine connection. (see [below for nested schema](#nestedatt--k_8_s_details))
-- `k_8_s_namespace` (String) The Kubernetes namespace the connector was installed into. Required when connector_os is k8s-ephemeral; the connector is uninstalled by running 'helm uninstall sia-connector --namespace <k8s-namespace>' locally.
+- `k8s_details` (Attributes) Kubernetes configuration, required when connector_os is k8s-ephemeral. Forwarded to the setup-script API so the returned script is pre-configured with these values; the script is then run locally instead of over a target machine connection. (see [below for nested schema](#nestedatt--k8s_details))
 - `password` (String, Sensitive) The password used to connect to the target machine.
 - `private_key_contents` (String, Sensitive) The private key contents used to connect to the target machine via SSH.
 - `private_key_path` (String) The private key file path used to connect to the target machine via SSH.
@@ -79,16 +81,19 @@ resource "idsec_sia_access_connector" "example_k8s_connector" {
 - `username` (String) The username used to connect to the target machine. Required unless connector_os is k8s-ephemeral.
 - `winrm_protocol` (String) The protocol to use for WinRM connections (HTTP, HTTPS).
 
-<a id="nestedatt--k_8_s_details"></a>
-### Nested Schema for `k_8_s_details`
+<a id="nestedatt--k8s_details"></a>
+### Nested Schema for `k8s_details`
+
+Required:
+
+- `k8s_namespace` (String) Kubernetes namespace to install the connector into. Also used to uninstall the connector later via helm.
 
 Optional:
 
-- `k_8_s_image_pull_secret` (String) Name of an existing Kubernetes pull-secret in the connector namespace. When supplied, skips the interactive prompt.
-- `k_8_s_image_uri` (String) Full URI of the connector image (registry/repo:tag). When supplied, skips the interactive image-URI prompt.
-- `k_8_s_namespace` (String) Kubernetes namespace to install into. When supplied, skips the interactive namespace prompt.
-- `k_8_s_password` (String, Sensitive) Service user password for the K8s connector. When supplied, skips the interactive password prompt.
-- `k_8_s_replicas` (Number) Number of connector replicas (1-10). When supplied, skips the interactive replicas prompt.
-- `k_8_s_username` (String) Service user username for the K8s connector. When supplied, skips the interactive username prompt.
+- `k8s_image_pull_secret` (String) Name of an existing Kubernetes pull-secret in the connector namespace. When supplied, skips the interactive prompt.
+- `k8s_image_uri` (String) Full URI of the connector image (registry/repo:tag). When supplied, skips the interactive image-URI prompt.
+- `k8s_password` (String, Sensitive) Service user password for the K8s connector. When supplied, skips the interactive password prompt.
+- `k8s_replicas` (Number) Number of connector replicas (1-10). When supplied, skips the interactive replicas prompt.
+- `k8s_username` (String) Service user username for the K8s connector. When supplied, skips the interactive username prompt.
 - `upgrade` (Boolean) When true, passes --upgrade to the K8s setup script to upgrade an existing installation.
 

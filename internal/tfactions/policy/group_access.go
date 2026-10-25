@@ -9,6 +9,15 @@ import (
 	tfactions "github.com/cyberark/terraform-provider-idsec/internal/actions"
 )
 
+var gcpGroupsAvailabilityNote = tfactions.DocNote{
+	Severity: tfactions.DocNoteInfo,
+	Body:     "The capability of creating access to Google groups through Idira (`targets.gcp_targets`) is available upon request. Contact support to enable this capability for your tenant.",
+}
+
+var groupAccessAttributeNotes = map[string][]tfactions.DocNote{
+	"targets.gcp_targets": {gcpGroupsAvailabilityNote},
+}
+
 func init() {
 	_ = tfactions.Register(tfactions.TerraformServiceConfig{
 		ServiceName: "policy-group-access",
@@ -29,7 +38,12 @@ func init() {
 						"targets.targets.description",
 						"targets.targets.directory_name",
 						"targets.targets.group_name",
+						"targets.gcp_targets.description",
+						"targets.gcp_targets.group_name",
+						"targets.gcp_targets.organization_name",
 					},
+					PageNotes:      []tfactions.DocNote{gcpGroupsAvailabilityNote},
+					AttributeNotes: groupAccessAttributeNotes,
 				},
 				ReadSchemaPath:      "metadata",
 				DeleteSchemaPath:    "metadata",
@@ -44,7 +58,9 @@ func init() {
 					IdsecServiceBaseActionDefinition: tfactions.IdsecServiceBaseActionDefinition{
 						ActionName: "policy-group-access", ActionDescription: "Group Access Policy data source.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
-					StateSchema: &groupaccessmodels.IdsecPolicyGroupAccessPolicy{},
+					StateSchema:    &groupaccessmodels.IdsecPolicyGroupAccessPolicy{},
+					PageNotes:      []tfactions.DocNote{gcpGroupsAvailabilityNote},
+					AttributeNotes: groupAccessAttributeNotes,
 				},
 				DataSourceAction: "policy",
 			},

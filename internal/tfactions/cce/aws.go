@@ -105,9 +105,9 @@ func init() {
 						ActionName: "cce-aws-account", ActionDescription: "CCE AWS account data source, reads account details based on the CCE account onboarding ID.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
 					ExtraRequiredAttributes: []string{"id"},
-					StateSchema:             &awsmodels.TfIdsecCCEAWSAccount{},
+					StateSchema:             &awsmodels.TfIdsecCCEAWSAccountDatasource{},
 				},
-				DataSourceAction: "tf-account",
+				DataSourceAction: "tf-account-datasource",
 			},
 			{
 				IdsecServiceBaseTerraformActionDefinition: tfactions.IdsecServiceBaseTerraformActionDefinition{

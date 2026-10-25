@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -70,20 +71,52 @@ func resolveFieldsValueSquashed(value reflect.Value) []reflect.Value {
 	return fields
 }
 
+// snakeCaseTagPattern matches tags that are already valid, unambiguous snake_case (lowercase
+// letters, digits, and underscores only).
+var snakeCaseTagPattern = regexp.MustCompile(`^[a-z0-9_]+$`)
+
+// normalizeFieldName returns name unchanged if it already matches snakeCaseTagPattern, and
+// otherwise runs it through strcase.ToSnake.
+//
+// strcase.ToSnake inserts extra underscores around digits adjacent to letters (e.g.
+// "k8s_details" -> "k_8_s_details"), which is not a no-op for tags/keys that are already valid
+// snake_case. That mangled name would otherwise become both the derived Terraform attribute name
+// and the map key objectToMap builds for mapstructure.Decode, while mapstructure.Decode itself
+// matches map keys against the struct's literal (unmangled) tag - so any already-snake_case tag
+// would otherwise always decode to its zero value. Short-circuiting on the already-valid case
+// makes this a no-op for every tag that doesn't need normalizing, so no name list is needed to
+// track which ones are affected.
+func normalizeFieldName(name string) string {
+	if snakeCaseTagPattern.MatchString(name) {
+		return name
+	}
+	return strcase.ToSnake(name)
+}
+
 func resolveFieldName(field reflect.StructField) string {
 	fieldName := strings.Split(field.Tag.Get("mapstructure"), ",")[0]
 	if fieldName != "" {
-		return strcase.ToSnake(fieldName)
+		return normalizeFieldName(fieldName)
 	}
 	fieldName = strings.Split(field.Tag.Get("flag"), ",")[0]
 	if fieldName != "" {
-		return strcase.ToSnake(fieldName)
+		return normalizeFieldName(fieldName)
 	}
 	fieldName = strings.Split(field.Tag.Get("json"), ",")[0]
 	if fieldName != "" {
-		return strcase.ToSnake(fieldName)
+		return normalizeFieldName(fieldName)
 	}
-	return strcase.ToSnake(field.Name)
+	return normalizeFieldName(field.Name)
+}
+
+// ResolveFieldName is the exported form of resolveFieldName: the Terraform attribute name
+// derived for a struct field from its mapstructure/flag/json tag (or its Go field name as a
+// fallback). It is exported solely so other packages' tests can verify this invariant across the
+// whole provider registry (e.g. internal/schemas's own schema-tag guard test, which must live in
+// package schemas_test to import internal/actions without an import cycle, since
+// internal/actions imports internal/schemas) without duplicating the normalization logic.
+func ResolveFieldName(field reflect.StructField) string {
+	return resolveFieldName(field)
 }
 
 func isRequiredTag(validate string) bool {
@@ -529,7 +562,9 @@ func interfaceTypeToAttr(ctx context.Context, val interface{}, t attr.Type) (att
 		attrs := make(map[string]attr.Type)
 		values := make(map[string]attr.Value)
 		for key, attrType := range typed.AttrTypes {
-			attrs[strcase.ToSnake(key)] = attrType
+			// Use the same normalization as resolveFieldName (verbatim if already snake_case,
+			// otherwise strcase.ToSnake) so this key always matches the tagName lookup below.
+			attrs[normalizeFieldName(key)] = attrType
 		}
 		actualFields := resolveFieldsSquashed(valReflect.Type())
 		actualFieldValues := resolveFieldsValueSquashed(valReflect)
@@ -988,7 +1023,51 @@ func StructFromPlanAndStateObject(ctx context.Context, plan *tfsdk.Plan, state *
 		}
 		setTargetValueFromPlanAndState(actualPlanValueFields[i], stateValue.FieldByName(field.Name), newField)
 	}
+	if err := applyPriorState(planFinalizedStruct.Addr().Interface(), stateObj, planPrototype); err != nil {
+		return nil, err
+	}
 	return planFinalizedStruct.Addr().Interface(), nil
+}
+
+// priorStateSetter is implemented by request models that want to receive the full prior-state
+// request. The provider decodes the prior Terraform state into a new instance of the same model
+// type and hands it to SetPriorState. The any signature keeps the interface generic so the same
+// interface works across all models without importing a specific SDK type.
+type priorStateSetter interface {
+	SetPriorState(prior any)
+}
+
+// applyPriorState calls target.SetPriorState with the prior Terraform state decoded into the same
+// model type as the plan. If target does not implement priorStateSetter the call is a no-op.
+//
+// The prior state is read through the request model (planPrototype) rather than the resource's
+// state model, because an attribute can exist in state without existing on that struct (CCE's
+// per-service resources are declared by the create/update action, not by the state schema).
+func applyPriorState(target interface{}, stateObj types.Object, planPrototype interface{}) error {
+	setter, ok := target.(priorStateSetter)
+	if !ok {
+		return nil
+	}
+
+	// No prior state at all (a create, or a resource being added to state): there is nothing the
+	// values could be compared against, and the prior fields stay at their zero values.
+	if stateObj.IsNull() || stateObj.IsUnknown() {
+		return nil
+	}
+	priorMap, err := objectToMap(stateObj, planPrototype)
+	if err != nil {
+		return fmt.Errorf("failed to read prior state: %w", err)
+	}
+	priorPrototype := reflect.TypeOf(planPrototype)
+	if priorPrototype.Kind() == reflect.Pointer {
+		priorPrototype = priorPrototype.Elem()
+	}
+	prior := reflect.New(priorPrototype).Interface()
+	if err := mapstructure.Decode(priorMap, prior); err != nil {
+		return fmt.Errorf("failed to decode prior state into %s: %w", priorPrototype, err)
+	}
+	setter.SetPriorState(prior)
+	return nil
 }
 
 // ClearRemovedAttributes zeroes request-struct fields for attributes the user explicitly removed

@@ -74,6 +74,129 @@ func TestGetTerraformTypeName(t *testing.T) {
 	}
 }
 
+// TestActionErrorSummary tests the actionErrorSummary method.
+func TestActionErrorSummary(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		operation       string
+		actionName      string
+		isDataSource    bool
+		expectedSummary string
+	}{
+		{
+			name:            "resource_create",
+			operation:       "create",
+			actionName:      "cce-azure-entra",
+			expectedSummary: "Failed to create idsec_cce_azure_entra",
+		},
+		{
+			name:            "resource_read",
+			operation:       "read",
+			actionName:      "cce-azure-subscription",
+			expectedSummary: "Failed to read idsec_cce_azure_subscription",
+		},
+		{
+			name:            "resource_update",
+			operation:       "update",
+			actionName:      "cce-azure-management-group",
+			expectedSummary: "Failed to update idsec_cce_azure_management_group",
+		},
+		{
+			name:            "resource_delete",
+			operation:       "delete",
+			actionName:      "cce-azure-entra",
+			expectedSummary: "Failed to delete idsec_cce_azure_entra",
+		},
+		{
+			name:            "data_source_read",
+			operation:       "read",
+			actionName:      "cce-azure-entra",
+			isDataSource:    true,
+			expectedSummary: "Failed to read idsec_cce_azure_entra data source",
+		},
+		{
+			name:            "unknown_operation",
+			operation:       "state",
+			actionName:      "cce-azure-entra",
+			expectedSummary: "Failed to process idsec_cce_azure_entra",
+		},
+		{
+			name:            "non_cce_resource_keeps_legacy_summary",
+			operation:       "create",
+			actionName:      "cmgr-network",
+			expectedSummary: "Action Error",
+		},
+		{
+			name:            "non_cce_data_source_keeps_legacy_summary",
+			operation:       "read",
+			actionName:      "identity-user",
+			isDataSource:    true,
+			expectedSummary: "Action Error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			helper := &IdsecServiceHelper{}
+
+			result := helper.actionErrorSummary(tt.operation, tt.actionName, tt.isDataSource)
+
+			if result != tt.expectedSummary {
+				t.Errorf("Expected %q, got %q", tt.expectedSummary, result)
+			}
+		})
+	}
+}
+
+// TestActionErrorDetail tests the actionErrorDetail method.
+func TestActionErrorDetail(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		actionName     string
+		err            error
+		expectedDetail string
+	}{
+		{
+			name:           "cce_action_returns_error_as_is",
+			actionName:     "cce-azure-entra",
+			err:            fmt.Errorf("workspace not found"),
+			expectedDetail: "workspace not found",
+		},
+		{
+			name:           "non_cce_action_keeps_legacy_prefix",
+			actionName:     "cmgr-network",
+			err:            fmt.Errorf("bad request"),
+			expectedDetail: "Unable to call action method: bad request",
+		},
+		{
+			name:           "empty_action_name_keeps_legacy_prefix",
+			actionName:     "",
+			err:            fmt.Errorf("boom"),
+			expectedDetail: "Unable to call action method: boom",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			helper := &IdsecServiceHelper{}
+
+			result := helper.actionErrorDetail(tt.actionName, tt.err)
+
+			if result != tt.expectedDetail {
+				t.Errorf("Expected %q, got %q", tt.expectedDetail, result)
+			}
+		})
+	}
+}
+
 // TestGetServiceNameTitled tests the getServiceNameTitled method.
 func TestGetServiceNameTitled(t *testing.T) {
 	t.Parallel()

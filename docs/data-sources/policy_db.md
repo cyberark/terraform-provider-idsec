@@ -27,7 +27,7 @@ data "idsec_policy_db" "example_policy" {
 
 ### Read-Only
 
-- `conditions` (Attributes) The time, session, idle time, and dual control conditions of the policy (see [below for nested schema](#nestedatt--conditions))
+- `conditions` (Attributes) The time, session, idle time, recording, and dual control conditions of the policy (see [below for nested schema](#nestedatt--conditions))
 - `delegation_classification` (String) Indicates the user rights for the policy. Default: Unrestricted
 - `metadata` (Attributes) The policy metadata: ID, name, and additional information (see [below for nested schema](#nestedatt--metadata))
 - `principals` (Attributes List) The identity: user, group, role (see [below for nested schema](#nestedatt--principals))
@@ -42,6 +42,10 @@ Read-Only:
 - `access_window` (Attributes) The days and times when the user can connect to their target using this policy, using 4-digit HH:MM hours (see [below for nested schema](#nestedatt--conditions--access_window))
 - `idle_time` (Number) The maximum idle time before the session ends, in minutes.
 - `max_session_duration` (Number) The maximum length of time (in hours) a user can remain connected in a single session. Default: 1
+- `override_idle_time` (Boolean) Whether to use the idle time from the policy (true) or the value from the global settings (false). Defaults to true.
+- `override_max_session_duration` (Boolean) Whether to use the max session duration from the policy (true) or the value from the global settings (false). Defaults to true.
+- `override_recording` (Boolean) Whether to use the recording setting from the policy (true) or the value from the global settings (false). Defaults to false. VM policies only — leave nil for DB policies.
+- `recording` (Boolean) Whether to record sessions that use this policy. Only applied when override_recording is true. VM policies only — leave nil for DB policies.
 
 <a id="nestedatt--conditions--access_approval"></a>
 ### Nested Schema for `conditions.access_approval`

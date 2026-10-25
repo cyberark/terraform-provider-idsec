@@ -6,6 +6,7 @@ package schemas
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -15,7 +16,85 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	"github.com/iancoleman/strcase"
 )
+
+func TestResolveFieldName(t *testing.T) {
+	t.Parallel()
+
+	structFieldWithTag := func(tagKey, tagValue string) reflect.StructField {
+		return reflect.StructField{
+			Name: "Field",
+			Tag:  reflect.StructTag(fmt.Sprintf(`%s:"%s"`, tagKey, tagValue)),
+		}
+	}
+
+	tests := []struct {
+		name     string
+		field    reflect.StructField
+		expected string
+	}{
+		{
+			name:     "mapstructure_already_snake_case_with_digit",
+			field:    structFieldWithTag("mapstructure", "k8s_namespace"),
+			expected: "k8s_namespace", // strcase.ToSnake would otherwise mangle this to "k_8_s_namespace".
+		},
+		{
+			name:     "mapstructure_already_snake_case_no_digit",
+			field:    structFieldWithTag("mapstructure", "connector_id"),
+			expected: "connector_id",
+		},
+		{
+			name:     "mapstructure_camel_case",
+			field:    structFieldWithTag("mapstructure", "someFieldName"),
+			expected: "some_field_name",
+		},
+		{
+			name:     "mapstructure_with_omitempty_option",
+			field:    structFieldWithTag("mapstructure", "k8s_replicas,omitempty"),
+			expected: "k8s_replicas",
+		},
+		{
+			name:  "flag_tag_kebab_case_with_digit",
+			field: structFieldWithTag("flag", "k8s-image-pull-secret"),
+			// flag tags are always kebab-case by convention, so they never match the
+			// already-snake_case short-circuit (hyphens aren't in [a-z0-9_]+); strcase.ToSnake
+			// still mangles digit adjacency here, same as it always has for this tag kind.
+			expected: strcase.ToSnake("k8s-image-pull-secret"),
+		},
+		{
+			name:     "json_tag_already_snake_case_with_digit",
+			field:    structFieldWithTag("json", "k8s_mfa_caching"),
+			expected: "k8s_mfa_caching", // Regression guard: previously mangled to "k_8_s_mfa_caching".
+		},
+		{
+			name:     "json_tag_camel_case",
+			field:    structFieldWithTag("json", "someFieldName"),
+			expected: "some_field_name",
+		},
+		{
+			name: "no_tags_falls_back_to_pascal_case_field_name",
+			field: reflect.StructField{
+				Name: "SomeFieldName",
+			},
+			expected: "some_field_name",
+		},
+		{
+			name:     "mixed_case_with_digit_is_not_already_snake_case",
+			field:    structFieldWithTag("mapstructure", "DB2Port"),
+			expected: strcase.ToSnake("DB2Port"), // Not already snake_case (has uppercase), so normal ToSnake applies.
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := resolveFieldName(tt.field); got != tt.expected {
+				t.Errorf("resolveFieldName() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
 
 func TestDeepCopy(t *testing.T) {
 	t.Parallel()
@@ -4055,5 +4134,67 @@ func TestStructFromPlanAndStateObject_MismatchedFieldTypes(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "type mismatch for field") {
 		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+// TestApplyPriorState_NonSetterIsNoOp verifies that models not implementing priorStateSetter are
+// silently skipped — the interface is purely opt-in.
+func TestApplyPriorState_NonSetterIsNoOp(t *testing.T) {
+	type model struct{ Services []string }
+	m := &model{Services: []string{"a"}}
+
+	attrTypes := map[string]attr.Type{"services": types.ListType{ElemType: types.StringType}}
+	stateObj := types.ObjectNull(attrTypes)
+
+	if err := applyPriorState(m, stateObj, m); err != nil {
+		t.Fatalf("applyPriorState on non-setter = %v; want nil", err)
+	}
+}
+
+// TestApplyPriorState_NullOrUnknownStateIsNoOp verifies that a null or unknown state object
+// causes applyPriorState to return nil without calling SetPriorState. This is the "first apply"
+// or "imported resource" path. The explicit IsNull/IsUnknown guard must run before objectToMap —
+// if it were derived from objectToMap's error return, a real conversion error on an existing
+// non-null state would be swallowed the same way (that was the pre-fix bug).
+func TestApplyPriorState_NullOrUnknownStateIsNoOp(t *testing.T) {
+	for _, name := range []string{"null", "unknown"} {
+		t.Run(name, func(t *testing.T) {
+			attrTypes := map[string]attr.Type{"services": types.ListType{ElemType: types.StringType}}
+			var stateObj types.Object
+			if name == "null" {
+				stateObj = types.ObjectNull(attrTypes)
+			} else {
+				stateObj = types.ObjectUnknown(attrTypes)
+			}
+
+			// noopModel does not implement priorStateSetter — applyPriorState must
+			// still return nil (absent state is not an error).
+			type noopModel struct{ Services []string }
+			m := &noopModel{}
+			if err := applyPriorState(m, stateObj, m); err != nil {
+				t.Fatalf("applyPriorState(%s state) = %v; want nil", name, err)
+			}
+		})
+	}
+}
+
+// TestApplyPriorState_ObjectToMapGuardFiresBeforeObjectToMap pins that the IsNull/IsUnknown check
+// runs before objectToMap is called, so objectToMap errors on real non-null state propagate rather
+// than being swallowed. objectToMap returns an error for a null object; before the fix, that error
+// (and any other objectToMap error) was caught by a blanket nolint:nilerr return.
+func TestApplyPriorState_ObjectToMapGuardFiresBeforeObjectToMap(t *testing.T) {
+	type model struct{ Services []string }
+	attrTypes := map[string]attr.Type{"services": types.ListType{ElemType: types.StringType}}
+	nullObj := types.ObjectNull(attrTypes)
+
+	// Confirm the assumption: objectToMap returns an error for a null object.
+	if _, err := objectToMap(nullObj, &model{}); err == nil {
+		t.Fatal("precondition: objectToMap(null) must return an error; if it no longer does, update this test")
+	}
+
+	// applyPriorState must return nil for a null state even though objectToMap would error — the
+	// IsNull guard must fire first and short-circuit before objectToMap is ever called.
+	if err := applyPriorState(&model{}, nullObj, &model{}); err != nil {
+		t.Fatalf("applyPriorState(null state) = %v; want nil (absent state is not an error)", err)
 	}
 }

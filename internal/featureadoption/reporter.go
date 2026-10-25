@@ -71,11 +71,18 @@ func ReportOperationDefer(ctx context.Context, idsecAPI *api.IdsecAPI, diagnosti
 	}
 }
 
-// diagErrorSummaries returns a semicolon-separated string of all error diagnostic summaries.
+// diagErrorSummaries returns a semicolon-separated string of all error diagnostic messages.
+// Each entry is "Summary: Detail" when a detail is present, or just "Summary" otherwise.
 func diagErrorSummaries(diagnostics *diag.Diagnostics) string {
 	var summaries []string
 	for _, d := range diagnostics.Errors() {
-		if s := d.Summary(); s != "" {
+		s := d.Summary()
+		if s == "" {
+			continue
+		}
+		if det := d.Detail(); det != "" {
+			summaries = append(summaries, fmt.Sprintf("%s: %s", s, det))
+		} else {
 			summaries = append(summaries, s)
 		}
 	}

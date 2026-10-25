@@ -19,6 +19,13 @@ func init() {
 						ActionName: "sia-settings-settings", ActionDescription: "The SIA ListSettings resource.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
 					StateSchema: &settingsmodels.IdsecSIASettings{},
+					PageNotes: []tfactions.DocNote{
+						{
+							Severity:       tfactions.DocNoteWarning,
+							BreakingChange: true,
+							Body:           "The `k_8_s_mfa_caching` attribute (previously mangled by Terraform's attribute-name conversion, which silently dropped any value assigned to it) has been renamed to `k8s_mfa_caching`. Update your Terraform configuration to use the new name.",
+						},
+					},
 				},
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.StateOperation},
 				ActionsMappings:     map[tfactions.IdsecServiceActionOperation]string{tfactions.CreateOperation: "set-settings", tfactions.ReadOperation: "list-settings", tfactions.UpdateOperation: "set-settings"},
@@ -262,6 +269,13 @@ func init() {
 						ActionName: "sia-settings-settings", ActionDescription: "The SIA ListSettings data source.", ActionVersion: 1, Schemas: actions.ActionToSchemaMap,
 					},
 					StateSchema: &settingsmodels.IdsecSIASettings{},
+					PageNotes: []tfactions.DocNote{
+						{
+							Severity:       tfactions.DocNoteWarning,
+							BreakingChange: true,
+							Body:           "The `k_8_s_mfa_caching` attribute (previously mangled by Terraform's attribute-name conversion, which silently dropped any value assigned to it) has been renamed to `k8s_mfa_caching`. Update your Terraform configuration to use the new name.",
+						},
+					},
 				},
 				DataSourceAction: "list-settings",
 			},

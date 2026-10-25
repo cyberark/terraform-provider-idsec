@@ -141,6 +141,48 @@ func (h *IdsecServiceHelper) getTerraformTypeName(actionName string) string {
 	return fmt.Sprintf("idsec_%s", strings.ReplaceAll(actionName, "-", "_"))
 }
 
+// cceActionPrefix is the action name prefix shared by all CCE actions.
+const cceActionPrefix = "cce-"
+
+// legacyActionErrorSummary is the diagnostic summary used for non-CCE actions.
+const legacyActionErrorSummary = "Action Error"
+
+// isCCEAction reports whether the given action belongs to the CCE service.
+func (h *IdsecServiceHelper) isCCEAction(actionName string) bool {
+	return strings.HasPrefix(actionName, cceActionPrefix)
+}
+
+// actionErrorDetail builds the diagnostic detail shown when an SDK action fails.
+// CCE actions surface the SDK error as-is; other actions keep the legacy
+// "Unable to call action method" prefix.
+func (h *IdsecServiceHelper) actionErrorDetail(actionName string, err error) string {
+	if h.isCCEAction(actionName) {
+		return err.Error()
+	}
+	return fmt.Sprintf("Unable to call action method: %s", err.Error())
+}
+
+// actionErrorSummary builds the diagnostic summary shown when an SDK action fails.
+// For CCE actions, ("create", "cce-azure-entra", false) becomes "Failed to create idsec_cce_azure_entra",
+// and ("read", "cce-azure-entra", true) becomes "Failed to read idsec_cce_azure_entra data source".
+// Non-CCE actions keep the legacy "Action Error" summary.
+func (h *IdsecServiceHelper) actionErrorSummary(operation string, actionName string, isDataSource bool) string {
+	if !h.isCCEAction(actionName) {
+		return legacyActionErrorSummary
+	}
+	verb := operation
+	switch operation {
+	case "create", "read", "update", "delete":
+	default:
+		verb = "process"
+	}
+	summary := fmt.Sprintf("Failed to %s %s", verb, h.getTerraformTypeName(actionName))
+	if isDataSource {
+		summary += " data source"
+	}
+	return summary
+}
+
 // buildFASTags builds the FAS report tags for a Terraform operation.
 func (h *IdsecServiceHelper) buildFASTags(actionName, operation string) map[string]string {
 	return map[string]string{
