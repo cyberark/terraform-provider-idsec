@@ -62,8 +62,8 @@ github.com/cloudflare/circl v1.6.1 h1:zqIqSPIndyBh1bjLVVDHMPpVKqp8Su/V+6MeDzzQBQ
 github.com/cloudflare/circl v1.6.1/go.mod h1:uddAzsPgqdMAYatqJ0lsjX1oECcQLIlRpzZh3pJrofs=
 github.com/creack/pty v1.1.17 h1:QeVUsEDNrLBW4tMgZHvxy18sKtr6VI492kBhUfhDJNI=
 github.com/creack/pty v1.1.17/go.mod h1:MOBLtS5ELjhRRrroQr9kyvTxUAFNvYEK993ew/Vr4O4=
-github.com/cyberark/idsec-sdk-golang v0.14.0 h1:e0QaGPSyq0OHJMgB8NS/oi7cM9Li1a2cOI15fEU5W4Q=
-github.com/cyberark/idsec-sdk-golang v0.14.0/go.mod h1:9eZ0SUuXkD7gDMAF9VQgrADVD9NAyG4bXrs1w1V7WJI=
+github.com/cyberark/idsec-sdk-golang v0.15.0 h1:5O1275ClqCB8oH6RK2eVR4ziob08i6Xn7bk596C74nI=
+github.com/cyberark/idsec-sdk-golang v0.15.0/go.mod h1:9eZ0SUuXkD7gDMAF9VQgrADVD9NAyG4bXrs1w1V7WJI=
 github.com/cyphar/filepath-securejoin v0.4.1 h1:JyxxyPEaktOD+GAnqIqTf9A8tHyAG22rowi7HkoSU1s=
 github.com/cyphar/filepath-securejoin v0.4.1/go.mod h1:Sdj7gXlvMcPZsbhwhQ33GguGLDGQL7h7bg04C/+u9jI=
 github.com/danieljoos/wincred v1.2.2 h1:774zMFJrqaeYCK2W57BgAem/MLi6mtSE47MB6BOJ0i0=

@@ -26,7 +26,6 @@ func init() {
 					ExtraRequiredAttributes: []string{},
 					ComputedAttributes: []string{
 						"id",
-						"onboarding_type",
 						"display_name",
 						"status",
 						"organization_name",
@@ -34,6 +33,15 @@ func init() {
 						"services_data",
 					},
 					StateSchema: &gcpmodels.TfIdsecCCEGCPProject{},
+					PageNotes: []tfactions.DocNote{
+						{
+							Severity: tfactions.DocNoteInfo,
+							Body: "To manage a project onboarded through the programmatic API, import it and set " +
+								"`onboarding_type = \"terraform_provider\"`. The plan shows the onboarding type change, and the " +
+								"apply converts the onboarding before updating its services, after which the project can be " +
+								"managed only through Terraform. Import alone changes nothing in CCE.",
+						},
+					},
 				},
 				RawStateInference:   true,
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},
@@ -54,12 +62,20 @@ func init() {
 					ExtraRequiredAttributes: []string{},
 					ComputedAttributes: []string{
 						"id",
-						"onboarding_type",
 						"display_name",
 						"status",
 						"region",
 					},
 					StateSchema: &gcpmodels.TfIdsecCCEGCPOrganization{},
+					PageNotes: []tfactions.DocNote{
+						{
+							Severity: tfactions.DocNoteInfo,
+							Body: "To manage an organization onboarded through the programmatic API, import it and set " +
+								"`onboarding_type = \"terraform_provider\"`. The plan shows the onboarding type change, and the " +
+								"apply converts the onboarding before updating its services, after which the organization can be " +
+								"managed only through Terraform. Import alone changes nothing in CCE.",
+						},
+					},
 				},
 				RawStateInference:   true,
 				SupportedOperations: []tfactions.IdsecServiceActionOperation{tfactions.CreateOperation, tfactions.ReadOperation, tfactions.UpdateOperation, tfactions.DeleteOperation, tfactions.StateOperation},

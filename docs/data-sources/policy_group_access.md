@@ -32,8 +32,30 @@ Group Access Policy data source.
 
 Read-Only:
 
+- `access_approval` (Attributes) For Google groups only. Determines whether additional approval is required before access to a target for an eligible identity can be elevated (see [below for nested schema](#nestedatt--conditions--access_approval))
 - `access_window` (Attributes) The days and times when the user can connect to their target using this policy (see [below for nested schema](#nestedatt--conditions--access_window))
 - `max_session_duration` (Number) The maximum length of time (in hours) a user can remain connected in a single session. Default: 1
+
+<a id="nestedatt--conditions--access_approval"></a>
+### Nested Schema for `conditions.access_approval`
+
+Read-Only:
+
+- `approvers` (Attributes List) Up to 5 identities responsible for handling an access request. If empty, requests are sent to workspace delegates. (see [below for nested schema](#nestedatt--conditions--access_approval--approvers))
+- `required` (Boolean) Set to true if an identity requires additional approval to elevate access to a target defined in this policy; otherwise set to false.
+
+<a id="nestedatt--conditions--access_approval--approvers"></a>
+### Nested Schema for `conditions.access_approval.approvers`
+
+Read-Only:
+
+- `id` (String) The unique identifier of the identity in Idira. An identity is a user, group, or role. maxLength: 40
+- `name` (String) The name of the principal. minLength: 1
+- `source_directory_id` (String) The unique identifier of the directory service. Required unless type is ROLE.
+- `source_directory_name` (String) The name of the directory service. Required unless type is ROLE. maxLength: 256.
+- `type` (String) The type of principal
+
+
 
 <a id="nestedatt--conditions--access_window"></a>
 ### Nested Schema for `conditions.access_window`

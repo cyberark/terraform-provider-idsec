@@ -51,6 +51,7 @@ output "azure_subscription_cce_upgrade" {
 ### Read-Only
 
 - `cce_available_versions` (List of String) Base CCE infrastructure versions available for upgrade.
+- `cce_resources` (Dynamic) CCE resources. Contains 'appId' (string, UUID) — the Azure application ID used by the CCE infrastructure.
 - `cce_version` (String) Current version of the base CCE infrastructure.
 - `consent_data` (Dynamic) Consent data for service applications.
 - `display_name` (String) Display name shown in the CCE UI.
